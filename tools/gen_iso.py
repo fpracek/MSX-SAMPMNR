@@ -52,6 +52,12 @@ def _wtop_ice(u):
     """sharper, more jagged icicle-crest silhouette (The Cold Room)"""
     return int(44 + 6*abs(_m.sin(u/7.3)) + 5*abs(_m.sin(u/3.1 + 0.7)) + 3*_m.sin(u/2.0))
 
+def _wtop_menagerie(u):
+    """regular alternating tall/short posts - cage-bar silhouette
+    (The Menagerie), deliberately regular instead of the other two
+    rooms' organic/jagged crests"""
+    return 38 + (12 if (int(u) % 12) < 6 else 4)
+
 def _stone(u, v):
     """True on the dark joints between stacked irregular blocks"""
     band = (v + int(3*_m.sin(u/9.0))) // 11
@@ -252,9 +258,34 @@ ICE_ROCK_ART = [
     "....77777....",
 ]
 
+# poison puddle, replacing both the spiders and the bear-trap attempt
+# (Fausto: neither one came out looking good) - a flat pool is much
+# more forgiving at this size than a spider/trap's fine mechanical
+# detail, since a puddle is naturally an irregular blob rather than
+# something that needs to read as legs or teeth. Violet fill ('V' -
+# draw_hazard's new letter for PAL index 13, the actual purple/magenta
+# entry; digits 0-9 don't reach it) with a scattered lighter/white
+# bubble speckle for a toxic, faintly rippling surface.
+def _puddle_art():
+    w, h = 16, 8
+    cx, cy = (w-1)/2, (h-1)/2
+    rx, ry = 7.3, 3.3
+    grid = [['.']*w for _ in range(h)]
+    for y in range(h):
+        for x in range(w):
+            dx, dy = (x-cx)/rx, (y-cy)/ry
+            if dx*dx + dy*dy <= 1.0:
+                n = (x*x*29 + y*y*23 + x*y*13) & 255
+                grid[y][x] = 'F' if n < 55 else 'V'
+    return [''.join(row) for row in grid]
+
+PUDDLE_ART = _puddle_art()
+
 def draw_hazard(bx, bz, surf, art):
     """spiky plant/icicle standing on a surface at height surf.
-    art chars: digit = literal palette index, 'F' = 15 (white)."""
+    art chars: digit = literal palette index, 'F' = 15 (white),
+    'V' = 13 (violet/magenta - the one PAL index >9 without its own
+    single-digit form)."""
     sx, sy = proj(bx*16+8, bz*16+8, surf)
     top = sy - len(art) + 1
     pix = set()
@@ -270,7 +301,7 @@ def draw_hazard(bx, bz, surf, art):
     for r, row in enumerate(art):
         for cidx, ch in enumerate(row):
             if ch != '.':
-                c = 15 if ch == 'F' else int(ch)
+                c = 15 if ch == 'F' else (13 if ch == 'V' else int(ch))
                 put(sx-6+cidx, top+r, c)
 
 # ------------------------------------------------------------------
@@ -363,6 +394,21 @@ def db(bs, per=13):
 # ==================================================================
 T_EMPTY, T_STONE, T_CONV, T_CRUMB, T_KEY, T_DOORT, T_DOORB = range(7)
 T_EXIT = 7
+
+def pack_sprite_frames(frames):
+    """N x 16x16 ascii ('X'=set) -> N*32 bytes (16x16 MSX sprite pattern:
+    left-half 16 rows then right-half 16 rows, per frame)."""
+    out = []
+    for fr in frames:
+        left, right = [], []
+        for r in fr:
+            bits = 0
+            for ch in r:
+                bits = (bits << 1) | (1 if ch == 'X' else 0)
+            left.append((bits >> 8) & 255)
+            right.append(bits & 255)
+        out += left + right
+    return out
 
 def render_room(spec):
     """spec keys: label (''/'2'), wallcol, crest_fn, floor_base,
@@ -562,16 +608,7 @@ def render_room(spec):
         keys_gfx.append(blk)
 
     # enemy sprite (2 frames, 16x16 silhouette)
-    enemy_bytes = []
-    for fr in spec['enemy_frames']:
-        left, right = [], []
-        for r in fr:
-            bits = 0
-            for ch in r:
-                bits = (bits << 1) | (1 if ch == 'X' else 0)
-            left.append((bits >> 8) & 255)
-            right.append(bits & 255)
-        enemy_bytes += left + right
+    enemy_bytes = pack_sprite_frames(spec['enemy_frames'])
 
     MASK_COLORS = {t: STYLE[t]['top_fill'] for t in STYLE if t != T_EXIT}
     MASK_COLORS[T_EXIT] = 7
@@ -753,13 +790,86 @@ ROOM2 = dict(
     name="THE COLD ROOM",
 )
 
+# chicken, running back and forth along the crumbling platform row -
+# same patrol/kill mechanic as the guard/bear, just reskinned. Frame A
+# has legs together (mid-stride), frame B has them splayed wide, for
+# a clearly-readable run cycle (a subtler leg shift didn't read as
+# animated at all on the bear's first attempt).
+CHICKEN_A = [
+    _bar(16, (7,9)),            # comb
+    _bar(16, (6,10)),           # head
+    _bar(16, (5,11)),           # head/cheeks
+    _bar(16, (6,10)),           # neck
+    _bar(16, (4,12)),           # body top
+    _bar(16, (3,13)),           # body
+    _bar(16, (2,14)),           # body (widest)
+    _bar(16, (2,14)),           # body
+    _bar(16, (2,14)),           # body
+    _bar(16, (3,13)),           # body taper
+    _bar(16, (4,12)),           # lower body
+    _bar(16, (5,8), (9,12)),    # legs together
+    _bar(16, (5,8), (9,12)),    # legs
+    _bar(16, (4,9), (8,13)),    # feet
+    _bar(16),
+    _bar(16),
+]
+CHICKEN_B = [
+    _bar(16, (7,9)),
+    _bar(16, (6,10)),
+    _bar(16, (5,11)),
+    _bar(16, (6,10)),
+    _bar(16, (4,12)),
+    _bar(16, (3,13)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (3,13)),
+    _bar(16, (4,12)),
+    _bar(16, (3,6), (10,13)),   # legs splayed wide (running stride)
+    _bar(16, (3,6), (10,13)),
+    _bar(16, (2,7), (9,14)),
+    _bar(16),
+    _bar(16),
+]
+
+room3_slabs_def = [
+    (3, 2, 3, T_CRUMB),   # crumbling platform series (3 in a row)
+    (4, 2, 3, T_CRUMB),   # - the chicken patrols this whole row
+    (5, 2, 3, T_CRUMB),
+    (6, 1, 1, T_STONE),   # fixed platform for the 3rd key
+]
+
+ROOM3 = dict(
+    label='3',
+    wallcol=dict(lit=11, rock=6, joint=1),
+    crest_fn=_wtop_menagerie,
+    floor_base=10, floor_speckle=6,
+    slabs_def=room3_slabs_def,
+    style={
+        T_STONE: dict(top_fill=11, top_edge=15, face_l=6, face_r=10, rocky=True),
+        T_CRUMB: dict(top_fill=10, top_edge=15, face_l=6, face_r=11, rocky=True),
+    },
+    keys=[(3,2,4,14), (5,2,4,14), (6,1,2,14)],   # 2 of the 3 sit above the crumbling row
+    exit_bx=6, exit_bz=4, exit_y=1,
+    hazards=[(2, 3, 8), (5, 4, 8)],   # poison puddles on open floor, away
+                                       # from the platforms/keys and (1,4)'s spawn
+    hazard_art=PUDDLE_ART,
+    crumb_units=[[(3,2,3)], [(4,2,3)], [(5,2,3)]],
+    enemy_frames=[CHICKEN_A, CHICKEN_B],
+    enxmin=48, enxmax=96, enz=40, ensurf=32, enemy_color=15,
+    name="THE MENAGERIE",
+)
+
 R1 = render_room(ROOM1)
 R2 = render_room(ROOM2)
+R3 = render_room(ROOM3)
 
 open(os.path.join(ROOT,'src','bg_pattern.bin'),'wb').write(R1['pattern'])
 open(os.path.join(ROOT,'src','bg_color.bin'),'wb').write(R1['color'])
 open(os.path.join(ROOT,'src','bg_pattern2.bin'),'wb').write(R2['pattern'])
 open(os.path.join(ROOT,'src','bg_color2.bin'),'wb').write(R2['color'])
+open(os.path.join(ROOT,'src','bg_pattern3.bin'),'wb').write(R3['pattern'])
+open(os.path.join(ROOT,'src','bg_color3.bin'),'wb').write(R3['color'])
 
 # crumb.bin: room 1's crumbling-cell variants, laid out exactly as before
 crumb_bin = bytearray(R1['crumb_bin'])
@@ -774,13 +884,21 @@ assert len(crumb_bin2) <= 8192, len(crumb_bin2)
 crumb_bin2 += bytes(8192 - len(crumb_bin2))
 open(os.path.join(ROOT,'src','crumb2.bin'),'wb').write(crumb_bin2)
 
+# crumb3.bin: room 3's own crumbling-cell variants (the 3-platform row)
+crumb_bin3 = bytearray(R3['crumb_bin'])
+assert len(crumb_bin3) <= 8192, len(crumb_bin3)
+crumb_bin3 += bytes(8192 - len(crumb_bin3))
+open(os.path.join(ROOT,'src','crumb3.bin'),'wb').write(crumb_bin3)
+
 # ------------------------------------------------------------------
 # ROM bank numbers (must match the equ's added in src/main.asm)
 # ------------------------------------------------------------------
 ROOM1_BGBANK, ROOM1_BGCOLBANK = 2, 3
 ROOM2_BGBANK, ROOM2_BGCOLBANK = 85, 86
+ROOM3_BGBANK, ROOM3_BGCOLBANK = 88, 89
 CRUMBBANK = 84
 CRUMBBANK2 = 87
+CRUMBBANK3 = 90
 
 def emit_room(R, lines):
     lab = R['label']
@@ -842,6 +960,8 @@ emit_room(R1, lines)
 emit_crumb_tab(R1, lines)
 emit_room(R2, lines)
 emit_crumb_tab(R2, lines)
+emit_room(R3, lines)
+emit_crumb_tab(R3, lines)
 
 lines.append("; redefined font, 76 chars from '0' (8 bytes each)")
 _f = open(os.path.join(ROOT,'tools','fonts.c')).read()
@@ -856,6 +976,9 @@ lines.append("")
 lines.append("bear_gfx:")
 lines.append(db(R2['enemy_bytes'], 16))
 lines.append("")
+lines.append("chicken_gfx:")
+lines.append(db(R3['enemy_bytes'], 16))
+lines.append("")
 
 _c = open(os.path.join(ROOT,'tools','sam_sprites.c')).read()
 sprites = [int(t,16) for t in re.findall(r'0x([0-9A-Fa-f]{2})', _c)]
@@ -866,7 +989,12 @@ lines.append("room1_name:")
 lines.append("        db " + ",".join(str(ord(c)) for c in R1['name']) + ",0")
 lines.append("room2_name:")
 lines.append("        db " + ",".join(str(ord(c)) for c in R2['name']) + ",0")
+lines.append("room3_name:")
+lines.append("        db " + ",".join(str(ord(c)) for c in R3['name']) + ",0")
 lines.append("")
+
+ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx'}
+ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name'}
 
 def room_row(R, bgbank, bgcolbank, crumbbank):
     exb16 = R['exit_bx']*16
@@ -881,9 +1009,9 @@ def room_row(R, bgbank, bgcolbank, crumbbank):
         exb16, ezb16, 8*(R['exit_y']+1),
         R['EXC0'], R['EXR0'], R['EXNROW'], R['EXW']*8,
         f"exit_gfx{R['label']}_0", f"exit_gfx{R['label']}_1",
-        ("enemy_gfx" if R['label'] == '' else "bear_gfx"), R['enemy_color'],
+        ENEMY_GFX_LABEL[R['label']], R['enemy_color'],
         R['enxmin'], R['enxmax'], R['enz'], R['ensurf'],
-        (f"room{1}_name" if R['label'] == '' else f"room2_name"),
+        ROOM_NAME_LABEL[R['label']],
     ]
 
 lines.append("; room_tab: one row per room, read into room_state RAM struct")
@@ -893,7 +1021,8 @@ lines.append("ROOMROWLEN equ 39")
 lines.append("room_tab:")
 for R, bgbank, bgcolbank, crumbbank in (
         (R1, ROOM1_BGBANK, ROOM1_BGCOLBANK, CRUMBBANK),
-        (R2, ROOM2_BGBANK, ROOM2_BGCOLBANK, CRUMBBANK2)):
+        (R2, ROOM2_BGBANK, ROOM2_BGCOLBANK, CRUMBBANK2),
+        (R3, ROOM3_BGBANK, ROOM3_BGCOLBANK, CRUMBBANK3)):
     f = room_row(R, bgbank, bgcolbank, crumbbank)
     lines.append(f"        db {f[0]},{f[1]}")
     lines.append(f"        dw {f[2]}")
@@ -943,6 +1072,8 @@ def save_preview(R, path, spawn_wx=24, spawn_wz=72, spawn_h=8):
 
 save_preview(R1, os.path.join(ROOT,'build','preview2.png'))
 save_preview(R2, os.path.join(ROOT,'build','preview3.png'), spawn_wx=24, spawn_wz=72)
+save_preview(R3, os.path.join(ROOT,'build','preview4.png'), spawn_wx=24, spawn_wz=72)
 
 print(f"OK room1 color-fixes:{R1['fixes']} keys:{R1['key_rects']}")
 print(f"OK room2 color-fixes:{R2['fixes']} keys:{R2['key_rects']}")
+print(f"OK room3 color-fixes:{R3['fixes']} keys:{R3['key_rects']}")

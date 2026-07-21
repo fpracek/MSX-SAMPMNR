@@ -144,7 +144,10 @@ tk_k:       RESB 1
 tk_col:     RESB 1
 tk_row:     RESB 1
 tk_src:     RESB 2
-cr_cellst:  RESB 4      ; per-cell crumble states (0 full,1 half,2 gone)
+cr_cellst:  RESB 8      ; per-cell crumble states (0 full,1 half,2 gone)
+                        ; sized for worst case group*2+cell id across all
+                        ; rooms, not just 4 (2 groups x 2 cells) - Room3's
+                        ; three 1-cell groups reach id 4
 cr_prev:    RESB 1      ; cell id Sam is standing on (FF none)
 cb_u:       RESB 1      ; crumble temps
 cb_n:       RESB 1
@@ -229,7 +232,7 @@ room_enz:        RESB 1
 room_ensurf:     RESB 1
 room_name_ptr:   RESB 2
 room_state_end:
-NROOMS equ 2
+NROOMS equ 3
 ram_end:
 
 ram_map     equ 0C100h  ; 6*8*8 = 384 bytes  (index = z*64+y*8+x)
@@ -2257,6 +2260,7 @@ sam_draw:
         ld  a,15
         call WRTVRM
         inc hl
+
         ld  a,208
         call WRTVRM
         ret
@@ -3786,8 +3790,29 @@ ROOM2_BGCOLBANK equ 86
 ; ============================================================
 CRUMBBANK2 equ 87
         INCBIN "src/crumb2.bin"
+
+; ============================================================
+;  BANKS 88-89: room 3 (The Menagerie) pre-rendered background.
+;  Bank numbers must match ROOM3_BGBANK/ROOM3_BGCOLBANK in
+;  tools/gen_iso.py.
+; ============================================================
+ROOM3_BGBANK    equ 88
+ROOM3_BGCOLBANK equ 89
+        ORG 08000h
+        INCBIN "src/bg_pattern3.bin"
+        BLOCK 0A000h-$,0FFh
+        ORG 0A000h
+        INCBIN "src/bg_color3.bin"
+        BLOCK 0C000h-$,0FFh
+
+; ============================================================
+;  BANK 90: room 3's own crumbling-platform variants (must match
+;  CRUMBBANK3 in tools/gen_iso.py)
+; ============================================================
+CRUMBBANK3 equ 90
+        INCBIN "src/crumb3.bin"
         ; pad the ROM back out to a full 1MB (128 x 8KB banks) - openMSX's
         ; ascii8 mapper expects a power-of-two file size; a short file
         ; (as left by just rounding up to the next bank) fails to boot
         ; at all (falls through to plain MSX BASIC).
-        BLOCK 327680,0FFh
+        BLOCK 303104,0FFh

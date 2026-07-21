@@ -244,6 +244,130 @@ crumb_tab2:
         dw 400, 33536
         db 3,255
 
+level3_map:
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,001h,000h
+        db 000h,000h,000h,000h,000h,000h,004h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,003h,003h,003h,000h,000h
+        db 000h,000h,000h,004h,000h,004h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,001h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+
+keys_tab3:
+        db 3,2,4,16,8
+        db 5,2,4,20,10
+        db 6,1,2,24,12
+
+slab_tab3:
+        db 121,113,160,16,7
+        db 137,73,112,32,10
+        db 169,89,112,16,11
+        db 121,65,96,32,10
+        db 105,57,80,32,10
+
+cover_tab3:
+        db 000h,000h,020h,020h,020h,000h,000h,000h
+        db 000h,020h,020h,020h,020h,020h,000h,000h
+        db 000h,000h,020h,020h,020h,020h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+
+keys_gfx3:
+        db 0D0h,080h,09Eh,0B3h,021h,021h,0B3h,09Eh,0FCh,00Ch,07Ch,04Ch,07Fh,01Ah,060h,000h
+        db 007h,050h,060h,060h,080h,000h,000h,000h,0FEh,036h,0B6h,080h,000h,000h,000h,000h
+        db 06Ah,0A1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,061h,06Ah,0A1h,06Ah,0A1h,06Ah,06Ah,0F1h
+        db 0F1h,0A6h,0A1h,0FAh,0FAh,0FAh,0FAh,0FAh,0F1h,0F1h,0F1h,0A1h,0FAh,0FAh,0FAh,0FAh
+        db 020h,080h,09Eh,0B3h,0A1h,021h,0B3h,09Eh,040h,0D0h,028h,044h,029h,07Fh,00Ch,000h
+        db 007h,0F6h,0E0h,060h,080h,000h,000h,000h,0FEh,036h,0B6h,080h,000h,000h,000h,000h
+        db 06Ah,061h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0A6h,0A6h,0A6h,06Ah,06Ah,0A1h,06Ah,0F1h
+        db 0F1h,0A1h,0A1h,0FAh,0FAh,0FAh,0FAh,0FAh,0F1h,0F1h,0F1h,0A1h,0FAh,0FAh,0FAh,0FAh
+        db 05Ch,0C0h,09Eh,0B3h,021h,021h,0B3h,09Eh,000h,00Fh,043h,07Fh,060h,07Fh,041h,000h
+        db 007h,0F6h,0C0h,060h,080h,000h,000h,000h,0FEh,036h,0B6h,080h,000h,000h,000h,000h
+        db 0A6h,0A1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F6h,06Ah,06Ah,0A1h,06Ah,0A1h,06Ah,0F1h
+        db 0F1h,0A1h,0A1h,0FBh,0FBh,0FBh,0FBh,0FBh,0F1h,0F1h,0F1h,0B1h,0FBh,0FBh,0FBh,0FBh
+
+exit_gfx3_0:
+        db 08Ch,000h,002h,084h,004h,002h,008h,092h,012h,006h,03Fh,080h,0BFh,080h,023h,03Fh
+        db 0C0h,030h,01Ch,080h,0C1h,008h,01Ch,080h,01Ch,038h,000h,024h,0C0h,0C0h,01Ch,080h
+        db 080h,008h,042h,006h,048h,009h,045h,000h,000h,038h,013h,084h,01Eh,078h,01Eh,078h
+        db 0C1h,008h,01Ch,080h,001h,038h,013h,084h,0C1h,008h,01Ch,080h,0C0h,00Eh,018h,090h
+        db 0C0h,00Eh,018h,090h,043h,00Fh,03Ch,00Fh,080h,080h,00Ah,015h,031h,00Ah,014h,080h
+        db 06Ah,0F1h,0FDh,0FDh,0FDh,0FDh,0FDh,0FDh,06Ah,0FAh,0F1h,0DFh,0F1h,0D7h,07Fh,0F1h
+        db 0FAh,0F7h,0F7h,07Fh,07Fh,0F7h,0F7h,07Fh,06Ah,06Ah,0FAh,06Ah,0FAh,07Ah,0F7h,07Fh
+        db 06Ah,06Ah,06Ah,06Ah,06Ah,06Ah,06Ah,0FAh,0F1h,0F7h,074h,047h,047h,047h,074h,074h
+        db 07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,074h,047h,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,0F7h,074h
+        db 07Fh,0F7h,0F7h,074h,047h,074h,047h,047h,0FAh,04Ah,06Ah,06Ah,06Ah,06Ah,06Ah,07Ah
+exit_gfx3_1:
+        db 08Ch,000h,002h,084h,004h,002h,008h,092h,012h,006h,03Fh,080h,081h,080h,01Ch,03Fh
+        db 0C0h,030h,01Ch,080h,0C1h,008h,01Ch,080h,01Ch,038h,000h,024h,0C0h,0C0h,01Ch,080h
+        db 080h,008h,042h,006h,048h,009h,045h,000h,000h,007h,01Ch,084h,01Eh,078h,01Eh,078h
+        db 0C1h,008h,01Ch,080h,001h,007h,01Ch,084h,0C1h,008h,01Ch,080h,0C0h,00Fh,0E0h,070h
+        db 0C0h,00Fh,0E0h,070h,043h,00Fh,03Ch,00Fh,080h,080h,00Ah,015h,031h,00Ah,014h,080h
+        db 06Ah,0F1h,0FDh,0FDh,0FDh,0FDh,0FDh,0FDh,06Ah,07Ah,071h,0D7h,0F7h,0DFh,07Fh,071h
+        db 07Ah,07Fh,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,06Ah,06Ah,0FAh,06Ah,07Ah,0FAh,07Fh,0F7h
+        db 06Ah,06Ah,06Ah,06Ah,06Ah,06Ah,06Ah,0FAh,0F1h,0F7h,074h,047h,047h,047h,074h,074h
+        db 0F7h,07Fh,07Fh,0F7h,0F7h,0F7h,074h,047h,0F7h,07Fh,07Fh,0F7h,0F7h,07Fh,0F7h,074h
+        db 0F7h,07Fh,0F7h,074h,047h,074h,047h,047h,07Ah,04Ah,06Ah,06Ah,06Ah,06Ah,06Ah,07Ah
+
+hazards_tab3:
+        db 2,3,18
+        db 5,4,18
+
+; crumb_tab3 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
+;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
+crumb_tab3:
+        db 1,3,3,2,255,255,255,15,9,19,14
+        dw 320, 32768
+        db 4,255
+        db 1,4,3,2,255,255,255,17,10,21,15
+        dw 320, 33728
+        db 3,255
+        db 1,5,3,2,255,255,255,19,11,24,16
+        dw 400, 34688
+        db 1,255
+
 ; redefined font, 76 chars from '0' (8 bytes each)
 fonts_tab:
         db 00Eh,019h,031h,031h,031h,033h,03Fh,01Eh,006h,00Eh,03Ch,00Ch,008h,018h,038h,038h
@@ -297,11 +421,19 @@ bear_gfx:
         db 018h,018h,00Fh,00Fh,007h,00Fh,01Fh,03Fh,03Fh,01Fh,00Fh,01Ch,01Ch,00Fh,000h,000h
         db 018h,018h,0F0h,0F0h,0E0h,0F0h,0F8h,0FCh,0FCh,0F8h,0F0h,038h,038h,0F0h,000h,000h
 
+chicken_gfx:
+        db 001h,003h,007h,003h,00Fh,01Fh,03Fh,03Fh,03Fh,01Fh,00Fh,007h,007h,00Fh,000h,000h
+        db 080h,0C0h,0E0h,0C0h,0F0h,0F8h,0FCh,0FCh,0FCh,0F8h,0F0h,070h,070h,0F8h,000h,000h
+        db 001h,003h,007h,003h,00Fh,01Fh,03Fh,03Fh,03Fh,01Fh,00Fh,01Ch,01Ch,03Eh,000h,000h
+        db 080h,0C0h,0E0h,0C0h,0F0h,0F8h,0FCh,0FCh,0FCh,0F8h,0F0h,038h,038h,07Ch,000h,000h
+
 ; room name strings for the intro card: raw ASCII, draw_string-ready
 room1_name:
         db 67,69,78,84,82,65,76,32,67,65,86,69,82,78,0
 room2_name:
         db 84,72,69,32,67,79,76,68,32,82,79,79,77,0
+room3_name:
+        db 84,72,69,32,77,69,78,65,71,69,82,73,69,0
 
 ; room_tab: one row per room, read into room_state RAM struct
 ; via a single ldir at room_start. Field order/sizes MUST match
@@ -348,6 +480,26 @@ room_tab:
         db 14
         db 92,124,56,16
         dw room2_name
+        db 88,89
+        dw level3_map
+        dw keys_tab3
+        db 3
+        dw keys_gfx3
+        dw slab_tab3
+        db 5
+        db 3
+        dw crumb_tab3
+        db 90
+        dw hazards_tab3
+        db 2
+        db 96,64,16
+        db 17,16,2,40
+        dw exit_gfx3_0
+        dw exit_gfx3_1
+        dw chicken_gfx
+        db 15
+        db 48,96,40,32
+        dw room3_name
 
 gfx_sprites:
         db 000h,000h,000h,000h,000h,000h,000h,000h,000h,000h,010h,000h,000h,000h,000h,006h
