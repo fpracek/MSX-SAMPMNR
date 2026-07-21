@@ -3,14 +3,7 @@
 MAPW equ 8
 MAPH equ 8
 MAPD equ 6
-NKEYS equ 3
-EXIT_BX equ 6
-EXIT_BZ equ 0
-EXSURF equ 16
-EXC0 equ 25
-EXR0 equ 12
-EXNROW equ 2
-EXROWLEN equ 32
+
 level1_map:
         db 001h,001h,001h,001h,001h,001h,001h,001h
         db 000h,000h,000h,000h,000h,000h,001h,000h
@@ -61,14 +54,11 @@ level1_map:
         db 000h,000h,000h,000h,000h,000h,000h,000h
         db 000h,000h,000h,000h,000h,000h,000h,000h
 
-; key table: bx, bz, y, char_col, char_row  (5 bytes each)
 keys_tab:
-        db 3,4,3,12,9
-        db 4,2,3,18,8
+        db 3,4,3,12,11
+        db 4,2,3,18,10
         db 1,0,4,16,2
 
-; slab table for sprite masking: winx0, winy0, base_sum, surface, color
-NSLABS equ 9
 slab_tab:
         db 89,89,128,24,14
         db 73,81,112,24,11
@@ -80,8 +70,52 @@ slab_tab:
         db 121,33,32,32,14
         db 105,25,16,32,14
 
-NUNITS equ 2
-CRUMBBANK equ 84
+cover_tab:
+        db 020h,020h,020h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+
+keys_gfx:
+        db 003h,040h,01Eh,033h,0A1h,021h,0B3h,09Eh,0C0h,010h,011h,060h,040h,011h,014h,000h
+        db 007h,0F6h,0E0h,060h,080h,000h,000h,000h,0FEh,036h,0B6h,080h,000h,000h,000h,000h
+        db 021h,061h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,021h,061h,061h,061h,061h,061h,061h,0F1h
+        db 0F1h,0B1h,0B1h,0FBh,0FBh,0FBh,0FBh,0FBh,0F1h,0F1h,0F1h,0B1h,0FBh,0FBh,0FBh,0FBh
+        db 000h,000h,01Eh,033h,021h,021h,0B3h,09Eh,000h,000h,000h,000h,001h,000h,00Bh,000h
+        db 007h,0F6h,0E0h,081h,007h,0E0h,080h,000h,0FEh,036h,0B6h,080h,001h,007h,0E0h,081h
+        db 0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,061h,0F1h,061h,0F1h
+        db 0F1h,041h,041h,047h,047h,074h,074h,0F4h,0F1h,0F1h,0F1h,041h,074h,074h,047h,047h
+        db 00Ah,000h,000h,000h,07Fh,000h,09Eh,033h,00Ch,0F3h,0E3h,0E4h,0E7h,0E7h,067h,077h
+        db 021h,021h,033h,01Eh,007h,0B6h,0B0h,05Fh,07Fh,00Fh,003h,000h,0FEh,036h,0B6h,080h
+        db 086h,0F6h,0F6h,0F6h,061h,0F1h,0F1h,0F1h,086h,061h,061h,061h,061h,061h,061h,061h
+        db 0F1h,0F1h,0F1h,0F1h,0F1h,061h,061h,061h,061h,061h,061h,0F1h,0F1h,0F1h,0F1h,061h
+
+exit_gfx_0:
+        db 000h,00Eh,040h,020h,060h,006h,05Fh,07Fh,0BFh,006h,05Fh,080h,041h,008h,01Ch,080h
+        db 0C0h,0C0h,01Ch,080h,0C1h,008h,01Ch,080h,000h,000h,000h,03Fh,0C0h,0C0h,01Ch,080h
+        db 001h,038h,013h,084h,01Eh,078h,01Eh,078h,0C1h,008h,01Ch,080h,001h,038h,013h,084h
+        db 0C1h,008h,01Ch,080h,0C0h,00Eh,018h,090h,0C0h,00Eh,018h,090h,043h,00Fh,03Ch,00Fh
+        db 0F6h,061h,061h,061h,061h,0F1h,0F1h,0F1h,061h,0F1h,0F1h,06Fh,07Fh,0F7h,0F7h,07Fh
+        db 0F6h,071h,0F7h,07Fh,07Fh,0F7h,0F7h,07Fh,0F6h,0F6h,0F6h,061h,0F6h,076h,0F7h,07Fh
+        db 07Fh,0F7h,074h,047h,047h,047h,074h,074h,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,074h,047h
+        db 07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,0F7h,074h,07Fh,0F7h,0F7h,074h,047h,074h,047h,047h
+exit_gfx_1:
+        db 000h,00Eh,040h,020h,060h,006h,05Fh,07Fh,0BFh,006h,05Fh,080h,041h,008h,01Ch,080h
+        db 0C0h,0C0h,01Ch,080h,0C1h,008h,01Ch,080h,000h,000h,000h,03Fh,0C0h,0C0h,01Ch,080h
+        db 001h,007h,01Ch,084h,01Eh,078h,01Eh,078h,0C1h,008h,01Ch,080h,001h,007h,01Ch,084h
+        db 0C1h,008h,01Ch,080h,0C0h,00Fh,0E0h,070h,0C0h,00Fh,0E0h,070h,043h,00Fh,03Ch,00Fh
+        db 0F6h,061h,061h,061h,061h,071h,071h,071h,061h,071h,071h,067h,0F7h,07Fh,07Fh,0F7h
+        db 076h,0F1h,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,0F6h,0F6h,0F6h,061h,076h,0F6h,07Fh,0F7h
+        db 0F7h,0F7h,074h,047h,047h,047h,074h,074h,0F7h,07Fh,07Fh,0F7h,0F7h,0F7h,074h,047h
+        db 0F7h,07Fh,07Fh,0F7h,0F7h,07Fh,0F7h,074h,0F7h,07Fh,0F7h,074h,047h,074h,047h,047h
+
+hazards_tab:
+        db 1,2,18
+        db 5,1,18
+        db 2,4,34
+
 ; crumb_tab (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
 ;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
 crumb_tab:
@@ -92,56 +126,123 @@ crumb_tab:
         dw 320, 38816
         db 0,255
 
-; cover table: min feet height to cross each floor cell (z-major)
-cover_tab:
-        db 020h,020h,020h,000h,000h,000h,000h,000h
+level2_map:
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,001h,000h,000h,000h,000h,000h
+        db 000h,000h,004h,003h,004h,000h,000h,000h
+        db 000h,000h,000h,000h,003h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,001h,000h,000h,000h
+        db 000h,000h,000h,000h,004h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
         db 000h,000h,000h,000h,000h,000h,000h,000h
         db 000h,000h,000h,000h,000h,000h,000h,000h
         db 000h,000h,000h,000h,000h,000h,000h,000h
         db 000h,000h,000h,000h,000h,000h,000h,000h
         db 000h,000h,000h,000h,000h,000h,000h,000h
 
-; per-key char graphics: 32 bytes patterns + 32 bytes colors
-keys_gfx:
-        db 020h,020h,0CAh,040h,000h,080h,01Eh,033h,022h,04Bh,001h,016h,044h,000h,000h,010h
-        db 021h,021h,033h,01Eh,007h,0F6h,000h,050h,020h,020h,020h,000h,0FEh,036h,0B6h,080h
-        db 061h,061h,061h,061h,0F1h,061h,0F1h,0F1h,061h,061h,061h,061h,061h,0F1h,0F1h,031h
-        db 0F1h,0F1h,0F1h,0F1h,0F1h,061h,0F1h,061h,021h,031h,031h,0F1h,0F1h,0F1h,0F1h,021h
-        db 037h,0FBh,000h,0FDh,039h,000h,01Eh,033h,080h,078h,067h,000h,0FEh,0F8h,007h,01Fh
-        db 021h,021h,033h,01Eh,007h,006h,000h,000h,017h,007h,003h,000h,0FEh,036h,036h,000h
-        db 061h,061h,0F6h,061h,061h,0F1h,0F1h,0F1h,0F8h,081h,081h,0F8h,081h,081h,061h,061h
-        db 0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,061h,061h,061h,0F1h,0F1h,0F1h,0F1h,0F1h
-        db 00Ah,000h,000h,000h,07Fh,000h,09Eh,033h,00Ch,0F3h,0E3h,0E4h,0E7h,0E7h,067h,077h
-        db 021h,021h,033h,01Eh,007h,0B6h,0B0h,05Fh,07Fh,00Fh,003h,000h,0FEh,036h,0B6h,080h
-        db 086h,0F6h,0F6h,0F6h,061h,0F1h,0F1h,0F1h,086h,061h,061h,061h,061h,061h,061h,061h
-        db 0F1h,0F1h,0F1h,0F1h,0F1h,061h,061h,061h,061h,061h,061h,0F1h,0F1h,0F1h,0F1h,061h
+keys_tab2:
+        db 2,2,2,14,9
+        db 4,4,3,14,12
+        db 4,2,2,18,9
 
-; exit cube rect: row-major pattern bytes then colour bytes
-exit_gfx0:
-        db 000h,00Eh,040h,020h,060h,006h,05Fh,07Fh,0BFh,006h,05Fh,080h,041h,008h,01Ch,080h
-        db 0C0h,0C0h,01Ch,080h,0C1h,008h,01Ch,080h,000h,000h,000h,03Fh,0C0h,0C0h,01Ch,080h
+slab_tab2:
+        db 153,113,160,16,7
+        db 137,105,144,16,15
+        db 89,89,128,24,15
+        db 121,65,96,32,7
+        db 105,65,80,24,7
+        db 89,65,64,16,15
+
+cover_tab2:
+        db 000h,000h,000h,020h,000h,000h,000h,000h
+        db 000h,000h,020h,020h,020h,000h,000h,000h
+        db 000h,000h,000h,020h,020h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+
+keys_gfx2:
+        db 038h,0FCh,028h,050h,060h,003h,0A0h,0F9h,08Ch,00Dh,0E7h,007h,003h,007h,005h,007h
+        db 058h,006h,018h,060h,080h,0FFh,0FFh,0FFh,0CFh,005h,00Ch,01Ch,0FFh,001h,007h,0E0h
+        db 05Fh,0F1h,05Fh,05Fh,05Fh,02Fh,05Fh,0F1h,05Fh,0F1h,021h,0F2h,0F2h,0F2h,052h,0F2h
+        db 0F5h,07Fh,07Fh,07Fh,07Fh,0FFh,0FFh,0FFh,0F1h,05Fh,07Fh,0F1h,0FFh,07Fh,07Fh,0F7h
+        db 037h,0F8h,0F9h,003h,038h,0C0h,0F3h,0F9h,03Eh,009h,0E3h,0F4h,0F2h,0F0h,0F0h,0E0h
+        db 04Ch,006h,060h,060h,080h,0FFh,0FFh,0FFh,0C0h,0C0h,0DCh,01Ch,0FFh,0FFh,0FFh,0FFh
+        db 051h,051h,051h,025h,051h,051h,051h,0F1h,051h,051h,021h,021h,021h,021h,021h,021h
+        db 05Fh,07Fh,05Fh,07Fh,07Fh,0FFh,0FFh,0FFh,0F1h,0F1h,0F1h,0F1h,0FFh,0FFh,0FFh,0FFh
+        db 0FFh,001h,002h,0FFh,001h,0FCh,050h,0A0h,080h,070h,003h,058h,050h,00Ch,0E7h,007h
+        db 003h,003h,0A0h,018h,0FCh,0FEh,0FEh,0FEh,007h,007h,007h,0E7h,0C0h,0C0h,0C0h,01Fh
+        db 0FFh,05Fh,05Fh,0FFh,05Fh,0F1h,0F5h,05Fh,057h,0F7h,07Fh,05Fh,05Fh,051h,021h,0F2h
+        db 02Fh,02Fh,05Fh,07Fh,071h,071h,071h,071h,0F2h,0F2h,0F2h,021h,0F7h,0F7h,0F7h,071h
+
+exit_gfx2_0:
+        db 0FFh,0FFh,0FFh,0FFh,0FFh,001h,003h,0FFh,0FFh,001h,003h,0FFh,041h,008h,01Ch,080h
+        db 00Dh,0C0h,0E0h,080h,0C1h,008h,01Ch,080h,084h,0C1h,008h,082h,002h,0C0h,0E0h,080h
         db 001h,038h,013h,084h,01Eh,078h,01Eh,078h,0C1h,008h,01Ch,080h,001h,038h,013h,084h
         db 0C1h,008h,01Ch,080h,0C0h,00Eh,018h,090h,0C0h,00Eh,018h,090h,043h,00Fh,03Ch,00Fh
-        db 0F6h,061h,061h,061h,061h,0F1h,0F1h,0F1h,061h,0F1h,0F1h,06Fh,07Fh,0F7h,0F7h,07Fh
-        db 0F6h,071h,0F7h,07Fh,07Fh,0F7h,0F7h,07Fh,0F6h,0F6h,0F6h,061h,0F6h,076h,0F7h,07Fh
+        db 0FFh,0FFh,0FFh,0FFh,0FFh,07Fh,07Fh,0FFh,0FFh,07Fh,07Fh,0FFh,07Fh,0F7h,0F7h,07Fh
+        db 05Fh,07Fh,07Fh,07Fh,07Fh,0F7h,0F7h,07Fh,05Fh,0F5h,05Fh,05Fh,05Fh,07Fh,07Fh,07Fh
         db 07Fh,0F7h,074h,047h,047h,047h,074h,074h,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,074h,047h
         db 07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,0F7h,074h,07Fh,0F7h,0F7h,074h,047h,074h,047h,047h
-exit_gfx1:
-        db 000h,00Eh,040h,020h,060h,006h,05Fh,07Fh,0BFh,006h,05Fh,080h,041h,008h,01Ch,080h
-        db 0C0h,0C0h,01Ch,080h,0C1h,008h,01Ch,080h,000h,000h,000h,03Fh,0C0h,0C0h,01Ch,080h
+exit_gfx2_1:
+        db 0FFh,0FFh,0FFh,0FFh,001h,006h,01Ch,080h,001h,006h,01Ch,080h,041h,008h,01Ch,080h
+        db 00Dh,030h,01Ch,080h,0C1h,008h,01Ch,080h,084h,0C1h,008h,082h,0C0h,030h,01Ch,080h
         db 001h,007h,01Ch,084h,01Eh,078h,01Eh,078h,0C1h,008h,01Ch,080h,001h,007h,01Ch,084h
         db 0C1h,008h,01Ch,080h,0C0h,00Fh,0E0h,070h,0C0h,00Fh,0E0h,070h,043h,00Fh,03Ch,00Fh
-        db 0F6h,061h,061h,061h,061h,071h,071h,071h,061h,071h,071h,067h,0F7h,07Fh,07Fh,0F7h
-        db 076h,0F1h,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,0F6h,0F6h,0F6h,061h,076h,0F6h,07Fh,0F7h
+        db 0FFh,0FFh,0FFh,0FFh,07Fh,07Fh,07Fh,0F7h,07Fh,07Fh,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h
+        db 05Fh,07Fh,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,05Fh,0F5h,05Fh,05Fh,07Fh,07Fh,07Fh,0F7h
         db 0F7h,0F7h,074h,047h,047h,047h,074h,074h,0F7h,07Fh,07Fh,0F7h,0F7h,0F7h,074h,047h
         db 0F7h,07Fh,07Fh,0F7h,0F7h,07Fh,0F7h,074h,0F7h,07Fh,0F7h,074h,047h,074h,047h,047h
 
-; deadly bushes: bx, bz, kill ceiling (surface+10)
-NHAZ equ 3
-hazards_tab:
-        db 1,2,18
+hazards_tab2:
+        db 3,5,18
         db 5,1,18
-        db 2,4,34
+
+; crumb_tab2 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
+;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
+crumb_tab2:
+        db 1,3,2,2,255,255,255,15,10,19,14
+        dw 256, 32768
+        db 4,255
+        db 1,4,3,2,255,255,255,17,10,22,15
+        dw 400, 33536
+        db 3,255
 
 ; redefined font, 76 chars from '0' (8 bytes each)
 fonts_tab:
@@ -189,6 +290,64 @@ enemy_gfx:
         db 000h,0F0h,0D8h,0A8h,0F8h,0F0h,0C0h,0F0h,0D8h,0CCh,060h,030h,018h,01Ch,000h,000h
         db 000h,00Fh,01Bh,015h,01Fh,00Fh,003h,00Fh,00Bh,00Bh,006h,006h,006h,00Eh,000h,000h
         db 000h,0F0h,0D8h,0A8h,0F8h,0F0h,0C0h,0F0h,0D0h,0D0h,060h,060h,060h,070h,000h,000h
+
+bear_gfx:
+        db 018h,018h,00Fh,00Fh,007h,03Ch,078h,03Fh,03Fh,01Fh,00Fh,00Eh,00Eh,01Eh,000h,000h
+        db 018h,018h,0F0h,0F0h,0E0h,03Ch,01Eh,0FCh,0FCh,0F8h,0F0h,070h,070h,078h,000h,000h
+        db 018h,018h,00Fh,00Fh,007h,01Eh,03Ch,03Fh,03Fh,01Fh,00Fh,01Ch,01Ch,00Fh,000h,000h
+        db 018h,018h,0F0h,0F0h,0E0h,078h,03Ch,0FCh,0FCh,0F8h,0F0h,038h,038h,0F0h,000h,000h
+
+; room name strings for the intro card: raw ASCII, draw_string-ready
+room1_name:
+        db 67,69,78,84,82,65,76,32,67,65,86,69,82,78,0
+room2_name:
+        db 84,72,69,32,67,79,76,68,32,82,79,79,77,0
+
+; room_tab: one row per room, read into room_state RAM struct
+; via a single ldir at room_start. Field order/sizes MUST match
+; the room_state RESB block in src/main.asm exactly.
+ROOMROWLEN equ 39
+room_tab:
+        db 2,3
+        dw level1_map
+        dw keys_tab
+        db 3
+        dw keys_gfx
+        dw slab_tab
+        db 9
+        db 2
+        dw crumb_tab
+        db 84
+        dw hazards_tab
+        db 3
+        db 96,0,16
+        db 25,12,2,32
+        dw exit_gfx_0
+        dw exit_gfx_1
+        dw enemy_gfx
+        db 3
+        db 52,91,40,24
+        dw room1_name
+        db 85,86
+        dw level2_map
+        dw keys_tab2
+        db 3
+        dw keys_gfx2
+        dw slab_tab2
+        db 6
+        db 2
+        dw crumb_tab2
+        db 87
+        dw hazards_tab2
+        db 2
+        db 112,48,16
+        db 21,16,2,32
+        dw exit_gfx2_0
+        dw exit_gfx2_1
+        dw bear_gfx
+        db 14
+        db 92,124,56,16
+        dw room2_name
 
 gfx_sprites:
         db 000h,000h,000h,000h,000h,000h,000h,000h,000h,000h,010h,000h,000h,000h,000h,006h

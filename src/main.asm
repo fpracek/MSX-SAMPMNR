@@ -15,6 +15,7 @@ LDIRVM  equ 005Ch
 CHGMOD  equ 005Fh
 GTSTCK  equ 00D5h
 GTTRIG  equ 00D8h
+SNSMAT  equ 00141h     ; A=row(0-10) -> A=that row's 8 key bits (0=pressed)
 WRTPSG  equ 0093h
 ENASLT  equ 00024h
 RSLREG  equ 00138h
@@ -45,11 +46,7 @@ T_DOORT equ 5
 T_DOORB equ 6
 GRAV    equ 32          ; 0.125 px/f^2 (8.8)
 JUMPV   equ 0240h       ; 2.25 px/f (apex ~20px: one level per jump)
-CRUMBT  equ 35          ; frames per crumble stage (~0.7s)
-ENZ     equ 40          ; enemy patrol lane centre (belt z)
-ENSURF  equ 24          ; belt surface height
-ENXMIN  equ 52          ; patrol west limit
-ENXMAX  equ 91          ; patrol east limit
+                        ; enemy patrol lane/surface: per-room, in room_state
 MARG    equ 6           ; leading collision margin (symmetric)
 MARGT   equ 4           ; transverse half-width
 CLMIN   equ 8           ; sprite half-width clamp against room edges
@@ -61,7 +58,7 @@ AIRMAX  equ 160         ; air units = bar pixels
 AIRRATE equ 40          ; frames per air unit (~1.8 min per level)
 HUDPAT  equ 1700h       ; pattern VRAM addr of tile row 23
 HUDCOL  equ 3700h       ; colour  VRAM addr of tile row 23
-LIVCOL  equ 5           ; HUD column of the lives digit
+LIVCOL  equ 6           ; HUD column of the lives digit
 BARCOL  equ 12          ; first HUD column of the AIR bar (20 tiles)
 
 ; ---------- title screen / PSG music ----------
@@ -149,7 +146,6 @@ tk_row:     RESB 1
 tk_src:     RESB 2
 cr_cellst:  RESB 4      ; per-cell crumble states (0 full,1 half,2 gone)
 cr_prev:    RESB 1      ; cell id Sam is standing on (FF none)
-cr_timer:   RESB 1      ; erosion timer while on a crumble cell
 cb_u:       RESB 1      ; crumble temps
 cb_n:       RESB 1
 cb_st:      RESB 1
@@ -197,6 +193,43 @@ scr_src:    RESB 2      ; scrolling banner: generic src cursor
 scr_dst:    RESB 2      ; scrolling banner: generic dst cursor
 scr_rowidx: RESB 1      ; scrolling banner: which of the 8 pixel-rows
 scb_cnt:    RESB 1      ; scrolling banner: blit tile-column counter
+won_t:      RESB 1      ; frames spent in the post-exit victory blink
+dbg_bit:    RESB 1      ; debug_room_key scratch
+current_room: RESB 1    ; 0=Central Cavern, 1=The Cold Room, ...
+; --- room_state: bulk-loaded from room_tab (leveldata.asm) by a single
+; ldir in room_start. Field order/sizes MUST match room_tab's rows. ---
+room_state:
+room_bg_bank:    RESB 1
+room_bgcol_bank: RESB 1
+room_map_ptr:    RESB 2
+room_keys_ptr:   RESB 2
+room_nkeys:      RESB 1
+room_keysgfx_ptr:RESB 2
+room_slab_ptr:   RESB 2
+room_nslabs:     RESB 1
+room_nunits:     RESB 1
+room_crumb_ptr:  RESB 2
+room_crumb_bank: RESB 1
+room_hazards_ptr:RESB 2
+room_nhaz:       RESB 1
+room_exit_bx16:  RESB 1
+room_exit_bz16:  RESB 1
+room_exsurf:     RESB 1
+room_exc0:       RESB 1
+room_exr0:       RESB 1
+room_exnrow:     RESB 1
+room_exrowlen:   RESB 1
+room_exit_gfx0_ptr: RESB 2
+room_exit_gfx1_ptr: RESB 2
+room_enemy_gfx_ptr: RESB 2
+room_enemy_color:   RESB 1
+room_enxmin:     RESB 1
+room_enxmax:     RESB 1
+room_enz:        RESB 1
+room_ensurf:     RESB 1
+room_name_ptr:   RESB 2
+room_state_end:
+NROOMS equ 2
 ram_end:
 
 ram_map     equ 0C100h  ; 6*8*8 = 384 bytes  (index = z*64+y*8+x)
@@ -317,6 +350,59 @@ read_trig_any:
         ld  a,0FFh
         ret
 
+; ------------------------------------------------------------
+; debug_room_key: scans keyboard matrix rows 2-5 (the letter keys) for
+; a pressed letter. A=room0/Central Cavern, B=room1/The Cold Room, etc,
+; clamped to the rooms that actually exist. Returns A=0FFh
+; (current_room set) if one was found, else 0. Not documented anywhere
+; on purpose - debug/dev shortcut only.
+; Real MSX matrix (confirmed against https://map.grauw.nl/articles/
+; keymatrix.php - the row2=@ABCDEFG layout an earlier pass assumed was
+; wrong, which is why this silently didn't respond to real key presses):
+;   row2: bit7=B bit6=A bit5..0=symbols (only 2 letters in this row)
+;   row3: bit0=C bit1=D bit2=E bit3=F bit4=G bit5=H bit6=I bit7=J
+;   row4: bit0=K ... bit7=R          row5: bit0=S ... bit7=Z
+; ------------------------------------------------------------
+row_bases: db 0FAh, 2, 10, 18   ; room index = row_bases[row-2] + bitpos
+                                 ; (0FAh=-6, so row2 bit6/7 -> 0/1='A'/'B';
+                                 ; bit0-5 wrap past NROOMS and are ignored)
+
+debug_room_key:
+        ld  e,0
+.rowlp: ld  a,e
+        add a,2
+        call SNSMAT
+        cpl
+        ld  d,a
+        xor a
+        ld  (dbg_bit),a
+        ld  b,8
+.bitlp: srl d
+        jr  nc,.next
+        ld  hl,row_bases
+        ld  a,e
+        add a,l
+        ld  l,a
+        jr  nc,.noc
+        inc h
+.noc:   ld  a,(hl)
+        ld  hl,dbg_bit
+        add a,(hl)
+        cp  NROOMS
+        jr  nc,.next
+        ld  (current_room),a
+        ld  a,0FFh
+        ret
+.next:  ld  hl,dbg_bit
+        inc (hl)
+        djnz .bitlp
+        inc e
+        ld  a,e
+        cp  4
+        jr  nz,.rowlp
+        xor a
+        ret
+
 title_loop:
         halt
         ld  hl,frame
@@ -329,13 +415,18 @@ title_loop:
         call z,scroll_update    ; 1 in 4 frames - still reads as a
                                  ; smooth scroll, just costs a lot
                                  ; less than doing it every frame
+        call debug_room_key
+        or  a
+        jr  nz,.go              ; letter pressed - current_room already set
         call read_trig_any
         or  a
         jr  z,title_loop
-        call music_stop
+        xor a
+        ld  (current_room),a
+.go:    call music_stop
         call psg_init
-        call room_start
-        jr  main_loop
+        call room_enter
+        jp  main_loop
 
 ; ------------------------------------------------------------
 ; room_start: (re)enter the level: fresh state except lives
@@ -343,23 +434,168 @@ title_loop:
 room_start:
         ld  a,(lives)
         ex  af,af'
+        ld  a,(current_room)
+        push af
         ld  hl,ram_start
         ld  de,ram_start+1
         ld  bc,ram_end-ram_start-1
         ld  (hl),0
         ldir
+        pop af
+        ld  (current_room),a
         ex  af,af'
         ld  (lives),a
         ld  a,0FFh
         ld  (cr_prev),a
-        ld  a,ENXMIN
-        ld  (en_x),a
         ld  a,AIRMAX
         ld  (air),a
+        ; load this room's descriptor row: hl = room_tab + current_room*
+        ; ROOMROWLEN, via repeated addition (current_room is always
+        ; small) - deliberately NOT hand-tuned shifts: those silently
+        ; go stale every time a field is added and ROOMROWLEN grows,
+        ; which has already happened twice.
+        ld  a,(current_room)
+        ld  b,a
+        ld  hl,0
+        ld  de,ROOMROWLEN
+.rowmul:ld  a,b
+        or  a
+        jr  z,.rowmuldone
+        add hl,de
+        dec b
+        jr  .rowmul
+.rowmuldone:
+        ld  de,room_tab
+        add hl,de
+        ld  de,room_state
+        ld  bc,ROOMROWLEN
+        ldir
+        ; select this room's background/colour ROM banks
+        ld  a,(room_bg_bank)
+        ld  (BANK2R),a
+        ld  a,(room_bgcol_bank)
+        ld  (BANK3R),a
+        ld  a,(room_enxmin)
+        ld  (en_x),a
         call load_room
         call sam_init
         call level_music_init
         jp  hud_init
+
+; ------------------------------------------------------------
+; room_enter: room_start + the ~2s name-card intro. Used only when
+; entering a room for the FIRST time (title -> room 1, room 1 -> room
+; 2); sam_die's respawn calls room_start directly so the card doesn't
+; replay on death.
+; ------------------------------------------------------------
+room_enter:
+        call room_start
+        jp  room_intro
+
+; ------------------------------------------------------------
+; room_intro: hide any leftover sprites, show the room's name
+; centred on tile row 11 for ~100 frames (still ticking the level
+; music), then erase it by restoring that row from BG_PAT/BG_COL -
+; same restore trick key pickups use, just for a whole tile row.
+; ------------------------------------------------------------
+room_intro:
+        ld  hl,VR_SPRA          ; hide title-screen/previous-room sprites
+        ld  a,208
+        call WRTVRM
+
+        ld  hl,(room_name_ptr)
+        ld  b,0
+.slen:  ld  a,(hl)
+        or  a
+        jr  z,.gotlen
+        inc hl
+        inc b
+        jr  .slen
+.gotlen:
+        ld  a,32
+        sub b
+        srl a
+        ld  (ds_col),a
+        ld  a,11
+        ld  (ds_row),a
+
+        ; solid black backdrop, 2 cols padding either side, 3 tile
+        ; rows tall - drawn BEFORE the text so spaces inside the name
+        ; (and the margin around it) read as a clean box instead of
+        ; showing raw level background through them
+        ld  a,(ds_col)
+        sub 2
+        ld  c,a                 ; box_col0
+        ld  a,b
+        add a,4
+        ld  b,a                 ; box width in columns
+        ld  a,10
+        call box_row
+        ld  a,11
+        call box_row
+        ld  a,12
+        call box_row
+
+        ld  hl,(room_name_ptr)
+        call draw_string
+
+        ld  b,100
+.hold:  push bc
+        halt
+        ld  hl,frame
+        inc (hl)
+        call level_music_update
+        pop bc
+        djnz .hold
+
+        ld  hl,BG_PAT+10*256
+        ld  de,VR_PAT+10*256
+        ld  bc,768              ; 3 rows (10,11,12) x 256 bytes
+        call LDIRVM
+        ld  hl,BG_COL+10*256
+        ld  de,VR_COL+10*256
+        ld  bc,768
+        call LDIRVM
+        ; the row restore above uses the keyless base background, so
+        ; any pickups load_room already drew that fall within rows
+        ; 10-12 need to be put back
+        jp  key_draw_all
+
+; box_row: A=tile row, B=width(cols), C=col0 -> fill pattern=0/colour=011h
+; (solid black - the box backdrop behind a room-name card)
+box_row:
+        push bc
+        ld  h,a
+        ld  l,0
+        ld  a,c
+        add a,a
+        add a,a
+        add a,a
+        ld  e,a
+        ld  d,0
+        add hl,de               ; hl = row*256 + col0*8
+        ld  a,b
+        add a,a
+        add a,a
+        add a,a
+        ld  e,a
+        ld  d,0                 ; de = width*8 (byte count)
+        push hl
+        push de
+        ld  bc,VR_PAT
+        add hl,bc
+        pop bc
+        push bc
+        xor a
+        call vram_fill
+        pop bc
+        pop hl
+        ld  de,VR_COL
+        add hl,de
+        ld  a,011h
+        call vram_fill
+        pop bc
+        ret
 
 ; ------------------------------------------------------------
 ; sam_die: lose a life, restart the room (0 lives -> fresh game)
@@ -368,7 +604,18 @@ sam_die:
         ld  a,(lives)
         dec a
         jr  nz,.ok
-        ld  a,LIVES0        ; game over: start again with full lives
+        ; game over: show the message, then bail out to the title
+        ; screen instead of respawning. sam_die is always reached via
+        ; a tail `jp` from enemy_update/hazard_check/air_update (each
+        ; itself `call`ed once from main_loop), so exactly one stale
+        ; return address is on the stack - discard it before leaving
+        ; main_loop's per-frame call chain for good.
+        ld  a,LIVES0
+        ld  (lives),a
+        pop hl
+        call game_over_screen
+        call title_setup
+        jp  title_loop
 .ok:    ld  (lives),a
         call room_start
         ; death jingle: low rising-period slide
@@ -378,6 +625,50 @@ sam_die:
         ld  (sfx_freq),hl
         ld  hl,12
         ld  (sfx_step),hl
+        ret
+
+; ------------------------------------------------------------
+; game_over_screen: silence the level music, hide sprites, show
+; "GAME OVER" boxed on tile row 11 for ~3s. No restore needed - the
+; caller goes straight into title_setup, which redraws the whole
+; screen anyway.
+; ------------------------------------------------------------
+game_over_str: db "GAME OVER",0
+
+game_over_screen:
+        call music_stop
+        ld  hl,VR_SPRA
+        ld  a,208
+        call WRTVRM
+
+        ld  a,32
+        sub 9                    ; strlen("GAME OVER")
+        srl a
+        ld  (ds_col),a
+        ld  a,11
+        ld  (ds_row),a
+
+        ld  a,(ds_col)
+        sub 2
+        ld  c,a
+        ld  b,13                 ; 9 + 4 cols padding
+        ld  a,10
+        call box_row
+        ld  a,11
+        call box_row
+        ld  a,12
+        call box_row
+
+        ld  hl,game_over_str
+        call draw_string
+
+        ld  b,150                ; ~3s
+.hold:  push bc
+        halt
+        ld  hl,frame
+        inc (hl)
+        pop bc
+        djnz .hold
         ret
 
 main_loop:
@@ -417,6 +708,18 @@ main_loop:
         call WRTVDP
         call sfx_update
         call level_music_update
+
+        ld  hl,won_t
+        inc (hl)
+        ld  a,(hl)
+        cp  120                 ; ~2.4s of blinking before advancing
+        jr  c,main_loop
+        ld  a,(current_room)
+        inc a
+        cp  NROOMS
+        jr  nc,main_loop        ; already on the last room: keep blinking
+        ld  (current_room),a
+        call room_enter
         jr  main_loop
 
 ; ------------------------------------------------------------
@@ -447,13 +750,13 @@ load_room:
         call LDIRVM
 
         ; enemy: 2 frames at sprite patterns 0 and 4
-        ld  hl,enemy_gfx
+        ld  hl,(room_enemy_gfx_ptr)
         ld  de,VR_SPRP
         ld  bc,64
         call LDIRVM
 
         ; map ROM -> RAM
-        ld  hl,level1_map
+        ld  hl,(room_map_ptr)
         ld  de,ram_map
         ld  bc,MAPW*MAPH*MAPD
         ldir
@@ -466,7 +769,7 @@ load_room:
 key_draw_all:
         xor a
         ld  (tk_i),a
-.loop:  ; tab entry ptr = keys_tab + i*5 (+3 -> ccol,crow)
+.loop:  ; tab entry ptr = keys_tab + i*5 (+0,1,2 -> bx,bz,y; +3,4 -> ccol,crow)
         ld  a,(tk_i)
         ld  e,a
         add a,a
@@ -474,8 +777,19 @@ key_draw_all:
         add a,e             ; i*5
         ld  e,a
         ld  d,0
-        ld  hl,keys_tab+3
+        ld  hl,(room_keys_ptr)
         add hl,de
+        ld  b,(hl)          ; bx
+        inc hl
+        ld  d,(hl)          ; bz
+        inc hl
+        ld  c,(hl)          ; y (celly)
+        inc hl              ; hl -> ccol
+        push hl
+        call map_at         ; tile already cleared (collected) -> skip redraw
+        pop hl
+        cp  T_KEY
+        jr  nz,.nextkey
         ld  a,(hl)
         ld  (tk_col),a
         inc hl
@@ -491,7 +805,7 @@ key_draw_all:
         add hl,hl
         add hl,hl
         add hl,hl           ; *64
-        ld  de,keys_gfx
+        ld  de,(room_keysgfx_ptr)
         add hl,de
         ld  (tk_src),hl
         xor a
@@ -541,11 +855,13 @@ key_draw_all:
         ld  (tk_k),a
         cp  4
         jr  nz,.ch
-        ; next key
+.nextkey:
         ld  a,(tk_i)
         inc a
         ld  (tk_i),a
-        cp  NKEYS
+        ld  b,a
+        ld  a,(room_nkeys)
+        cp  b
         jp  nz,.loop
         ret
 
@@ -813,7 +1129,10 @@ sam_update:
         jr  z,.crumb
 .resp:  call sam_die
 
-        ; ---- crumble erosion: ticks while Sam stands on a unit ----
+        ; ---- crumble erosion: each fresh touch degrades one stage ----
+        ; (not a sustained-standing timer: that made jump-bouncing on a
+        ; unit never break it, since every landing reset the clock -
+        ; a single touch/landing now advances it immediately instead)
 .crumb: ld  a,(sam_fl)
         bit 0,a
         jr  z,.crair
@@ -841,25 +1160,12 @@ sam_update:
         ld  e,a
         ld  a,(cr_prev)
         cp  e
-        jr  z,.crtick
-        ld  a,e             ; stepped onto a different surface
+        jr  z,.crd          ; same cell as last frame - already handled
+        ld  a,e
         ld  (cr_prev),a
-        xor a
-        ld  (cr_timer),a
-        jr  .crd
-.crtick:
-        ld  a,e
         cp  0FFh
-        jr  z,.crd
-        ld  a,(cr_timer)
-        inc a
-        ld  (cr_timer),a
-        cp  CRUMBT
-        jr  c,.crd
-        xor a
-        ld  (cr_timer),a
-        ld  a,e
-        call degrade_cell
+        jr  z,.crd          ; stepped onto solid/non-crumbling ground
+        call degrade_cell   ; fresh touch on a crumbling cell
         jr  .crd
 .crair: ld  a,0FFh
         ld  (cr_prev),a
@@ -915,8 +1221,11 @@ hazard_check:
         srl a
         srl a
         ld  e,a             ; cell z
-        ld  hl,hazards_tab
-        ld  b,NHAZ
+        ld  hl,(room_hazards_ptr)
+        ld  a,(room_nhaz)
+        or  a
+        ret z
+        ld  b,a
 .lp:    ld  a,(hl)
         inc hl
         cp  d
@@ -939,23 +1248,31 @@ hazard_check:
 ; -> level complete (only reachable by jumping in from above)
 ; ------------------------------------------------------------
 exit_check:
+        ld  a,(room_nkeys)
+        ld  b,a
         ld  a,(keys_got)
-        cp  NKEYS
-        ret c
+        cp  b
+        ret c               ; keys_got < room_nkeys -> not enough yet
         ld  hl,(sam_vy)
         ld  a,h
         or  l
         ret nz              ; must be settled (grounded)
         ld  a,(sam_h+1)
-        cp  EXSURF
+        ld  b,a
+        ld  a,(room_exsurf)
+        cp  b
         ret nz
         ld  a,(sam_wx)
         and 0F0h
-        cp  EXIT_BX*16
+        ld  b,a
+        ld  a,(room_exit_bx16)
+        cp  b
         ret nz
         ld  a,(sam_wz)
         and 0F0h
-        cp  EXIT_BZ*16
+        ld  b,a
+        ld  a,(room_exit_bz16)
+        cp  b
         ret nz
         ld  a,1
         ld  (level_done),a
@@ -1199,8 +1516,9 @@ key_erase:
         call map_addr
         ld  (hl),0
         ; find key in table
-        ld  hl,keys_tab
-        ld  e,NKEYS
+        ld  hl,(room_keys_ptr)
+        ld  a,(room_nkeys)
+        ld  e,a
 .find:  ld  a,(hl)
         cp  b
         jr  nz,.next
@@ -1281,7 +1599,12 @@ key_erase:
 ; ------------------------------------------------------------
 ; cell_at: B=bx C=celly D=bz -> A = cell id (group*2+cell) or FFh
 cell_at:
-        ld  hl,crumb_tab
+        ld  a,(room_nunits)
+        or  a
+        jr  nz,.have
+        ld  a,0FFh
+        ret
+.have:  ld  hl,(room_crumb_ptr)
         xor a
         ld  (cb_u),a
 .ul:    ld  a,(hl)
@@ -1329,9 +1652,15 @@ cell_at:
 .k:     ld  a,(cb_u)
         inc a
         ld  (cb_u),a
-        cp  NUNITS
-        jr  c,.ul
-        ld  a,0FFh
+        ld  e,a             ; NOT b: b/c/d are the caller's bx/celly/bz,
+                             ; still needed if the loop continues to the
+                             ; next group's .cl scan
+        ld  a,(room_nunits)
+        sub e
+        jr  z,.kdone
+        jr  c,.kdone
+        jr  .ul
+.kdone: ld  a,0FFh
         ret
 
 ; degrade_cell: A = cell id -> advance that cell and redraw the group
@@ -1362,7 +1691,7 @@ degrade_cell:
         ld  e,a
         ld  d,0
         add hl,de           ; *17
-        ld  de,crumb_tab
+        ld  de,(room_crumb_ptr)
         add hl,de
         ld  (cb_rec),hl
         ; rect
@@ -1426,10 +1755,10 @@ degrade_cell:
         dec a
         jr  nz,.ml
 .m0:    ld  (cb_src),hl
-        ld  a,CRUMBBANK
+        ld  a,(room_crumb_bank)
         ld  (BANK2R),a
         call crumb_blit
-        ld  a,2
+        ld  a,(room_bg_bank)
         ld  (BANK2R),a
         ; gone: clear this cell in the map + disable its mask entry
         ld  a,(cb_st)
@@ -1468,7 +1797,11 @@ degrade_cell:
         ld  hl,slabdis
         add hl,de
         ld  (hl),1
-.done:  pop de
+.done:  ; crumb_blit's redraw rect is computed from the keyless base
+        ; image, so it can incidentally overwrite a still-uncollected
+        ; pickup that happens to overlap it - put any such pickup back
+        call key_draw_all
+        pop de
         pop bc
         ret
 
@@ -1532,8 +1865,9 @@ mask_update:
         ld  bc,31
         ld  (hl),0
         ldir
-        ld  hl,slab_tab
-        ld  b,NSLABS
+        ld  hl,(room_slab_ptr)
+        ld  a,(room_nslabs)
+        ld  b,a
         ld  c,0             ; entry index
 .lp:    push bc
         push hl             ; entry base
@@ -1583,7 +1917,7 @@ mask_update:
         pop bc
         inc c
         djnz .lp
-        ld  a,2
+        ld  a,(room_bg_bank)
         ld  (BANK2R),a      ; restore gfx bank
         ret
 
@@ -1652,18 +1986,26 @@ enemy_update:
         ld  a,(en_x)
         jr  nz,.left
         inc a
-        cp  ENXMAX
+        ld  b,a
+        ld  a,(room_enxmax)
+        ld  c,a
+        ld  a,b
+        cp  c
         jr  c,.st
         ld  a,1
         ld  (en_dir),a
-        ld  a,ENXMAX
+        ld  a,(room_enxmax)
         jr  .st
 .left:  dec a
-        cp  ENXMIN
+        ld  b,a
+        ld  a,(room_enxmin)
+        ld  c,a
+        ld  a,b
+        cp  c
         jr  nc,.st
         xor a
         ld  (en_dir),a
-        ld  a,ENXMIN
+        ld  a,(room_enxmin)
 .st:    ld  (en_x),a
 .anim:  ld  a,(en_anim)
         inc a
@@ -1679,17 +2021,32 @@ enemy_update:
 .dx:    cp  10
         ret nc
         ld  a,(sam_wz)
-        sub ENZ
+        ld  b,a
+        ld  a,(room_enz)
+        ld  c,a
+        ld  a,b
+        sub c
         jr  nc,.dz
         neg
 .dz:    cp  10
         ret nc
-        ; vertical: enemy body 24..40, Sam body h..h+16
+        ; vertical: enemy body ensurf..ensurf+16, Sam body h..h+16
+        ld  a,(room_ensurf)
+        ld  c,a
         ld  a,(sam_h+1)
-        cp  ENSURF+16
-        ret nc              ; Sam wholly above
+        ld  b,a
+        ld  a,c
         add a,16
-        cp  ENSURF+1
+        ld  d,a
+        ld  a,b
+        cp  d
+        ret nc              ; Sam wholly above
+        ld  a,c
+        inc a
+        ld  d,a
+        ld  a,b
+        add a,16
+        cp  d
         ret c               ; Sam wholly below
         ; hit: lose a life
         jp  sam_die
@@ -1809,15 +2166,27 @@ sam_draw:
         ld  a,(en_x)
         ld  l,a
         ld  h,0
-        ld  de,PX0-8-ENZ
+        ld  de,PX0-8
         add hl,de
-        ld  a,l             ; sx = 112 + ex - ENZ
+        ld  a,(room_enz)
+        ld  e,a
+        ld  d,0
+        or  a
+        sbc hl,de
+        ld  a,l             ; sx = 112 + ex - enz
         ld  c,a
         ld  a,(en_x)
-        add a,ENZ
+        ld  hl,room_enz
+        add a,(hl)
         srl a
         add a,PY0
-        sub ENSURF+16
+        push af
+        ld  hl,room_ensurf
+        ld  a,(hl)
+        add a,16
+        ld  e,a             ; e = ensurf+16
+        pop af
+        sub e
         dec a
         ld  b,a             ; sy-1
         ld  hl,VR_SPRA
@@ -1833,7 +2202,7 @@ sam_draw:
         srl a               ; 0 or 4
         call WRTVRM
         inc hl
-        ld  a,3             ; light green
+        ld  a,(room_enemy_color)
         call WRTVRM
         inc hl
         pop bc
@@ -1895,8 +2264,10 @@ sam_draw:
 ; ------------------------------------------------------------
 ; door_fx: blink the exit cube (bright/normal) when all keys held
 door_fx:
+        ld  a,(room_nkeys)
+        ld  b,a
         ld  a,(keys_got)
-        cp  NKEYS
+        cp  b
         ret c
         ld  a,(frame)
         and 16
@@ -1906,20 +2277,40 @@ door_fx:
         ld  (hl),a
         or  a
         jr  z,.norm
-        ld  hl,exit_gfx1
+        ld  hl,(room_exit_gfx1_ptr)
         jr  .go
-.norm:  ld  hl,exit_gfx0
-.go:    ld  de,EXR0*256+EXC0*8
+.norm:  ld  hl,(room_exit_gfx0_ptr)
+.go:    ld  a,(room_exr0)
+        ld  d,a
+        ld  a,(room_exc0)
+        add a,a
+        add a,a
+        add a,a
+        ld  e,a             ; de = EXR0*256 + EXC0*8
         call .rows          ; patterns
-        ld  de,2000h+EXR0*256+EXC0*8
-.rows:  ld  b,EXNROW
+        ld  a,(room_exr0)
+        ld  d,a
+        ld  a,(room_exc0)
+        add a,a
+        add a,a
+        add a,a
+        ld  e,a
+        ld  a,d
+        add a,020h
+        ld  d,a             ; de = 2000h + EXR0*256 + EXC0*8
+.rows:  ld  a,(room_exnrow)
+        ld  b,a
 .rl:    push bc
         push de
         push hl
-        ld  bc,EXROWLEN
+        ld  a,(room_exrowlen)
+        ld  c,a
+        ld  b,0
         call LDIRVM
         pop hl
-        ld  bc,EXROWLEN
+        ld  a,(room_exrowlen)
+        ld  c,a
+        ld  b,0
         add hl,bc
         pop de
         pop bc
@@ -1928,10 +2319,10 @@ door_fx:
         ret
 
 ; ------------------------------------------------------------
-; HUD (tile row 23): "VITE n" + "AIR" + depleting bar
+; HUD (tile row 23): "LIVES n" + "AIR" + depleting bar
 ; ------------------------------------------------------------
 hud_text:                       ; col, font index ('0'-relative)
-        db 0,38, 1,25, 2,36, 3,21        ; V I T E
+        db 0,28, 1,25, 2,38, 3,21, 4,35  ; L I V E S
         db 8,17, 9,25, 10,34             ; A I R
         db 0FFh
 
@@ -3365,11 +3756,38 @@ bass_tab:
         BLOCK 0C000h-$,0FFh
 
 ; ============================================================
-;  BANKS 4-13: pre-computed occlusion mask windows (80KB)
-;  BANKS 14-15: padding (ROM = 128KB)
+;  BANKS 4-83: pre-computed occlusion mask windows (640KB, shared
+;  by every room - pure projection geometry, not room content)
+;  BANK 84: Central Cavern's crumbling-platform variants
 ; ============================================================
         ; (assembler warning about ORG overflow here is expected and
         ;  harmless: this is pure banked data, appended sequentially)
         INCBIN "src/mask.bin"
         INCBIN "src/crumb.bin"
-        BLOCK 1048576-32768-655360-8192,0FFh
+
+; ============================================================
+;  BANKS 85-86: room 2 (The Cold Room) pre-rendered background.
+;  Bank numbers must match ROOM2_BGBANK/ROOM2_BGCOLBANK in
+;  tools/gen_iso.py (baked into room_tab's bg_bank/bgcol_bank
+;  fields, so they can't be equ-referenced from Python).
+; ============================================================
+ROOM2_BGBANK    equ 85
+ROOM2_BGCOLBANK equ 86
+        ORG 08000h
+        INCBIN "src/bg_pattern2.bin"
+        BLOCK 0A000h-$,0FFh
+        ORG 0A000h
+        INCBIN "src/bg_color2.bin"
+        BLOCK 0C000h-$,0FFh
+
+; ============================================================
+;  BANK 87: room 2's own crumbling-platform variants (must match
+;  CRUMBBANK2 in tools/gen_iso.py)
+; ============================================================
+CRUMBBANK2 equ 87
+        INCBIN "src/crumb2.bin"
+        ; pad the ROM back out to a full 1MB (128 x 8KB banks) - openMSX's
+        ; ascii8 mapper expects a power-of-two file size; a short file
+        ; (as left by just rounding up to the next bank) fails to boot
+        ; at all (falls through to plain MSX BASIC).
+        BLOCK 327680,0FFh
