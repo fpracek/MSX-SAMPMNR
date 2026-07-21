@@ -688,10 +688,13 @@ def _bar(w, *ranges):
             row[i] = 'X'
     return ''.join(row)
 
-# polar bear, rearing up on its hind legs with paws raised (attacking
-# stance) - round ears/head and a distinct chunky body/legs read more
-# like an actual bear than the earlier abstract claw-diamond shape.
-# Two frames with the arms/legs shifting slightly for a swaying growl.
+# polar bear, rearing up on its hind legs, swiping - round ears/head
+# and a distinct chunky body/legs read more like an actual bear than
+# the earlier abstract claw-diamond shape. The two frames swing the
+# arms from fully flared out to pulled in tight against the body, so
+# the ~0.3s alternation reads as a clear swipe/roar instead of a subtle
+# wobble (the first attempt only shifted limbs by a pixel or two, which
+# didn't read as animated at all at this size).
 BEAR_A = [
     _bar(16, (3,5), (11,13)),   # ears
     _bar(16, (3,5), (11,13)),   # ears
@@ -699,7 +702,7 @@ BEAR_A = [
     _bar(16, (4,12)),           # head/snout
     _bar(16, (5,11)),           # neck
     _bar(16, (2,6), (10,14)),   # shoulders, arms starting to raise
-    _bar(16, (1,5), (11,15)),   # paws raised out wide
+    _bar(16, (1,5), (11,15)),   # paws swung out wide (swipe extended)
     _bar(16, (2,14)),           # torso (widest)
     _bar(16, (2,14)),           # torso
     _bar(16, (3,13)),           # torso taper
@@ -716,8 +719,8 @@ BEAR_B = [
     _bar(16, (4,12)),
     _bar(16, (4,12)),
     _bar(16, (5,11)),
-    _bar(16, (3,7), (9,13)),    # arms swaying inward
-    _bar(16, (2,6), (10,14)),
+    _bar(16, (4,12)),           # arms pulled all the way in (swipe retracted)
+    _bar(16, (3,13)),
     _bar(16, (2,14)),
     _bar(16, (2,14)),
     _bar(16, (3,13)),

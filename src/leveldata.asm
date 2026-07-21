@@ -294,8 +294,8 @@ enemy_gfx:
 bear_gfx:
         db 018h,018h,00Fh,00Fh,007h,03Ch,078h,03Fh,03Fh,01Fh,00Fh,00Eh,00Eh,01Eh,000h,000h
         db 018h,018h,0F0h,0F0h,0E0h,03Ch,01Eh,0FCh,0FCh,0F8h,0F0h,070h,070h,078h,000h,000h
-        db 018h,018h,00Fh,00Fh,007h,01Eh,03Ch,03Fh,03Fh,01Fh,00Fh,01Ch,01Ch,00Fh,000h,000h
-        db 018h,018h,0F0h,0F0h,0E0h,078h,03Ch,0FCh,0FCh,0F8h,0F0h,038h,038h,0F0h,000h,000h
+        db 018h,018h,00Fh,00Fh,007h,00Fh,01Fh,03Fh,03Fh,01Fh,00Fh,01Ch,01Ch,00Fh,000h,000h
+        db 018h,018h,0F0h,0F0h,0E0h,0F0h,0F8h,0FCh,0FCh,0F8h,0F0h,038h,038h,0F0h,000h,000h
 
 ; room name strings for the intro card: raw ASCII, draw_string-ready
 room1_name:
