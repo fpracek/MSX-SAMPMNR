@@ -142,9 +142,11 @@ def _facepix(u, d, col):
     return col
 
 def draw_slab(bx, bz, y, top_fill, top_edge, face_l, face_r,
-              arrows=False, rocky=False, half=False, fancy=0):
+              arrows=False, rocky=False, half=False, fancy=0, checker=False):
     """slab surface at h=8*(y+1), 8px thick sides (4 when half).
-    fancy=1/2: Manic-Miner-style exit cube (2 = flash phase)"""
+    fancy=1/2: Manic-Miner-style exit cube (2 = flash phase).
+    checker: Processing Plant-style checkerboard top (alternating
+    top_fill/top_edge in 4x4 blocks) instead of a solid fill."""
     h = 8*(y+1)
     depth = 8
     if half:
@@ -161,6 +163,8 @@ def draw_slab(bx, bz, y, top_fill, top_edge, face_l, face_r,
                     c = cb
                 else:
                     c = ca if ((wx0+wx)//4 + (wz0+wz)//4) % 2 == 0 else cb
+            elif checker and not edge:
+                c = top_fill if ((wx//4)+(wz//4)) % 2 == 0 else top_edge
             else:
                 c = top_edge if edge else top_fill
                 if arrows and not edge:
@@ -696,7 +700,7 @@ def render_room(spec):
         exit_bx=EXIT_BX, exit_bz=EXIT_BZ, exit_y=EXIT_Y,
         name=spec['name'], enxmin=spec['enxmin'], enxmax=spec['enxmax'],
         enz=spec['enz'], ensurf=spec['ensurf'], enemy_color=spec['enemy_color'],
-        en_axis=spec.get('en_axis', 0),
+        en_axis=spec.get('en_axis', 0), en_centerx=spec.get('en_centerx', 0),
         hazards=spec['hazards'],
     )
 
@@ -1052,6 +1056,112 @@ room5_slabs_def = [
     (3, 2, 3, T_STONE),   # high platform B - horizontal jump from A (bx=4 gap)
 ]
 
+def _wtop_plant(u):
+    """mostly-flat industrial rooftop with periodic silo/tank bumps -
+    Processing Plant"""
+    return 26 + (14 if (int(u) % 20) < 6 else 4)
+
+# pacman: a classic chomping circle, monochrome (same engine constraint
+# as Eugene - one flat room_enemy_color per sprite, so like his bounce
+# the "personality" has to come from the shape/animation, not a second
+# colour). Frame A has a wedge bitten out (mouth open, chomping toward
+# the right), frame B is a full circle (mouth closed) - same silhouette-
+# level contrast lesson as every other enemy in this project.
+PACMAN_A = [
+    _bar(16, (5,10)),
+    _bar(16, (3,13)),
+    _bar(16, (2,14)),
+    _bar(16, (1,14)),
+    _bar(16, (1,9)),
+    _bar(16, (0,7)),
+    _bar(16, (0,6)),
+    _bar(16, (0,7)),
+    _bar(16, (1,9)),
+    _bar(16, (1,14)),
+    _bar(16, (2,14)),
+    _bar(16, (3,13)),
+    _bar(16, (5,10)),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+]
+PACMAN_B = [
+    _bar(16, (5,10)),
+    _bar(16, (3,13)),
+    _bar(16, (2,14)),
+    _bar(16, (1,14)),
+    _bar(16, (1,15)),
+    _bar(16, (0,15)),
+    _bar(16, (0,15)),
+    _bar(16, (0,15)),
+    _bar(16, (1,15)),
+    _bar(16, (1,14)),
+    _bar(16, (2,14)),
+    _bar(16, (3,13)),
+    _bar(16, (5,10)),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+]
+
+# conveyor (T_CONV) run leading to the catwalk - first reuse of this
+# mechanic since Room1 - plus the checkerboard "processing plant"
+# catwalk (bz=2,y=3) where the twin pacmen patrol, and two simple side
+# platforms (3rd key, exit) clear of the pacmen's lane.
+room6_slabs_def = [
+    (5, 3, 1, T_CONV),    # conveyor belt
+    (6, 3, 1, T_STONE),   # conveyor's solid arrival platform
+    (1, 2, 3, T_STONE),   # catwalk (checkerboard) - pacman zone, lengthened
+                           # on both ends for more room to maneuver
+    (2, 2, 3, T_STONE),
+    (3, 2, 3, T_STONE),
+    (4, 2, 3, T_STONE),
+    (5, 2, 3, T_STONE),   # diagonal-jump entry point from the conveyor
+    (6, 2, 3, T_STONE),   # safe-refuge cell past the jump entry, clear of
+                           # even the pacmen's widest reach
+    (2, 5, 1, T_STONE),   # simple side platform, 3rd key
+    (4, 5, 1, T_STONE),   # simple side platform, exit
+]
+
+ROOM6 = dict(
+    label='6',
+    wallcol=dict(lit=3, rock=12, joint=1),
+    crest_fn=_wtop_plant,
+    floor_base=1, floor_speckle=2,
+    floor_style='grid',
+    slabs_def=room6_slabs_def,
+    style={
+        T_STONE: dict(top_fill=3, top_edge=12, face_l=12, face_r=1, checker=True),
+        T_CONV:  dict(top_fill=4, top_edge=5, face_l=6, face_r=8, arrows=True, rocky=True),
+    },
+    keys=[(6,3,2,14), (3,2,4,14), (2,5,2,14)],   # conveyor arrival, catwalk
+                                                   # center (pacman-guarded),
+                                                   # side platform
+    exit_bx=4, exit_bz=5, exit_y=1,
+    hazards=[],
+    hazard_art=None,
+    crumb_units=[],
+    enemy_frames=[PACMAN_A, PACMAN_B],
+    # Verified by exhaustive simulation (every starting phase x every
+    # move/wait/retreat strategy - see the session notes), not just
+    # playtesting: a range narrow enough to keep BOTH fixed points (key
+    # at x=56, real measured landing spot at x=87) always >10px away
+    # turned out to be PROVABLY uncrossable - the enemy is on Sam's own
+    # walking line, so a narrow excursion just means it's always
+    # loitering right where he needs to cross. A wide excursion (48px,
+    # matching Room4's rat) is what actually opens real gaps: enxmin=16
+    # keeps the key always safe (dx>=16), enxmax=52 keeps the pacman's
+    # own reach within the platform's right end (pos2 max=108, inside
+    # the bx=6 refuge cell) while giving it enough range to swing well
+    # clear of the landing spot for a real crossing window. The
+    # left-hand pacman (pos1=centerx-en_x) never actually reaches back
+    # into the 56-87 corridor at this enxmin, so it can't interfere
+    # with the crossing either.
+    enxmin=16, enxmax=52, enz=40, ensurf=32, en_axis=2, en_centerx=56,
+    enemy_color=10,
+    name="PROCESSING PLANT",
+)
+
 ROOM5 = dict(
     label='5',
     wallcol=dict(lit=11, rock=10, joint=1),
@@ -1080,6 +1190,7 @@ R2 = render_room(ROOM2)
 R3 = render_room(ROOM3)
 R4 = render_room(ROOM4)
 R5 = render_room(ROOM5)
+R6 = render_room(ROOM6)
 
 open(os.path.join(ROOT,'src','bg_pattern.bin'),'wb').write(R1['pattern'])
 open(os.path.join(ROOT,'src','bg_color.bin'),'wb').write(R1['color'])
@@ -1091,6 +1202,8 @@ open(os.path.join(ROOT,'src','bg_pattern4.bin'),'wb').write(R4['pattern'])
 open(os.path.join(ROOT,'src','bg_color4.bin'),'wb').write(R4['color'])
 open(os.path.join(ROOT,'src','bg_pattern5.bin'),'wb').write(R5['pattern'])
 open(os.path.join(ROOT,'src','bg_color5.bin'),'wb').write(R5['color'])
+open(os.path.join(ROOT,'src','bg_pattern6.bin'),'wb').write(R6['pattern'])
+open(os.path.join(ROOT,'src','bg_color6.bin'),'wb').write(R6['color'])
 
 # crumb.bin: room 1's crumbling-cell variants, laid out exactly as before
 crumb_bin = bytearray(R1['crumb_bin'])
@@ -1119,10 +1232,11 @@ ROOM2_BGBANK, ROOM2_BGCOLBANK = 85, 86
 ROOM3_BGBANK, ROOM3_BGCOLBANK = 88, 89
 ROOM4_BGBANK, ROOM4_BGCOLBANK = 91, 92
 ROOM5_BGBANK, ROOM5_BGCOLBANK = 93, 94
+ROOM6_BGBANK, ROOM6_BGCOLBANK = 95, 96
 CRUMBBANK = 84
 CRUMBBANK2 = 87
 CRUMBBANK3 = 90
-# Rooms 4 and 5 have no crumbling platforms (room_nunits=0, cell_at
+# Rooms 4, 5 and 6 have no crumbling platforms (room_nunits=0, cell_at
 # returns "no match" immediately) so their crumb_bank field is never
 # actually read - reuse CRUMBBANK as a harmless placeholder instead of
 # allocating a whole new (empty) bank for either of them.
@@ -1193,6 +1307,8 @@ emit_room(R4, lines)
 emit_crumb_tab(R4, lines)
 emit_room(R5, lines)
 emit_crumb_tab(R5, lines)
+emit_room(R6, lines)
+emit_crumb_tab(R6, lines)
 
 lines.append("; redefined font, 76 chars from '0' (8 bytes each)")
 _f = open(os.path.join(ROOT,'tools','fonts.c')).read()
@@ -1215,6 +1331,9 @@ lines.append(db(R4['enemy_bytes'], 16))
 lines.append("")
 lines.append("eugene_gfx:")
 lines.append(db(R5['enemy_bytes'], 16))
+lines.append("")
+lines.append("pacman_gfx:")
+lines.append(db(R6['enemy_bytes'], 16))
 lines.append("")
 
 _c = open(os.path.join(ROOT,'tools','sam_sprites.c')).read()
@@ -1240,10 +1359,12 @@ lines.append("room4_name:")
 lines.append("        db " + _ds_encode(R4['name']) + ",0")
 lines.append("room5_name:")
 lines.append("        db " + _ds_encode(R5['name']) + ",0")
+lines.append("room6_name:")
+lines.append("        db " + _ds_encode(R6['name']) + ",0")
 lines.append("")
 
-ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx'}
-ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name'}
+ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx'}
+ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name'}
 
 def room_row(R, bgbank, bgcolbank, crumbbank):
     exb16 = R['exit_bx']*16
@@ -1260,20 +1381,22 @@ def room_row(R, bgbank, bgcolbank, crumbbank):
         f"exit_gfx{R['label']}_0", f"exit_gfx{R['label']}_1",
         ENEMY_GFX_LABEL[R['label']], R['enemy_color'],
         R['enxmin'], R['enxmax'], R['enz'], R['ensurf'], R.get('en_axis', 0),
+        R.get('en_centerx', 0),
         ROOM_NAME_LABEL[R['label']],
     ]
 
 lines.append("; room_tab: one row per room, read into room_state RAM struct")
 lines.append("; via a single ldir at room_start. Field order/sizes MUST match")
 lines.append("; the room_state RESB block in src/main.asm exactly.")
-lines.append("ROOMROWLEN equ 40")
+lines.append("ROOMROWLEN equ 41")
 lines.append("room_tab:")
 for R, bgbank, bgcolbank, crumbbank in (
         (R1, ROOM1_BGBANK, ROOM1_BGCOLBANK, CRUMBBANK),
         (R2, ROOM2_BGBANK, ROOM2_BGCOLBANK, CRUMBBANK2),
         (R3, ROOM3_BGBANK, ROOM3_BGCOLBANK, CRUMBBANK3),
         (R4, ROOM4_BGBANK, ROOM4_BGCOLBANK, CRUMBBANK),
-        (R5, ROOM5_BGBANK, ROOM5_BGCOLBANK, CRUMBBANK)):
+        (R5, ROOM5_BGBANK, ROOM5_BGCOLBANK, CRUMBBANK),
+        (R6, ROOM6_BGBANK, ROOM6_BGCOLBANK, CRUMBBANK)):
     f = room_row(R, bgbank, bgcolbank, crumbbank)
     lines.append(f"        db {f[0]},{f[1]}")
     lines.append(f"        dw {f[2]}")
@@ -1293,12 +1416,17 @@ for R, bgbank, bgcolbank, crumbbank in (
     lines.append(f"        dw {f[21]}")
     lines.append(f"        dw {f[22]}")
     lines.append(f"        db {f[23]}")
-    lines.append(f"        db {f[24]},{f[25]},{f[26]},{f[27]},{f[28]}")
-    lines.append(f"        dw {f[29]}")
+    lines.append(f"        db {f[24]},{f[25]},{f[26]},{f[27]},{f[28]},{f[29]}")
+    lines.append(f"        dw {f[30]}")
 lines.append("")
 
-lines.append("gfx_sprites:")
-lines.append(db(sprites, 16))
+# gfx_sprites lives in bank0's own spare space (INCBIN'd directly in
+# main.asm), NOT in leveldata.asm/bank1 - bank1 is only 8KB and is
+# already tight with 6 rooms' worth of small per-room tables (adding
+# Room6 pushed it ~576 bytes over budget, caught as a silent "Negative
+# BLOCK?" assembler warning that corrupted addressing for every bank
+# after it - see the sampr-miner-project memory for the full story).
+open(os.path.join(ROOT,'src','sam_sprites.bin'),'wb').write(bytes(sprites))
 open(os.path.join(ROOT,'src','leveldata.asm'),'w').write("\n".join(lines)+"\n")
 
 # ------------------------------------------------------------------
@@ -1326,9 +1454,11 @@ save_preview(R2, os.path.join(ROOT,'build','preview3.png'), spawn_wx=24, spawn_w
 save_preview(R3, os.path.join(ROOT,'build','preview4.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R4, os.path.join(ROOT,'build','preview5.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R5, os.path.join(ROOT,'build','preview6.png'), spawn_wx=24, spawn_wz=72)
+save_preview(R6, os.path.join(ROOT,'build','preview7.png'), spawn_wx=24, spawn_wz=72)
 
 print(f"OK room1 color-fixes:{R1['fixes']} keys:{R1['key_rects']}")
 print(f"OK room2 color-fixes:{R2['fixes']} keys:{R2['key_rects']}")
 print(f"OK room3 color-fixes:{R3['fixes']} keys:{R3['key_rects']}")
 print(f"OK room4 color-fixes:{R4['fixes']} keys:{R4['key_rects']}")
 print(f"OK room5 color-fixes:{R5['fixes']} keys:{R5['key_rects']}")
+print(f"OK room6 color-fixes:{R6['fixes']} keys:{R6['key_rects']}")

@@ -235,10 +235,19 @@ room_en_axis:    RESB 1  ; 0=horizontal patrol (existing rooms), 1=
                          ; en_x is reinterpreted as height, bouncing
                          ; between enxmin/enxmax, at the FIXED world
                          ; position (room_enz,room_ensurf) instead of
-                         ; the usual (moving-x, fixed room_enz,ensurf)
+                         ; the usual (moving-x, fixed room_enz,ensurf).
+                         ; 2=mirrored pair (Processing Plant pacmen) -
+                         ; en_x is reinterpreted as a HALF-GAP distance
+                         ; from room_en_centerx, bouncing between
+                         ; enxmin (min gap)/enxmax (max gap); the two
+                         ; enemies sit at (centerx-en_x) and
+                         ; (centerx+en_x), both at the fixed
+                         ; (room_enz,room_ensurf) - approaching each
+                         ; other as the gap shrinks, receding as it grows
+room_en_centerx: RESB 1  ; only meaningful when room_en_axis=2
 room_name_ptr:   RESB 2
 room_state_end:
-NROOMS equ 5
+NROOMS equ 6
 ram_end:
 
 ram_map     equ 0C100h  ; 6*8*8 = 384 bytes  (index = z*64+y*8+x)
@@ -1987,8 +1996,10 @@ lvl_off: dw 0,2560,5120,7680,10240,12800,15360,17920
 ; ------------------------------------------------------------
 enemy_update:
         ld  a,(room_en_axis)
-        or  a
-        jp  nz,.vertical
+        cp  1
+        jp  z,.vertical
+        cp  2
+        jp  z,.mirror
 
 ; ---- horizontal patrol (Rooms 1-4): en_x moves, fixed z/height ----
         ; move at 0.5 px/frame
@@ -2139,6 +2150,105 @@ enemy_update:
         ret c               ; Sam wholly below
         jp  sam_die
 
+; ---- mirrored pair (Processing Plant pacmen): en_x is reinterpreted
+; as a HALF-GAP distance from room_en_centerx, bouncing between
+; room_enxmin (min gap)/enxmax (max gap); the two enemies sit at
+; (centerx-en_x) and (centerx+en_x), both at the fixed (room_enz,
+; room_ensurf) - checked against Sam independently, either can kill.
+.mirror:
+        ld  a,(frame)
+        and 1
+        jr  nz,.manim
+        ld  a,(en_dir)
+        or  a
+        ld  a,(en_x)
+        jr  nz,.mshrink
+        inc a
+        ld  b,a
+        ld  a,(room_enxmax)
+        ld  c,a
+        ld  a,b
+        cp  c
+        jr  c,.mst
+        ld  a,1
+        ld  (en_dir),a
+        ld  a,(room_enxmax)
+        jr  .mst
+.mshrink:
+        dec a
+        ld  b,a
+        ld  a,(room_enxmin)
+        ld  c,a
+        ld  a,b
+        cp  c
+        jr  nc,.mst
+        xor a
+        ld  (en_dir),a
+        ld  a,(room_enxmin)
+.mst:   ld  (en_x),a
+.manim: ld  a,(en_anim)
+        inc a
+        ld  (en_anim),a
+
+        ld  a,(room_en_centerx)
+        ld  b,a
+        ld  a,(en_x)
+        ld  c,a
+        ld  a,b
+        sub c
+        call .mcheck            ; pos1 = centerx - en_x
+        ld  a,(room_en_centerx)
+        ld  b,a
+        ld  a,(en_x)
+        add a,b                 ; pos2 = centerx + en_x
+        call .mcheck
+        ret
+
+; .mcheck: A=enemy world x to test against Sam; ret if clear, tail-jp
+; to sam_die on a hit (pops its own call-frame first so the stack is
+; exactly as sam_die expects - see the standing "one live frame" rule).
+; Always reached via `call` (never a tail jp) so that discard is valid
+; every time this runs, not just on a particular caller.
+.mcheck:
+        ld  d,a
+        ld  a,(sam_wx)
+        ld  b,a
+        ld  a,d
+        sub b
+        jr  nc,.mdx
+        neg
+.mdx:   cp  10
+        ret nc
+        ld  a,(sam_wz)
+        ld  b,a
+        ld  a,(room_enz)
+        ld  c,a
+        ld  a,b
+        sub c
+        jr  nc,.mdz
+        neg
+.mdz:   cp  10
+        ret nc
+        ld  a,(room_ensurf)
+        ld  c,a
+        ld  a,(sam_h+1)
+        ld  b,a
+        ld  a,c
+        add a,16
+        ld  e,a
+        ld  a,b
+        cp  e
+        ret nc              ; Sam wholly above
+        ld  a,c
+        inc a
+        ld  e,a
+        ld  a,b
+        add a,16
+        cp  e
+        ret c               ; Sam wholly below
+        pop hl              ; discard this call's own return address
+        jp  sam_die
+
 ; ------------------------------------------------------------
 ; sam_draw: sprites at sx=PX0-8+wx-wz  sy=PY0+(wx+wz)/2-h-16
 ; ------------------------------------------------------------
@@ -2252,8 +2362,10 @@ sam_draw:
         ; sprite 0: the enemy (priority over Sam)
         push bc
         ld  a,(room_en_axis)
-        or  a
-        jp  nz,.enaxis1
+        cp  1
+        jp  z,.enaxis1
+        cp  2
+        jp  z,.enaxis2
 
         ld  a,(en_x)
         ld  l,a
@@ -2329,6 +2441,85 @@ sam_draw:
         ld  a,(room_enemy_color)
         call WRTVRM
         inc hl
+        jp  .enemy_sprites_done
+
+; ---- mirrored pair (Processing Plant pacmen): two enemy sprites,
+; at (centerx-en_x) and (centerx+en_x), both at the fixed (room_enz,
+; room_ensurf) - same per-sprite sx/sy formula as the horizontal
+; branch above, computed twice via .mkpos/.spr4.
+.enaxis2:
+        ld  hl,VR_SPRA
+        ld  a,(room_en_centerx)
+        ld  b,a
+        ld  a,(en_x)
+        ld  c,a
+        ld  a,b
+        sub c
+        push hl             ; .mkpos uses hl as scratch - save/restore
+        call .mkpos         ; the running vram pointer around it, or
+        pop hl              ; .spr4 below writes to garbage instead
+        call .spr4
+        ld  a,(room_en_centerx)
+        ld  b,a
+        ld  a,(en_x)
+        add a,b
+        push hl
+        call .mkpos
+        pop hl
+        call .spr4
+        jp  .enemy_sprites_done
+
+; .mkpos: in A=enemy world x (fixed room_enz/room_ensurf) -> out b=sy-1,c=sx
+.mkpos:
+        push af
+        ld  l,a
+        ld  h,0
+        ld  de,PX0-8
+        add hl,de
+        ld  a,(room_enz)
+        ld  e,a
+        ld  d,0
+        or  a
+        sbc hl,de
+        ld  a,l
+        ld  c,a
+        pop af
+        ld  hl,room_enz
+        add a,(hl)
+        srl a
+        add a,PY0
+        push af
+        ld  hl,room_ensurf
+        ld  a,(hl)
+        add a,16
+        ld  e,a
+        pop af
+        sub e
+        dec a
+        ld  b,a
+        ret
+
+; .spr4: in b=sy-1,c=sx, hl=vram ptr -> writes the 4 sprite-attribute
+; bytes at (hl) and advances hl past them
+.spr4:
+        ld  a,b
+        call WRTVRM
+        inc hl
+        ld  a,c
+        call WRTVRM
+        inc hl
+        ld  a,(en_anim)
+        and 16
+        srl a
+        srl a
+        call WRTVRM
+        inc hl
+        ld  a,(room_enemy_color)
+        call WRTVRM
+        inc hl
+        ret
+
+.enemy_sprites_done:
         pop bc
         push hl
         pop hl
@@ -3888,12 +4079,24 @@ bass_tab:
         db 64
         dw 0FFFFh
 
-        BLOCK 06000h-$,0FFh
+        ; gfx_sprites (Sam's 12-pose sprite table, 1536 bytes) lives
+        ; right after the code - not padded to exactly 06000h first,
+        ; and leveldata.asm's own ORG below was removed too, so this
+        ; table is free to spill across the bank0/bank1 boundary into
+        ; bank1's space if bank0 doesn't have enough room left (it
+        ; doesn't, once Room6's tables filled bank1 to where this used
+        ; to live). Safe because both banks are FIXED (their switch
+        ; registers are set once at boot and never touched again), so
+        ; together they're one permanently-mapped, contiguous 16KB
+        ; window - nothing like the switchable per-room background
+        ; banks, where straddling a boundary would be a real bug.
+gfx_sprites:
+        INCBIN "src/sam_sprites.bin"
 
 ; ============================================================
-;  BANK 1: level data + sprites (fixed at 6000)
+;  BANK 1: level data (fixed at 6000, but see gfx_sprites above -
+;  it may push this a little past 06000h if bank0 ran out of room)
 ; ============================================================
-        ORG 06000h
         INCLUDE "src/leveldata.asm"
         BLOCK 08000h-$,0FFh
 
@@ -3994,9 +4197,25 @@ ROOM5_BGCOLBANK equ 94
         INCBIN "src/bg_color5.bin"
         BLOCK 0C000h-$,0FFh
 
+; ============================================================
+;  BANKS 95-96: room 6 (Processing Plant) pre-rendered background.
+;  Bank numbers must match ROOM6_BGBANK/ROOM6_BGCOLBANK in
+;  tools/gen_iso.py. Room 6 has no crumbling platforms, so there
+;  is no dedicated crumb bank for it (room_tab reuses CRUMBBANK).
+; ============================================================
+ROOM6_BGBANK    equ 95
+ROOM6_BGCOLBANK equ 96
+        ORG 08000h
+        INCBIN "src/bg_pattern6.bin"
+        BLOCK 0A000h-$,0FFh
+        ORG 0A000h
+        INCBIN "src/bg_color6.bin"
+        BLOCK 0C000h-$,0FFh
+
         ; pad the ROM back out to a full 1MB (128 x 8KB banks) - openMSX's
         ; ascii8 mapper expects a power-of-two file size; a short file
         ; (as left by just rounding up to the next bank) fails to boot
-        ; at all (falls through to plain MSX BASIC). Recomputed exactly
-        ; in Python after adding room 5's banks, not guessed by hand.
-        BLOCK 270336,0FFh
+        ; at all (falls through to plain MSX BASIC). Measured then
+        ; computed exactly (1048576 - actual size before this BLOCK),
+        ; not guessed by hand.
+        BLOCK 253952,0FFh
