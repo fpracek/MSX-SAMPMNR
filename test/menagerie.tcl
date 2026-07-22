@@ -145,7 +145,7 @@ after time 16.4 { screenshot -raw ./build/r3m2_05_exit.png }
 after time 19   {
     set wond [debug read memory 0xC06A]
     set room [debug read memory 0xC06C]
-    puts $::out "exit-settled: won_t=$wond room=$room (Room3 is last room - room should stay 2, won_t should be blinking >0)"
+    puts $::out "exit-settled: won_t=$wond room=$room (Room4 now exists, so finishing Room3 correctly ADVANCES to room=3 instead of blinking forever - won_t resets to 0 as part of the room_enter transition)"
     screenshot -raw ./build/r3m2_06_exit_settled.png
 }
 

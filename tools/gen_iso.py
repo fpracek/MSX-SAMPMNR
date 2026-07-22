@@ -58,6 +58,11 @@ def _wtop_menagerie(u):
     rooms' organic/jagged crests"""
     return 38 + (12 if (int(u) % 12) < 6 else 4)
 
+def _wtop_uranium(u):
+    """sparse tall antenna/pylon spikes over a low, mostly-flat base -
+    futuristic silhouette (Abandoned Uranium Workings)"""
+    return 30 + (22 if (int(u) % 16) < 3 else 2)
+
 def _stone(u, v):
     """True on the dark joints between stacked irregular blocks"""
     band = (v + int(3*_m.sin(u/9.0))) // 11
@@ -104,6 +109,18 @@ def draw_floor(base, speckle):
                     n = (u*u*29 + v*v*23 + u*v*13) & 255
                     if n < 64:
                         put(sx, sy, speckle)
+
+def draw_floor_grid(base, line):
+    """black tiles (one per map cell) divided by thin colored lines -
+    a sci-fi floor grating look, used instead of the organic speckle."""
+    for bz in range(MAPD):
+        for bx in range(MAPW):
+            wx0, wz0 = bx*16, bz*16
+            for dz in range(16):
+                for dx in range(16):
+                    u, v = wx0+dx, wz0+dz
+                    sx, sy = proj(u, v, 8)
+                    put(sx, sy, line if (dx < 1 or dz < 1) else base)
 
 # ------------------------------------------------------------------
 # 3. Iso cube/slab: diamond top + two visible faces (SE + SW)
@@ -281,6 +298,22 @@ def _puddle_art():
 
 PUDDLE_ART = _puddle_art()
 
+# glowing green uranium bar/fuel rod (Abandoned Uranium Workings) -
+# same "simple bold blob, not fine linework" lesson as the puddle: a
+# rounded rectangle, bright-green fill with a scattered lighter/white
+# speckle for a faint radioactive glow.
+def _uranium_bar_art():
+    w, h = 16, 6
+    inset = [2, 1, 0, 0, 1, 2]   # per-row side inset -> rounded ends
+    grid = [['.']*w for _ in range(h)]
+    for y in range(h):
+        for x in range(inset[y], w-inset[y]):
+            n = (x*x*29 + y*y*23 + x*y*13) & 255
+            grid[y][x] = 'F' if n < 45 else '2'
+    return [''.join(row) for row in grid]
+
+URANIUM_BAR_ART = _uranium_bar_art()
+
 def draw_hazard(bx, bz, surf, art):
     """spiky plant/icicle standing on a surface at height surf.
     art chars: digit = literal palette index, 'F' = 15 (white),
@@ -395,6 +428,12 @@ def db(bs, per=13):
 T_EMPTY, T_STONE, T_CONV, T_CRUMB, T_KEY, T_DOORT, T_DOORB = range(7)
 T_EXIT = 7
 
+def _draw_room_floor(spec):
+    if spec.get('floor_style') == 'grid':
+        draw_floor_grid(spec['floor_base'], spec['floor_speckle'])
+    else:
+        draw_floor(spec['floor_base'], spec['floor_speckle'])
+
 def pack_sprite_frames(frames):
     """N x 16x16 ascii ('X'=set) -> N*32 bytes (16x16 MSX sprite pattern:
     left-half 16 rows then right-half 16 rows, per frame)."""
@@ -454,7 +493,7 @@ def render_room(spec):
         global img
         img = nonlocal_img
         draw_walls(spec['wallcol'], spec['crest_fn'])
-        draw_floor(spec['floor_base'], spec['floor_speckle'])
+        _draw_room_floor(spec)
         for bx,bz,y,t in slabs:
             if cellstates.get((bx, bz, y), 0) < 2:
                 draw_shadow(bx, bz)
@@ -470,7 +509,7 @@ def render_room(spec):
 
     img = [[1]*W for _ in range(H)]
     draw_walls(spec['wallcol'], spec['crest_fn'])
-    draw_floor(spec['floor_base'], spec['floor_speckle'])
+    _draw_room_floor(spec)
     for bx,bz,y,t in slabs:
         draw_shadow(bx, bz)
     slab_surf = [[0]*W for _ in range(H)]
@@ -832,6 +871,47 @@ CHICKEN_B = [
     _bar(16),
 ]
 
+# mutant rat, patrolling the twin platforms in the Uranium Workings -
+# pointed ears/snout and a trailing tail read as "rodent" even at this
+# size; legs and tail swing dramatically between frames (same lesson
+# as the bear/chicken: a 1px wobble doesn't read as animated).
+RAT_A = [
+    _bar(16, (4,6), (10,12)),      # ears
+    _bar(16, (4,6), (10,12)),      # ears
+    _bar(16, (5,11)),              # head
+    _bar(16, (5,11), (12,14)),     # head + snout poking out
+    _bar(16, (4,10), (11,15)),     # snout tip
+    _bar(16, (5,11)),              # neck
+    _bar(16, (3,13)),              # body top
+    _bar(16, (2,14)),              # body
+    _bar(16, (2,14)),              # body (widest)
+    _bar(16, (3,13)),              # body taper
+    _bar(16, (3,6), (10,13)),      # legs together (mid-stride)
+    _bar(16, (2,5), (11,14)),      # feet
+    _bar(16, (0,2), (4,7), (9,12)),# tail base + legs
+    _bar(16, (0,3)),               # tail
+    _bar(16, (1,4)),               # tail curl
+    _bar(16),
+]
+RAT_B = [
+    _bar(16, (4,6), (10,12)),
+    _bar(16, (4,6), (10,12)),
+    _bar(16, (5,11)),
+    _bar(16, (5,11), (12,14)),
+    _bar(16, (4,10), (11,15)),
+    _bar(16, (5,11)),
+    _bar(16, (3,13)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (3,13)),
+    _bar(16, (2,5), (11,14)),      # legs splayed wide (running stride)
+    _bar(16, (1,4), (12,15)),      # feet further out
+    _bar(16, (0,3), (4,6), (10,12)),# tail shifted the other way + legs
+    _bar(16, (1,4)),               # tail
+    _bar(16, (0,3)),               # tail curl (opposite side)
+    _bar(16),
+]
+
 room3_slabs_def = [
     (3, 2, 3, T_CRUMB),   # crumbling platform series (3 in a row)
     (4, 2, 3, T_CRUMB),   # - the chicken patrols this whole row
@@ -860,9 +940,40 @@ ROOM3 = dict(
     name="THE MENAGERIE",
 )
 
+# twin fixed platforms (bx=3 and bx=5, leaving bx=4 as an open gap to
+# jump across) plus the usual 3rd-key fixed platform. No crumbling in
+# this room - the challenge is the gap + the patrolling rat, not decay.
+room4_slabs_def = [
+    (3, 2, 3, T_STONE),   # twin platform A
+    (5, 2, 3, T_STONE),   # twin platform B - bx=4 between them is a gap
+    (6, 1, 1, T_STONE),   # fixed platform for the 3rd key
+]
+
+ROOM4 = dict(
+    label='4',
+    wallcol=dict(lit=13, rock=4, joint=1),
+    crest_fn=_wtop_uranium,
+    floor_base=1, floor_speckle=8,
+    floor_style='grid',
+    slabs_def=room4_slabs_def,
+    style={
+        T_STONE: dict(top_fill=13, top_edge=15, face_l=4, face_r=5, rocky=True),
+    },
+    keys=[(3,2,4,14), (5,2,4,14), (6,1,2,14)],   # 2 on the twin platforms
+    exit_bx=6, exit_bz=4, exit_y=1,
+    hazards=[(1, 2, 8), (3, 4, 8)],   # uranium bars, verified clear of every
+                                       # slab/exit/spawn screen position first
+    hazard_art=URANIUM_BAR_ART,
+    crumb_units=[],
+    enemy_frames=[RAT_A, RAT_B],
+    enxmin=48, enxmax=96, enz=40, ensurf=32, enemy_color=13,
+    name="ABANDONED URANIUM WORKINGS",
+)
+
 R1 = render_room(ROOM1)
 R2 = render_room(ROOM2)
 R3 = render_room(ROOM3)
+R4 = render_room(ROOM4)
 
 open(os.path.join(ROOT,'src','bg_pattern.bin'),'wb').write(R1['pattern'])
 open(os.path.join(ROOT,'src','bg_color.bin'),'wb').write(R1['color'])
@@ -870,6 +981,8 @@ open(os.path.join(ROOT,'src','bg_pattern2.bin'),'wb').write(R2['pattern'])
 open(os.path.join(ROOT,'src','bg_color2.bin'),'wb').write(R2['color'])
 open(os.path.join(ROOT,'src','bg_pattern3.bin'),'wb').write(R3['pattern'])
 open(os.path.join(ROOT,'src','bg_color3.bin'),'wb').write(R3['color'])
+open(os.path.join(ROOT,'src','bg_pattern4.bin'),'wb').write(R4['pattern'])
+open(os.path.join(ROOT,'src','bg_color4.bin'),'wb').write(R4['color'])
 
 # crumb.bin: room 1's crumbling-cell variants, laid out exactly as before
 crumb_bin = bytearray(R1['crumb_bin'])
@@ -896,9 +1009,14 @@ open(os.path.join(ROOT,'src','crumb3.bin'),'wb').write(crumb_bin3)
 ROOM1_BGBANK, ROOM1_BGCOLBANK = 2, 3
 ROOM2_BGBANK, ROOM2_BGCOLBANK = 85, 86
 ROOM3_BGBANK, ROOM3_BGCOLBANK = 88, 89
+ROOM4_BGBANK, ROOM4_BGCOLBANK = 91, 92
 CRUMBBANK = 84
 CRUMBBANK2 = 87
 CRUMBBANK3 = 90
+# Room 4 has no crumbling platforms (room_nunits=0, cell_at returns "no
+# match" immediately) so its crumb_bank field is never actually read -
+# reuse CRUMBBANK as a harmless placeholder instead of allocating a
+# whole new (empty) bank for it.
 
 def emit_room(R, lines):
     lab = R['label']
@@ -962,6 +1080,8 @@ emit_room(R2, lines)
 emit_crumb_tab(R2, lines)
 emit_room(R3, lines)
 emit_crumb_tab(R3, lines)
+emit_room(R4, lines)
+emit_crumb_tab(R4, lines)
 
 lines.append("; redefined font, 76 chars from '0' (8 bytes each)")
 _f = open(os.path.join(ROOT,'tools','fonts.c')).read()
@@ -979,6 +1099,9 @@ lines.append("")
 lines.append("chicken_gfx:")
 lines.append(db(R3['enemy_bytes'], 16))
 lines.append("")
+lines.append("rat_gfx:")
+lines.append(db(R4['enemy_bytes'], 16))
+lines.append("")
 
 _c = open(os.path.join(ROOT,'tools','sam_sprites.c')).read()
 sprites = [int(t,16) for t in re.findall(r'0x([0-9A-Fa-f]{2})', _c)]
@@ -991,10 +1114,12 @@ lines.append("room2_name:")
 lines.append("        db " + ",".join(str(ord(c)) for c in R2['name']) + ",0")
 lines.append("room3_name:")
 lines.append("        db " + ",".join(str(ord(c)) for c in R3['name']) + ",0")
+lines.append("room4_name:")
+lines.append("        db " + ",".join(str(ord(c)) for c in R4['name']) + ",0")
 lines.append("")
 
-ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx'}
-ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name'}
+ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx'}
+ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name'}
 
 def room_row(R, bgbank, bgcolbank, crumbbank):
     exb16 = R['exit_bx']*16
@@ -1022,7 +1147,8 @@ lines.append("room_tab:")
 for R, bgbank, bgcolbank, crumbbank in (
         (R1, ROOM1_BGBANK, ROOM1_BGCOLBANK, CRUMBBANK),
         (R2, ROOM2_BGBANK, ROOM2_BGCOLBANK, CRUMBBANK2),
-        (R3, ROOM3_BGBANK, ROOM3_BGCOLBANK, CRUMBBANK3)):
+        (R3, ROOM3_BGBANK, ROOM3_BGCOLBANK, CRUMBBANK3),
+        (R4, ROOM4_BGBANK, ROOM4_BGCOLBANK, CRUMBBANK)):
     f = room_row(R, bgbank, bgcolbank, crumbbank)
     lines.append(f"        db {f[0]},{f[1]}")
     lines.append(f"        dw {f[2]}")
@@ -1073,7 +1199,9 @@ def save_preview(R, path, spawn_wx=24, spawn_wz=72, spawn_h=8):
 save_preview(R1, os.path.join(ROOT,'build','preview2.png'))
 save_preview(R2, os.path.join(ROOT,'build','preview3.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R3, os.path.join(ROOT,'build','preview4.png'), spawn_wx=24, spawn_wz=72)
+save_preview(R4, os.path.join(ROOT,'build','preview5.png'), spawn_wx=24, spawn_wz=72)
 
 print(f"OK room1 color-fixes:{R1['fixes']} keys:{R1['key_rects']}")
 print(f"OK room2 color-fixes:{R2['fixes']} keys:{R2['key_rects']}")
 print(f"OK room3 color-fixes:{R3['fixes']} keys:{R3['key_rects']}")
+print(f"OK room4 color-fixes:{R4['fixes']} keys:{R4['key_rects']}")

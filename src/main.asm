@@ -232,7 +232,7 @@ room_enz:        RESB 1
 room_ensurf:     RESB 1
 room_name_ptr:   RESB 2
 room_state_end:
-NROOMS equ 3
+NROOMS equ 4
 ram_end:
 
 ram_map     equ 0C100h  ; 6*8*8 = 384 bytes  (index = z*64+y*8+x)
@@ -3811,8 +3811,25 @@ ROOM3_BGCOLBANK equ 89
 ; ============================================================
 CRUMBBANK3 equ 90
         INCBIN "src/crumb3.bin"
+
+; ============================================================
+;  BANKS 91-92: room 4 (Abandoned Uranium Workings) pre-rendered
+;  background. Bank numbers must match ROOM4_BGBANK/ROOM4_BGCOLBANK
+;  in tools/gen_iso.py. Room 4 has no crumbling platforms, so there
+;  is no dedicated crumb bank for it (room_tab reuses CRUMBBANK).
+; ============================================================
+ROOM4_BGBANK    equ 91
+ROOM4_BGCOLBANK equ 92
+        ORG 08000h
+        INCBIN "src/bg_pattern4.bin"
+        BLOCK 0A000h-$,0FFh
+        ORG 0A000h
+        INCBIN "src/bg_color4.bin"
+        BLOCK 0C000h-$,0FFh
+
         ; pad the ROM back out to a full 1MB (128 x 8KB banks) - openMSX's
         ; ascii8 mapper expects a power-of-two file size; a short file
         ; (as left by just rounding up to the next bank) fails to boot
-        ; at all (falls through to plain MSX BASIC).
-        BLOCK 303104,0FFh
+        ; at all (falls through to plain MSX BASIC). Recomputed exactly
+        ; in Python after adding room 4's banks, not guessed by hand.
+        BLOCK 286720,0FFh
