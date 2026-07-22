@@ -482,6 +482,114 @@ hazards_tab4:
 ;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
 crumb_tab4:
 
+level5_map:
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,001h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,001h,000h,001h,000h,000h
+        db 000h,000h,000h,004h,000h,004h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,001h,000h
+        db 000h,000h,000h,000h,000h,000h,004h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+
+keys_tab5:
+        db 6,3,2,20,14
+        db 5,2,4,20,10
+        db 3,2,4,16,8
+
+slab_tab5:
+        db 137,105,144,16,2
+        db 137,73,112,32,2
+        db 105,57,80,32,2
+        db 89,73,64,8,7
+
+cover_tab5:
+        db 000h,000h,020h,000h,020h,000h,000h,000h
+        db 000h,020h,020h,020h,020h,020h,000h,000h
+        db 000h,000h,020h,020h,020h,020h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+
+keys_gfx5:
+        db 000h,000h,001h,007h,01Fh,01Fh,01Fh,01Fh,000h,000h,0E0h,0F8h,0FEh,080h,080h,080h
+        db 00Fh,007h,010h,060h,080h,000h,000h,000h,0FCh,0F8h,000h,003h,000h,000h,000h,000h
+        db 0F1h,0F1h,081h,081h,081h,061h,061h,061h,0F1h,0F1h,081h,081h,081h,069h,069h,069h
+        db 061h,061h,031h,032h,032h,0F2h,0F2h,0F2h,091h,091h,0F1h,032h,0F2h,0F2h,0F2h,0F2h
+        db 000h,000h,001h,007h,01Fh,01Fh,01Fh,01Fh,03Fh,00Fh,0E3h,0F8h,0FEh,080h,080h,080h
+        db 00Fh,007h,010h,060h,080h,000h,000h,000h,0FCh,0F8h,000h,003h,000h,000h,000h,000h
+        db 0F1h,0F1h,081h,081h,081h,061h,061h,061h,0A1h,0A1h,081h,081h,081h,069h,069h,069h
+        db 061h,061h,031h,032h,032h,0F2h,0F2h,0F2h,091h,091h,0F1h,032h,0F2h,0F2h,0F2h,0F2h
+        db 000h,000h,001h,007h,01Fh,01Fh,01Fh,01Fh,03Fh,00Fh,0E3h,0F8h,0FEh,080h,080h,080h
+        db 00Fh,007h,010h,060h,080h,000h,000h,000h,0FCh,0F8h,000h,003h,000h,000h,000h,000h
+        db 0F1h,0F1h,081h,081h,081h,061h,061h,061h,0A1h,0A1h,081h,081h,081h,069h,069h,069h
+        db 061h,061h,031h,032h,032h,0F2h,0F2h,0F2h,091h,091h,0F1h,032h,0F2h,0F2h,0F2h,0F2h
+
+exit_gfx5_0:
+        db 000h,000h,000h,000h,001h,006h,01Ch,07Fh,001h,006h,01Ch,07Fh,041h,008h,01Ch,080h
+        db 03Eh,0C0h,0F3h,0FCh,0C1h,008h,01Ch,080h,03Dh,0CDh,0FEh,000h,03Fh,00Eh,0F1h,0FCh
+        db 001h,038h,013h,084h,01Eh,078h,01Eh,078h,0C1h,008h,01Ch,080h,001h,038h,013h,084h
+        db 0C1h,008h,01Ch,080h,0C0h,00Eh,018h,090h,0C0h,00Eh,018h,090h,043h,00Fh,03Ch,00Fh
+        db 0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,07Fh,0F7h,0F7h,07Fh
+        db 041h,071h,071h,0F1h,07Fh,0F7h,0F7h,07Fh,041h,041h,041h,0F4h,041h,041h,071h,0F1h
+        db 07Fh,0F7h,074h,047h,047h,047h,074h,074h,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,074h,047h
+        db 07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,0F7h,074h,07Fh,0F7h,0F7h,074h,047h,074h,047h,047h
+exit_gfx5_1:
+        db 000h,000h,000h,000h,001h,006h,01Ch,07Fh,001h,006h,01Ch,07Fh,041h,008h,01Ch,080h
+        db 03Eh,0C0h,0F3h,0FCh,0C1h,008h,01Ch,080h,03Dh,0CDh,0FEh,000h,03Fh,00Eh,0F1h,0FCh
+        db 001h,007h,01Ch,084h,01Eh,078h,01Eh,078h,0C1h,008h,01Ch,080h,001h,007h,01Ch,084h
+        db 0C1h,008h,01Ch,080h,0C0h,00Fh,0E0h,070h,0C0h,00Fh,0E0h,070h,043h,00Fh,03Ch,00Fh
+        db 0F1h,0F1h,0F1h,0F1h,071h,071h,071h,071h,071h,071h,071h,071h,0F7h,07Fh,07Fh,0F7h
+        db 041h,0F1h,0F1h,071h,0F7h,07Fh,07Fh,0F7h,041h,041h,041h,0F4h,041h,041h,0F1h,071h
+        db 0F7h,0F7h,074h,047h,047h,047h,074h,074h,0F7h,07Fh,07Fh,0F7h,0F7h,0F7h,074h,047h
+        db 0F7h,07Fh,07Fh,0F7h,0F7h,07Fh,0F7h,074h,0F7h,07Fh,0F7h,074h,047h,074h,047h,047h
+
+hazards_tab5:
+
+; crumb_tab5 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
+;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
+crumb_tab5:
+
 ; redefined font, 76 chars from '0' (8 bytes each)
 fonts_tab:
         db 00Eh,019h,031h,031h,031h,033h,03Fh,01Eh,006h,00Eh,03Ch,00Ch,008h,018h,038h,038h
@@ -547,7 +655,13 @@ rat_gfx:
         db 00Ch,00Ch,007h,007h,00Fh,007h,01Fh,03Fh,03Fh,01Fh,038h,070h,0ECh,070h,0E0h,000h
         db 030h,030h,0E0h,0ECh,0DEh,0E0h,0F8h,0FCh,0FCh,0F8h,01Ch,00Eh,030h,000h,000h,000h
 
-; room name strings for the intro card: raw ASCII, draw_string-ready
+eugene_gfx:
+        db 003h,00Fh,01Fh,03Fh,03Fh,07Fh,07Fh,07Fh,07Fh,03Fh,03Fh,01Fh,00Fh,003h,000h,000h
+        db 0C0h,0F0h,0F8h,0FCh,0FCh,0FEh,0FEh,0FEh,0FEh,0FCh,0FCh,0F8h,0F0h,0C0h,000h,000h
+        db 000h,000h,000h,00Fh,03Fh,0FFh,0FFh,0FFh,0FFh,07Fh,01Fh,007h,000h,000h,000h,000h
+        db 000h,000h,000h,0F0h,0FCh,0FFh,0FFh,0FFh,0FFh,0FEh,0F8h,0E0h,000h,000h,000h,000h
+
+; room name strings for the intro card, draw_string-ready
 room1_name:
         db 67,69,78,84,82,65,76,32,67,65,86,69,82,78,0
 room2_name:
@@ -556,11 +670,13 @@ room3_name:
         db 84,72,69,32,77,69,78,65,71,69,82,73,69,0
 room4_name:
         db 65,66,65,78,68,79,78,69,68,32,85,82,65,78,73,85,77,32,87,79,82,75,73,78,71,83,0
+room5_name:
+        db 69,85,71,69,78,69,2,83,32,76,65,73,82,0
 
 ; room_tab: one row per room, read into room_state RAM struct
 ; via a single ldir at room_start. Field order/sizes MUST match
 ; the room_state RESB block in src/main.asm exactly.
-ROOMROWLEN equ 39
+ROOMROWLEN equ 40
 room_tab:
         db 2,3
         dw level1_map
@@ -580,7 +696,7 @@ room_tab:
         dw exit_gfx_1
         dw enemy_gfx
         db 3
-        db 52,91,40,24
+        db 52,91,40,24,0
         dw room1_name
         db 85,86
         dw level2_map
@@ -600,7 +716,7 @@ room_tab:
         dw exit_gfx2_1
         dw bear_gfx
         db 14
-        db 92,124,56,16
+        db 92,124,56,16,0
         dw room2_name
         db 88,89
         dw level3_map
@@ -620,7 +736,7 @@ room_tab:
         dw exit_gfx3_1
         dw chicken_gfx
         db 15
-        db 48,96,40,32
+        db 48,96,40,32,0
         dw room3_name
         db 91,92
         dw level4_map
@@ -640,8 +756,28 @@ room_tab:
         dw exit_gfx4_1
         dw rat_gfx
         db 13
-        db 48,96,40,32
+        db 48,96,40,32,0
         dw room4_name
+        db 93,94
+        dw level5_map
+        dw keys_tab5
+        db 3
+        dw keys_gfx5
+        dw slab_tab5
+        db 4
+        db 0
+        dw crumb_tab5
+        db 84
+        dw hazards_tab5
+        db 0
+        db 32,32,8
+        db 13,11,2,32
+        dw exit_gfx5_0
+        dw exit_gfx5_1
+        dw eugene_gfx
+        db 15
+        db 8,44,40,40,1
+        dw room5_name
 
 gfx_sprites:
         db 000h,000h,000h,000h,000h,000h,000h,000h,000h,000h,010h,000h,000h,000h,000h,006h

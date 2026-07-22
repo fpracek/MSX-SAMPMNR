@@ -94,11 +94,15 @@ def draw_walls(colors, crest_fn):
 # ------------------------------------------------------------------
 # 2. Floor: sparse speckle over an optional base fill
 # ------------------------------------------------------------------
-def draw_floor(base, speckle):
+def draw_floor(base, speckle, gaps=frozenset()):
     """base=None: leave black (cave dirt on bare black, original look).
-    base=color: prefill the whole floor with it first (icy floor look)."""
+    base=color: prefill the whole floor with it first (icy floor look).
+    gaps: set of (bx,bz) map cells to leave undrawn (real pits - the
+    physics grid has no floor tile there either, see render_room)."""
     for bz in range(MAPD):
         for bx in range(MAPW):
+            if (bx, bz) in gaps:
+                continue
             wx0, wz0 = bx*16, bz*16
             for dz in range(16):
                 for dx in range(16):
@@ -110,11 +114,13 @@ def draw_floor(base, speckle):
                     if n < 64:
                         put(sx, sy, speckle)
 
-def draw_floor_grid(base, line):
+def draw_floor_grid(base, line, gaps=frozenset()):
     """black tiles (one per map cell) divided by thin colored lines -
     a sci-fi floor grating look, used instead of the organic speckle."""
     for bz in range(MAPD):
         for bx in range(MAPW):
+            if (bx, bz) in gaps:
+                continue
             wx0, wz0 = bx*16, bz*16
             for dz in range(16):
                 for dx in range(16):
@@ -225,6 +231,22 @@ CONE_ART = [
     _art_row(16, (7,9,'R')),
 ]
 CONE_COLORS = {'V': 2, 'R': 15}   # ice block, stick
+
+# tiny red cube: a diamond top face over two trapezoid side faces, same
+# 3-tone lit-from-above shading as the room's real iso slabs (just at
+# pickup scale) - used in place of the gold key for Room5's "cubetti"
+CUBE_ART = [
+    _art_row(16, (6,10,'T')),
+    _art_row(16, (4,12,'T')),
+    _art_row(16, (2,14,'T')),
+    _art_row(16, (2,8,'L'), (8,14,'S')),
+    _art_row(16, (2,8,'L'), (8,14,'S')),
+    _art_row(16, (2,8,'L'), (8,14,'S')),
+    _art_row(16, (3,8,'L'), (8,13,'S')),
+    _art_row(16, (4,8,'L'), (8,12,'S')),
+    _art_row(16),
+]
+CUBE_COLORS = {'T': 8, 'L': 6, 'S': 9}   # top highlight, left face, right face
 
 def draw_key(bx, bz, y, art=KEY_ART, color_of=lambda ch: 15, h_off=26):
     """floating pickup above surface h=8*(y) (y = feet block) - high
@@ -429,10 +451,11 @@ T_EMPTY, T_STONE, T_CONV, T_CRUMB, T_KEY, T_DOORT, T_DOORB = range(7)
 T_EXIT = 7
 
 def _draw_room_floor(spec):
+    gaps = spec.get('floor_gaps', frozenset())
     if spec.get('floor_style') == 'grid':
-        draw_floor_grid(spec['floor_base'], spec['floor_speckle'])
+        draw_floor_grid(spec['floor_base'], spec['floor_speckle'], gaps)
     else:
-        draw_floor(spec['floor_base'], spec['floor_speckle'])
+        draw_floor(spec['floor_base'], spec['floor_speckle'], gaps)
 
 def pack_sprite_frames(frames):
     """N x 16x16 ascii ('X'=set) -> N*32 bytes (16x16 MSX sprite pattern:
@@ -461,10 +484,12 @@ def render_room(spec):
     label = spec['label']
     EXIT_BX, EXIT_BZ, EXIT_Y = spec['exit_bx'], spec['exit_bz'], spec['exit_y']
 
+    gaps = spec.get('floor_gaps', frozenset())
     grid = [[[0]*MAPW for _ in range(MAPH)] for _ in range(MAPD)]
     for z in range(MAPD):
         for x in range(MAPW):
-            grid[z][0][x] = T_STONE
+            if (x, z) not in gaps:
+                grid[z][0][x] = T_STONE
 
     slabs = []
     for (bx, bz, y, t) in spec['slabs_def']:
@@ -671,6 +696,7 @@ def render_room(spec):
         exit_bx=EXIT_BX, exit_bz=EXIT_BZ, exit_y=EXIT_Y,
         name=spec['name'], enxmin=spec['enxmin'], enxmax=spec['enxmax'],
         enz=spec['enz'], ensurf=spec['ensurf'], enemy_color=spec['enemy_color'],
+        en_axis=spec.get('en_axis', 0),
         hazards=spec['hazards'],
     )
 
@@ -970,10 +996,90 @@ ROOM4 = dict(
     name="ABANDONED URANIUM WORKINGS",
 )
 
+# Eugene: a bouncing white ball/skull - monochrome silhouette (the sprite
+# engine draws every enemy in one flat room_enemy_color, so his classic
+# sunglasses can't be a separate colour; the bounce itself carries the
+# character instead). Frame A is round and tall (mid-air), frame B is a
+# squashed wide oval sitting lower in the frame (impact/apex of the
+# bounce) - a strong silhouette-level shape change, same lesson as the
+# bear/chicken/rat: a 1-2px wobble doesn't read as animated at this size.
+EUGENE_A = [
+    _bar(16, (6,10)),
+    _bar(16, (4,12)),
+    _bar(16, (3,13)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (1,15)),
+    _bar(16, (1,15)),
+    _bar(16, (1,15)),
+    _bar(16, (1,15)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (3,13)),
+    _bar(16, (4,12)),
+    _bar(16, (6,10)),
+    _bar(16),
+    _bar(16),
+]
+EUGENE_B = [
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16, (4,12)),
+    _bar(16, (2,14)),
+    _bar(16, (0,16)),
+    _bar(16, (0,16)),
+    _bar(16, (0,16)),
+    _bar(16, (0,16)),
+    _bar(16, (1,15)),
+    _bar(16, (3,13)),
+    _bar(16, (5,11)),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+]
+
+# twin high platforms bridging a chasm (bz=0..2 is entirely a pit - see
+# floor_gaps below), plus a low staging platform on the spawn side. The
+# exit sits alone on the far side of the chasm: the only way there is
+# floor -> low platform -> high A -> high B -> step off B's far edge and
+# fall down onto the isolated exit island (jump deltas match Room4's
+# already-validated hop1/hop2/hop3 template exactly, just re-aimed).
+room5_slabs_def = [
+    (6, 3, 1, T_STONE),   # low staging platform, reachable from spawn floor
+    (5, 2, 3, T_STONE),   # high platform A - diagonal jump from the low one
+    (3, 2, 3, T_STONE),   # high platform B - horizontal jump from A (bx=4 gap)
+]
+
+ROOM5 = dict(
+    label='5',
+    wallcol=dict(lit=11, rock=10, joint=1),
+    crest_fn=_wtop_cave,
+    floor_base=10, floor_speckle=2,
+    floor_gaps=frozenset((bx, bz) for bz in (0, 1, 2) for bx in range(MAPW)),
+    slabs_def=room5_slabs_def,
+    style={
+        T_STONE: dict(top_fill=2, top_edge=3, face_l=4, face_r=5, rocky=True),
+    },
+    keys=[(6,3,2,14), (5,2,4,14), (3,2,4,14)],   # one per platform
+    pickup_art=CUBE_ART, pickup_colors=CUBE_COLORS,
+    exit_bx=2, exit_bz=2, exit_y=0,   # isolated island inside the chasm,
+                                       # just past high platform B's west
+                                       # edge - step off B and fall to it
+    hazards=[],
+    hazard_art=None,
+    crumb_units=[],
+    enemy_frames=[EUGENE_A, EUGENE_B],
+    enxmin=8, enxmax=44, enz=40, ensurf=40, en_axis=1, enemy_color=15,
+    name="EUGENE'S LAIR",
+)
+
 R1 = render_room(ROOM1)
 R2 = render_room(ROOM2)
 R3 = render_room(ROOM3)
 R4 = render_room(ROOM4)
+R5 = render_room(ROOM5)
 
 open(os.path.join(ROOT,'src','bg_pattern.bin'),'wb').write(R1['pattern'])
 open(os.path.join(ROOT,'src','bg_color.bin'),'wb').write(R1['color'])
@@ -983,6 +1089,8 @@ open(os.path.join(ROOT,'src','bg_pattern3.bin'),'wb').write(R3['pattern'])
 open(os.path.join(ROOT,'src','bg_color3.bin'),'wb').write(R3['color'])
 open(os.path.join(ROOT,'src','bg_pattern4.bin'),'wb').write(R4['pattern'])
 open(os.path.join(ROOT,'src','bg_color4.bin'),'wb').write(R4['color'])
+open(os.path.join(ROOT,'src','bg_pattern5.bin'),'wb').write(R5['pattern'])
+open(os.path.join(ROOT,'src','bg_color5.bin'),'wb').write(R5['color'])
 
 # crumb.bin: room 1's crumbling-cell variants, laid out exactly as before
 crumb_bin = bytearray(R1['crumb_bin'])
@@ -1010,13 +1118,14 @@ ROOM1_BGBANK, ROOM1_BGCOLBANK = 2, 3
 ROOM2_BGBANK, ROOM2_BGCOLBANK = 85, 86
 ROOM3_BGBANK, ROOM3_BGCOLBANK = 88, 89
 ROOM4_BGBANK, ROOM4_BGCOLBANK = 91, 92
+ROOM5_BGBANK, ROOM5_BGCOLBANK = 93, 94
 CRUMBBANK = 84
 CRUMBBANK2 = 87
 CRUMBBANK3 = 90
-# Room 4 has no crumbling platforms (room_nunits=0, cell_at returns "no
-# match" immediately) so its crumb_bank field is never actually read -
-# reuse CRUMBBANK as a harmless placeholder instead of allocating a
-# whole new (empty) bank for it.
+# Rooms 4 and 5 have no crumbling platforms (room_nunits=0, cell_at
+# returns "no match" immediately) so their crumb_bank field is never
+# actually read - reuse CRUMBBANK as a harmless placeholder instead of
+# allocating a whole new (empty) bank for either of them.
 
 def emit_room(R, lines):
     lab = R['label']
@@ -1082,6 +1191,8 @@ emit_room(R3, lines)
 emit_crumb_tab(R3, lines)
 emit_room(R4, lines)
 emit_crumb_tab(R4, lines)
+emit_room(R5, lines)
+emit_crumb_tab(R5, lines)
 
 lines.append("; redefined font, 76 chars from '0' (8 bytes each)")
 _f = open(os.path.join(ROOT,'tools','fonts.c')).read()
@@ -1102,24 +1213,37 @@ lines.append("")
 lines.append("rat_gfx:")
 lines.append(db(R4['enemy_bytes'], 16))
 lines.append("")
+lines.append("eugene_gfx:")
+lines.append(db(R5['enemy_bytes'], 16))
+lines.append("")
 
 _c = open(os.path.join(ROOT,'tools','sam_sprites.c')).read()
 sprites = [int(t,16) for t in re.findall(r'0x([0-9A-Fa-f]{2})', _c)]
 assert len(sprites) == 12*128, len(sprites)
 
-lines.append("; room name strings for the intro card: raw ASCII, draw_string-ready")
+# draw_string-ready encoding: fonts_tab only covers ASCII 48-123
+# ('0'-relative, see title_putc in main.asm), so punctuation below '0'
+# has no glyph there and must map to one of draw_string's custom byte
+# codes instead (1=dot, 2=apostrophe) rather than its raw ASCII value.
+def _ds_encode(name):
+    codes = {'.': 1, "'": 2}
+    return ",".join(str(codes.get(c, ord(c))) for c in name)
+
+lines.append("; room name strings for the intro card, draw_string-ready")
 lines.append("room1_name:")
-lines.append("        db " + ",".join(str(ord(c)) for c in R1['name']) + ",0")
+lines.append("        db " + _ds_encode(R1['name']) + ",0")
 lines.append("room2_name:")
-lines.append("        db " + ",".join(str(ord(c)) for c in R2['name']) + ",0")
+lines.append("        db " + _ds_encode(R2['name']) + ",0")
 lines.append("room3_name:")
-lines.append("        db " + ",".join(str(ord(c)) for c in R3['name']) + ",0")
+lines.append("        db " + _ds_encode(R3['name']) + ",0")
 lines.append("room4_name:")
-lines.append("        db " + ",".join(str(ord(c)) for c in R4['name']) + ",0")
+lines.append("        db " + _ds_encode(R4['name']) + ",0")
+lines.append("room5_name:")
+lines.append("        db " + _ds_encode(R5['name']) + ",0")
 lines.append("")
 
-ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx'}
-ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name'}
+ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx'}
+ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name'}
 
 def room_row(R, bgbank, bgcolbank, crumbbank):
     exb16 = R['exit_bx']*16
@@ -1135,20 +1259,21 @@ def room_row(R, bgbank, bgcolbank, crumbbank):
         R['EXC0'], R['EXR0'], R['EXNROW'], R['EXW']*8,
         f"exit_gfx{R['label']}_0", f"exit_gfx{R['label']}_1",
         ENEMY_GFX_LABEL[R['label']], R['enemy_color'],
-        R['enxmin'], R['enxmax'], R['enz'], R['ensurf'],
+        R['enxmin'], R['enxmax'], R['enz'], R['ensurf'], R.get('en_axis', 0),
         ROOM_NAME_LABEL[R['label']],
     ]
 
 lines.append("; room_tab: one row per room, read into room_state RAM struct")
 lines.append("; via a single ldir at room_start. Field order/sizes MUST match")
 lines.append("; the room_state RESB block in src/main.asm exactly.")
-lines.append("ROOMROWLEN equ 39")
+lines.append("ROOMROWLEN equ 40")
 lines.append("room_tab:")
 for R, bgbank, bgcolbank, crumbbank in (
         (R1, ROOM1_BGBANK, ROOM1_BGCOLBANK, CRUMBBANK),
         (R2, ROOM2_BGBANK, ROOM2_BGCOLBANK, CRUMBBANK2),
         (R3, ROOM3_BGBANK, ROOM3_BGCOLBANK, CRUMBBANK3),
-        (R4, ROOM4_BGBANK, ROOM4_BGCOLBANK, CRUMBBANK)):
+        (R4, ROOM4_BGBANK, ROOM4_BGCOLBANK, CRUMBBANK),
+        (R5, ROOM5_BGBANK, ROOM5_BGCOLBANK, CRUMBBANK)):
     f = room_row(R, bgbank, bgcolbank, crumbbank)
     lines.append(f"        db {f[0]},{f[1]}")
     lines.append(f"        dw {f[2]}")
@@ -1168,8 +1293,8 @@ for R, bgbank, bgcolbank, crumbbank in (
     lines.append(f"        dw {f[21]}")
     lines.append(f"        dw {f[22]}")
     lines.append(f"        db {f[23]}")
-    lines.append(f"        db {f[24]},{f[25]},{f[26]},{f[27]}")
-    lines.append(f"        dw {f[28]}")
+    lines.append(f"        db {f[24]},{f[25]},{f[26]},{f[27]},{f[28]}")
+    lines.append(f"        dw {f[29]}")
 lines.append("")
 
 lines.append("gfx_sprites:")
@@ -1200,8 +1325,10 @@ save_preview(R1, os.path.join(ROOT,'build','preview2.png'))
 save_preview(R2, os.path.join(ROOT,'build','preview3.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R3, os.path.join(ROOT,'build','preview4.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R4, os.path.join(ROOT,'build','preview5.png'), spawn_wx=24, spawn_wz=72)
+save_preview(R5, os.path.join(ROOT,'build','preview6.png'), spawn_wx=24, spawn_wz=72)
 
 print(f"OK room1 color-fixes:{R1['fixes']} keys:{R1['key_rects']}")
 print(f"OK room2 color-fixes:{R2['fixes']} keys:{R2['key_rects']}")
 print(f"OK room3 color-fixes:{R3['fixes']} keys:{R3['key_rects']}")
 print(f"OK room4 color-fixes:{R4['fixes']} keys:{R4['key_rects']}")
+print(f"OK room5 color-fixes:{R5['fixes']} keys:{R5['key_rects']}")

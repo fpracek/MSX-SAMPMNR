@@ -230,9 +230,15 @@ room_enxmin:     RESB 1
 room_enxmax:     RESB 1
 room_enz:        RESB 1
 room_ensurf:     RESB 1
+room_en_axis:    RESB 1  ; 0=horizontal patrol (existing rooms), 1=
+                         ; vertical (Eugene's Lair boss) - when 1,
+                         ; en_x is reinterpreted as height, bouncing
+                         ; between enxmin/enxmax, at the FIXED world
+                         ; position (room_enz,room_ensurf) instead of
+                         ; the usual (moving-x, fixed room_enz,ensurf)
 room_name_ptr:   RESB 2
 room_state_end:
-NROOMS equ 4
+NROOMS equ 5
 ram_end:
 
 ram_map     equ 0C100h  ; 6*8*8 = 384 bytes  (index = z*64+y*8+x)
@@ -1980,6 +1986,11 @@ lvl_off: dw 0,2560,5120,7680,10240,12800,15360,17920
 ; enemy_update: patrol the conveyor, kill Sam on contact
 ; ------------------------------------------------------------
 enemy_update:
+        ld  a,(room_en_axis)
+        or  a
+        jp  nz,.vertical
+
+; ---- horizontal patrol (Rooms 1-4): en_x moves, fixed z/height ----
         ; move at 0.5 px/frame
         ld  a,(frame)
         and 1
@@ -2052,6 +2063,80 @@ enemy_update:
         cp  d
         ret c               ; Sam wholly below
         ; hit: lose a life
+        jp  sam_die
+
+; ---- vertical patrol (Eugene's Lair boss): en_x is reinterpreted as
+; HEIGHT, bouncing between room_enxmin/enxmax; the fixed world position
+; is (room_enz=world x, room_ensurf=world z) instead of the usual
+; (moving x, fixed z/height) - same bounce/collision shape, transposed.
+.vertical:
+        ld  a,(frame)
+        and 1
+        jr  nz,.vanim
+        ld  a,(en_dir)
+        or  a
+        ld  a,(en_x)
+        jr  nz,.vdown
+        inc a
+        ld  b,a
+        ld  a,(room_enxmax)
+        ld  c,a
+        ld  a,b
+        cp  c
+        jr  c,.vst
+        ld  a,1
+        ld  (en_dir),a
+        ld  a,(room_enxmax)
+        jr  .vst
+.vdown: dec a
+        ld  b,a
+        ld  a,(room_enxmin)
+        ld  c,a
+        ld  a,b
+        cp  c
+        jr  nc,.vst
+        xor a
+        ld  (en_dir),a
+        ld  a,(room_enxmin)
+.vst:   ld  (en_x),a
+.vanim: ld  a,(en_anim)
+        inc a
+        ld  (en_anim),a
+
+        ; ---- collision with Sam (fixed x/z, moving height) ----
+        ld  a,(sam_wx)
+        ld  b,a
+        ld  a,(room_enz)
+        sub b
+        jr  nc,.vdx
+        neg
+.vdx:   cp  10
+        ret nc
+        ld  a,(sam_wz)
+        ld  b,a
+        ld  a,(room_ensurf)
+        sub b
+        jr  nc,.vdz
+        neg
+.vdz:   cp  10
+        ret nc
+        ld  a,(en_x)
+        ld  c,a
+        ld  a,(sam_h+1)
+        ld  b,a
+        ld  a,c
+        add a,16
+        ld  d,a
+        ld  a,b
+        cp  d
+        ret nc              ; Sam wholly above
+        ld  a,c
+        inc a
+        ld  d,a
+        ld  a,b
+        add a,16
+        cp  d
+        ret c               ; Sam wholly below
         jp  sam_die
 
 ; ------------------------------------------------------------
@@ -2166,6 +2251,10 @@ sam_draw:
 
         ; sprite 0: the enemy (priority over Sam)
         push bc
+        ld  a,(room_en_axis)
+        or  a
+        jp  nz,.enaxis1
+
         ld  a,(en_x)
         ld  l,a
         ld  h,0
@@ -2192,6 +2281,38 @@ sam_draw:
         sub e
         dec a
         ld  b,a             ; sy-1
+        jp  .enpos_done
+
+.enaxis1:
+        ; vertical patrol: room_enz/room_ensurf are the FIXED world x/z,
+        ; en_x is the moving height
+        ld  a,(room_enz)
+        ld  l,a
+        ld  h,0
+        ld  de,PX0-8
+        add hl,de
+        ld  a,(room_ensurf)
+        ld  e,a
+        ld  d,0
+        or  a
+        sbc hl,de
+        ld  a,l             ; sx = 112 + enz - ensurf (both fixed)
+        ld  c,a
+        ld  a,(room_enz)
+        ld  hl,room_ensurf
+        add a,(hl)
+        srl a
+        add a,PY0
+        push af
+        ld  a,(en_x)
+        add a,16
+        ld  e,a             ; e = en_x(height)+16
+        pop af
+        sub e
+        dec a
+        ld  b,a             ; sy-1
+
+.enpos_done:
         ld  hl,VR_SPRA
         ld  a,b
         call WRTVRM
@@ -3086,7 +3207,11 @@ vram_copy:
         ret
 
 ; ------------------------------------------------------------
-; draw_string: HL=text (0=end,1=custom dot glyph,' '=blank)
+; draw_string: HL=text (0=end,1=custom dot glyph,2=custom apostrophe
+; glyph,' '=blank). fonts_tab only covers ASCII 48-123 ('0'-relative,
+; see title_putc) - punctuation below '0' (like the apostrophe, 39)
+; has no glyph there and needs its own custom byte code instead, same
+; as the dot.
 ; ds_row/ds_col set by caller; ds_col advances per character
 ; ------------------------------------------------------------
 draw_string:
@@ -3097,12 +3222,16 @@ draw_string:
         push hl
         cp  1
         jr  z,.dot
+        cp  2
+        jr  z,.apos
         cp  ' '
         jr  z,.skip
         sub '0'
         call title_putc
         jr  .adv
 .dot:   call title_putdot
+        jr  .adv
+.apos:  call title_putapos
         jr  .adv
 .skip:
 .adv:   ld  a,(ds_col)
@@ -3162,6 +3291,29 @@ title_putdot:                   ; draws the custom '.' glyph
         ret
 
 title_dot: db 0,0,0,0,0,0,018h,018h
+
+title_putapos:                  ; draws the custom apostrophe glyph
+        ld  a,(ds_col)
+        add a,a
+        add a,a
+        add a,a
+        ld  l,a
+        ld  a,(ds_row)
+        ld  h,a
+        push hl
+        ld  de,02000h
+        add hl,de                ; hl = colour addr
+        ld  a,0F1h
+        ld  bc,8
+        call vram_fill
+        pop hl                  ; hl = pattern addr
+        ex  de,hl               ; de = pattern addr
+        ld  hl,title_apos
+        ld  bc,8
+        call vram_copy
+        ret
+
+title_apos: db 018h,018h,010h,0,0,0,0,0
 
 ; ------------------------------------------------------------
 ; title_kbd / _sep / _black: draw a real 2-octave piano keyboard
@@ -3827,9 +3979,24 @@ ROOM4_BGCOLBANK equ 92
         INCBIN "src/bg_color4.bin"
         BLOCK 0C000h-$,0FFh
 
+; ============================================================
+;  BANKS 93-94: room 5 (Eugene's Lair) pre-rendered background.
+;  Bank numbers must match ROOM5_BGBANK/ROOM5_BGCOLBANK in
+;  tools/gen_iso.py. Room 5 has no crumbling platforms, so there
+;  is no dedicated crumb bank for it (room_tab reuses CRUMBBANK).
+; ============================================================
+ROOM5_BGBANK    equ 93
+ROOM5_BGCOLBANK equ 94
+        ORG 08000h
+        INCBIN "src/bg_pattern5.bin"
+        BLOCK 0A000h-$,0FFh
+        ORG 0A000h
+        INCBIN "src/bg_color5.bin"
+        BLOCK 0C000h-$,0FFh
+
         ; pad the ROM back out to a full 1MB (128 x 8KB banks) - openMSX's
         ; ascii8 mapper expects a power-of-two file size; a short file
         ; (as left by just rounding up to the next bank) fails to boot
         ; at all (falls through to plain MSX BASIC). Recomputed exactly
-        ; in Python after adding room 4's banks, not guessed by hand.
-        BLOCK 286720,0FFh
+        ; in Python after adding room 5's banks, not guessed by hand.
+        BLOCK 270336,0FFh
