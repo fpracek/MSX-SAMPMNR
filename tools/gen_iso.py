@@ -343,8 +343,8 @@ URANIUM_BAR_ART = _uranium_bar_art()
 def draw_hazard(bx, bz, surf, art):
     """spiky plant/icicle standing on a surface at height surf.
     art chars: digit = literal palette index, 'F' = 15 (white),
-    'V' = 13 (violet/magenta - the one PAL index >9 without its own
-    single-digit form)."""
+    'V' = 13 (violet/magenta), 'Y' = 11 (light yellow) - PAL indices
+    >9 without their own single-digit form."""
     sx, sy = proj(bx*16+8, bz*16+8, surf)
     top = sy - len(art) + 1
     pix = set()
@@ -360,7 +360,7 @@ def draw_hazard(bx, bz, surf, art):
     for r, row in enumerate(art):
         for cidx, ch in enumerate(row):
             if ch != '.':
-                c = 15 if ch == 'F' else (13 if ch == 'V' else int(ch))
+                c = 15 if ch == 'F' else (13 if ch == 'V' else (11 if ch == 'Y' else int(ch)))
                 put(sx-6+cidx, top+r, c)
 
 # ------------------------------------------------------------------
@@ -1162,6 +1162,118 @@ ROOM6 = dict(
     name="PROCESSING PLANT",
 )
 
+def _wtop_vat(u):
+    """mostly-flat industrial tank rim, minimal variation - The Vat"""
+    return 34 + (6 if (int(u) % 10) < 2 else 0)
+
+# spark hazard: a bold 8-pointed star/burst - chunky segments (not thin
+# lines) so it survives draw_hazard's 1px dilation pass without
+# merging into a blob, same lesson as every other hazard in this
+# project. Matches the reference's small yellow spark/star hazards
+# scattered across the Vat's floor - white ('F') core against light
+# yellow ('Y') rays for real contrast against the room's own tan floor
+# (floor_base=10 would otherwise nearly match a plain yellow fill).
+def _spark_art():
+    return [
+        _art_row(16, (7,9,'Y')),
+        _art_row(16, (6,10,'Y')),
+        _art_row(16, (2,4,'Y'), (6,10,'F'), (12,14,'Y')),
+        _art_row(16, (4,6,'Y'), (6,10,'F'), (10,12,'Y')),
+        _art_row(16, (5,11,'F')),
+        _art_row(16, (4,6,'Y'), (6,10,'F'), (10,12,'Y')),
+        _art_row(16, (2,4,'Y'), (6,10,'F'), (12,14,'Y')),
+        _art_row(16, (6,10,'Y')),
+        _art_row(16, (7,9,'Y')),
+    ]
+SPARK_ART = _spark_art()
+
+# guardian: a hooded specter patrolling the Vat's floor - same vertical
+# humanoid body plan as the bear/chicken/rat, legs together vs wide
+# apart for a dramatic (not subtle) run-cycle contrast.
+GUARDIAN_A = [
+    _bar(16, (6,10)),
+    _bar(16, (5,11)),
+    _bar(16, (5,11)),
+    _bar(16, (4,12)),
+    _bar(16, (3,13)),
+    _bar(16, (3,13)),
+    _bar(16, (3,13)),
+    _bar(16, (4,12)),
+    _bar(16, (4,12)),
+    _bar(16, (5,8), (9,12)),
+    _bar(16, (5,8), (9,12)),
+    _bar(16, (4,9), (8,13)),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+]
+GUARDIAN_B = [
+    _bar(16, (6,10)),
+    _bar(16, (5,11)),
+    _bar(16, (5,11)),
+    _bar(16, (4,12)),
+    _bar(16, (3,13)),
+    _bar(16, (3,13)),
+    _bar(16, (3,13)),
+    _bar(16, (4,12)),
+    _bar(16, (4,12)),
+    _bar(16, (3,6), (10,13)),
+    _bar(16, (3,6), (10,13)),
+    _bar(16, (2,7), (9,14)),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+]
+
+# The Vat: a dense checkerboard hazard field (bx=3-6,bz=1-6, hazard on
+# every cell where (bx+bz) is even) with clear diagonal safe lanes on
+# the odd cells - 2 of the 3 keys sit deep in the field, guarded by a
+# specter patrolling the floor along the far exit side, combining
+# precision weaving with enemy timing for a genuine difficulty step up.
+room7_slabs_def = [
+    (2, 2, 1, T_STONE),   # west corridor key platform, easy first key
+]
+# A strict checkerboard has NO orthogonal path through it at all: every
+# safe (odd-parity) cell's 4 orthogonal neighbours are all hazard cells
+# by construction, forcing precise diagonal corner-cuts to move between
+# them - fine for a turn-based game, not for this engine's continuous
+# pixel movement, where a natural straight-line walk toward a key clips
+# through the "boxing-in" hazard cell next to it and kills on contact.
+# Fixed by carving an explicit 1-cell-wide orthogonal corridor through
+# the field (entry -> key2 -> key3 -> the clear bx=7 exit column) and
+# only placing hazards on every OTHER field cell - still dense (more
+# hazard cells than the original checkerboard, since the corridor is
+# narrow), but now with a real, walkable path.
+room7_path_cells = {(3,3), (4,3), (4,4), (5,4), (6,4)}
+room7_hazard_cells = [(bx, bz) for bz in range(1, 6) for bx in range(3, 7)
+                       if (bx, bz) not in room7_path_cells]
+room7_hazards = [(bx, bz, 8) for (bx, bz) in room7_hazard_cells]
+
+ROOM7 = dict(
+    label='7',
+    wallcol=dict(lit=10, rock=6, joint=1),
+    crest_fn=_wtop_vat,
+    floor_base=10, floor_speckle=1,
+    floor_style='grid',
+    slabs_def=room7_slabs_def,
+    style={
+        T_STONE: dict(top_fill=11, top_edge=15, face_l=6, face_r=10, rocky=True),
+    },
+    keys=[(2,2,2,14), (4,3,1), (5,4,1)],   # west platform, 2 deep in the field -
+                                              # default gold KEY_ART, kept
+                                              # distinct from the hazards'
+                                              # yellow sparks on purpose
+    exit_bx=7, exit_bz=5, exit_y=1,
+    hazards=room7_hazards,
+    hazard_art=SPARK_ART,
+    crumb_units=[],
+    enemy_frames=[GUARDIAN_A, GUARDIAN_B],
+    enxmin=64, enxmax=112, enz=56, ensurf=8, enemy_color=13,
+    name="THE VAT",
+)
+
 ROOM5 = dict(
     label='5',
     wallcol=dict(lit=11, rock=10, joint=1),
@@ -1191,19 +1303,36 @@ R3 = render_room(ROOM3)
 R4 = render_room(ROOM4)
 R5 = render_room(ROOM5)
 R6 = render_room(ROOM6)
+R7 = render_room(ROOM7)
 
-open(os.path.join(ROOT,'src','bg_pattern.bin'),'wb').write(R1['pattern'])
-open(os.path.join(ROOT,'src','bg_color.bin'),'wb').write(R1['color'])
-open(os.path.join(ROOT,'src','bg_pattern2.bin'),'wb').write(R2['pattern'])
-open(os.path.join(ROOT,'src','bg_color2.bin'),'wb').write(R2['color'])
-open(os.path.join(ROOT,'src','bg_pattern3.bin'),'wb').write(R3['pattern'])
-open(os.path.join(ROOT,'src','bg_color3.bin'),'wb').write(R3['color'])
-open(os.path.join(ROOT,'src','bg_pattern4.bin'),'wb').write(R4['pattern'])
-open(os.path.join(ROOT,'src','bg_color4.bin'),'wb').write(R4['color'])
-open(os.path.join(ROOT,'src','bg_pattern5.bin'),'wb').write(R5['pattern'])
-open(os.path.join(ROOT,'src','bg_color5.bin'),'wb').write(R5['color'])
-open(os.path.join(ROOT,'src','bg_pattern6.bin'),'wb').write(R6['pattern'])
-open(os.path.join(ROOT,'src','bg_color6.bin'),'wb').write(R6['color'])
+# Each room's 2-frame enemy sprite table (64B) rides along in the spare
+# tail of its own bg_pattern bank (6144 of 8192 bytes used, ~2KB free)
+# instead of the shared bank1/leveldata.asm - bank1 is only 16KB total
+# (BANK0R+BANK1R, the one permanently-mapped window) and was pushed over
+# budget by Room7's tables. This is provably safe: room_start switches
+# BANK2R to the room's own bg_bank *before* load_room's enemy-sprite
+# copy runs (src/main.asm room_start/load_room), so the tail of that
+# same bank is guaranteed to be mapped in at the exact moment it's read.
+# Kept as its OWN file (not appended onto bg_patternN.bin) so the
+# enemy_gfx label in main.asm - placed via a separate INCBIN right
+# after the pattern's - lands exactly at the enemy data's start, not
+# past it (an earlier concatenated-file version got this wrong: the
+# label, placed after ONE INCBIN of the combined file, pointed past
+# the enemy bytes into the 0xFF padding, rendering every enemy as a
+# solid square - all-1-bits read as sprite pattern).
+def _write_room_bg(lab, R):
+    suffix = '' if lab == '' else lab
+    open(os.path.join(ROOT,'src',f'bg_pattern{suffix}.bin'),'wb').write(bytes(R['pattern']))
+    open(os.path.join(ROOT,'src',f'bg_color{suffix}.bin'),'wb').write(bytes(R['color']))
+    open(os.path.join(ROOT,'src',f'enemy_gfx{suffix}.bin'),'wb').write(bytes(R['enemy_bytes']))
+
+_write_room_bg(R1['label'], R1)
+_write_room_bg(R2['label'], R2)
+_write_room_bg(R3['label'], R3)
+_write_room_bg(R4['label'], R4)
+_write_room_bg(R5['label'], R5)
+_write_room_bg(R6['label'], R6)
+_write_room_bg(R7['label'], R7)
 
 # crumb.bin: room 1's crumbling-cell variants, laid out exactly as before
 crumb_bin = bytearray(R1['crumb_bin'])
@@ -1233,10 +1362,11 @@ ROOM3_BGBANK, ROOM3_BGCOLBANK = 88, 89
 ROOM4_BGBANK, ROOM4_BGCOLBANK = 91, 92
 ROOM5_BGBANK, ROOM5_BGCOLBANK = 93, 94
 ROOM6_BGBANK, ROOM6_BGCOLBANK = 95, 96
+ROOM7_BGBANK, ROOM7_BGCOLBANK = 97, 98
 CRUMBBANK = 84
 CRUMBBANK2 = 87
 CRUMBBANK3 = 90
-# Rooms 4, 5 and 6 have no crumbling platforms (room_nunits=0, cell_at
+# Rooms 4, 5, 6 and 7 have no crumbling platforms (room_nunits=0, cell_at
 # returns "no match" immediately) so their crumb_bank field is never
 # actually read - reuse CRUMBBANK as a harmless placeholder instead of
 # allocating a whole new (empty) bank for either of them.
@@ -1256,10 +1386,6 @@ def emit_room(R, lines):
     lines.append("")
     lines.append(f"slab_tab{lab}:")
     lines.extend(R['slab_lines'])
-    lines.append("")
-    lines.append(f"cover_tab{lab}:")
-    for z in range(MAPD):
-        lines.append(db(R['cover'][z], MAPW))
     lines.append("")
     lines.append(f"keys_gfx{lab}:")
     for blk in R['keys_gfx']:
@@ -1309,6 +1435,8 @@ emit_room(R5, lines)
 emit_crumb_tab(R5, lines)
 emit_room(R6, lines)
 emit_crumb_tab(R6, lines)
+emit_room(R7, lines)
+emit_crumb_tab(R7, lines)
 
 lines.append("; redefined font, 76 chars from '0' (8 bytes each)")
 _f = open(os.path.join(ROOT,'tools','fonts.c')).read()
@@ -1317,24 +1445,13 @@ assert len(_fontbytes) == 608, len(_fontbytes)
 lines.append("fonts_tab:")
 lines.append(db(_fontbytes, 16))
 lines.append("")
-lines.append("enemy_gfx:")
-lines.append(db(R1['enemy_bytes'], 16))
-lines.append("")
-lines.append("bear_gfx:")
-lines.append(db(R2['enemy_bytes'], 16))
-lines.append("")
-lines.append("chicken_gfx:")
-lines.append(db(R3['enemy_bytes'], 16))
-lines.append("")
-lines.append("rat_gfx:")
-lines.append(db(R4['enemy_bytes'], 16))
-lines.append("")
-lines.append("eugene_gfx:")
-lines.append(db(R5['enemy_bytes'], 16))
-lines.append("")
-lines.append("pacman_gfx:")
-lines.append(db(R6['enemy_bytes'], 16))
-lines.append("")
+
+# enemy_gfx/bear_gfx/chicken_gfx/rat_gfx/eugene_gfx/pacman_gfx/guardian_gfx
+# are NOT emitted here - each room's 64-byte enemy sprite table now rides
+# in the spare tail of that room's own bg_pattern bank (see
+# _bg_pattern_bytes above), with the matching label defined in main.asm
+# right after that room's INCBIN. Keeps them out of the tight, shared
+# bank1/leveldata.asm window.
 
 _c = open(os.path.join(ROOT,'tools','sam_sprites.c')).read()
 sprites = [int(t,16) for t in re.findall(r'0x([0-9A-Fa-f]{2})', _c)]
@@ -1361,10 +1478,12 @@ lines.append("room5_name:")
 lines.append("        db " + _ds_encode(R5['name']) + ",0")
 lines.append("room6_name:")
 lines.append("        db " + _ds_encode(R6['name']) + ",0")
+lines.append("room7_name:")
+lines.append("        db " + _ds_encode(R7['name']) + ",0")
 lines.append("")
 
-ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx'}
-ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name'}
+ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx'}
+ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name'}
 
 def room_row(R, bgbank, bgcolbank, crumbbank):
     exb16 = R['exit_bx']*16
@@ -1396,7 +1515,8 @@ for R, bgbank, bgcolbank, crumbbank in (
         (R3, ROOM3_BGBANK, ROOM3_BGCOLBANK, CRUMBBANK3),
         (R4, ROOM4_BGBANK, ROOM4_BGCOLBANK, CRUMBBANK),
         (R5, ROOM5_BGBANK, ROOM5_BGCOLBANK, CRUMBBANK),
-        (R6, ROOM6_BGBANK, ROOM6_BGCOLBANK, CRUMBBANK)):
+        (R6, ROOM6_BGBANK, ROOM6_BGCOLBANK, CRUMBBANK),
+        (R7, ROOM7_BGBANK, ROOM7_BGCOLBANK, CRUMBBANK)):
     f = room_row(R, bgbank, bgcolbank, crumbbank)
     lines.append(f"        db {f[0]},{f[1]}")
     lines.append(f"        dw {f[2]}")
@@ -1455,6 +1575,7 @@ save_preview(R3, os.path.join(ROOT,'build','preview4.png'), spawn_wx=24, spawn_w
 save_preview(R4, os.path.join(ROOT,'build','preview5.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R5, os.path.join(ROOT,'build','preview6.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R6, os.path.join(ROOT,'build','preview7.png'), spawn_wx=24, spawn_wz=72)
+save_preview(R7, os.path.join(ROOT,'build','preview8.png'), spawn_wx=24, spawn_wz=72)
 
 print(f"OK room1 color-fixes:{R1['fixes']} keys:{R1['key_rects']}")
 print(f"OK room2 color-fixes:{R2['fixes']} keys:{R2['key_rects']}")
@@ -1462,3 +1583,4 @@ print(f"OK room3 color-fixes:{R3['fixes']} keys:{R3['key_rects']}")
 print(f"OK room4 color-fixes:{R4['fixes']} keys:{R4['key_rects']}")
 print(f"OK room5 color-fixes:{R5['fixes']} keys:{R5['key_rects']}")
 print(f"OK room6 color-fixes:{R6['fixes']} keys:{R6['key_rects']}")
+print(f"OK room7 color-fixes:{R7['fixes']} keys:{R7['key_rects']}")

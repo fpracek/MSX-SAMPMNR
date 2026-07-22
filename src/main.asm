@@ -247,7 +247,7 @@ room_en_axis:    RESB 1  ; 0=horizontal patrol (existing rooms), 1=
 room_en_centerx: RESB 1  ; only meaningful when room_en_axis=2
 room_name_ptr:   RESB 2
 room_state_end:
-NROOMS equ 6
+NROOMS equ 7
 ram_end:
 
 ram_map     equ 0C100h  ; 6*8*8 = 384 bytes  (index = z*64+y*8+x)
@@ -4105,6 +4105,11 @@ gfx_sprites:
 ; ============================================================
         ORG 08000h
         INCBIN "src/bg_pattern.bin"
+        ; enemy_gfx (64B) rides in this bank's spare tail - see the
+        ; _write_room_bg comment in tools/gen_iso.py for why this is
+        ; safe (BANK2R is already this room's own bank when read).
+enemy_gfx:
+        INCBIN "src/enemy_gfx.bin"
         BLOCK 0A000h-$,0FFh
 
 ; ============================================================
@@ -4134,6 +4139,8 @@ ROOM2_BGBANK    equ 85
 ROOM2_BGCOLBANK equ 86
         ORG 08000h
         INCBIN "src/bg_pattern2.bin"
+bear_gfx:
+        INCBIN "src/enemy_gfx2.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color2.bin"
@@ -4155,6 +4162,8 @@ ROOM3_BGBANK    equ 88
 ROOM3_BGCOLBANK equ 89
         ORG 08000h
         INCBIN "src/bg_pattern3.bin"
+chicken_gfx:
+        INCBIN "src/enemy_gfx3.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color3.bin"
@@ -4177,6 +4186,8 @@ ROOM4_BGBANK    equ 91
 ROOM4_BGCOLBANK equ 92
         ORG 08000h
         INCBIN "src/bg_pattern4.bin"
+rat_gfx:
+        INCBIN "src/enemy_gfx4.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color4.bin"
@@ -4192,6 +4203,8 @@ ROOM5_BGBANK    equ 93
 ROOM5_BGCOLBANK equ 94
         ORG 08000h
         INCBIN "src/bg_pattern5.bin"
+eugene_gfx:
+        INCBIN "src/enemy_gfx5.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color5.bin"
@@ -4207,9 +4220,28 @@ ROOM6_BGBANK    equ 95
 ROOM6_BGCOLBANK equ 96
         ORG 08000h
         INCBIN "src/bg_pattern6.bin"
+pacman_gfx:
+        INCBIN "src/enemy_gfx6.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color6.bin"
+        BLOCK 0C000h-$,0FFh
+
+; ============================================================
+;  BANKS 97-98: room 7 (The Vat) pre-rendered background.
+;  Bank numbers must match ROOM7_BGBANK/ROOM7_BGCOLBANK in
+;  tools/gen_iso.py. Room 7 has no crumbling platforms, so there
+;  is no dedicated crumb bank for it (room_tab reuses CRUMBBANK).
+; ============================================================
+ROOM7_BGBANK    equ 97
+ROOM7_BGCOLBANK equ 98
+        ORG 08000h
+        INCBIN "src/bg_pattern7.bin"
+guardian_gfx:
+        INCBIN "src/enemy_gfx7.bin"
+        BLOCK 0A000h-$,0FFh
+        ORG 0A000h
+        INCBIN "src/bg_color7.bin"
         BLOCK 0C000h-$,0FFh
 
         ; pad the ROM back out to a full 1MB (128 x 8KB banks) - openMSX's
@@ -4218,4 +4250,4 @@ ROOM6_BGCOLBANK equ 96
         ; at all (falls through to plain MSX BASIC). Measured then
         ; computed exactly (1048576 - actual size before this BLOCK),
         ; not guessed by hand.
-        BLOCK 253952,0FFh
+        BLOCK 237568,0FFh
