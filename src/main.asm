@@ -167,6 +167,20 @@ slabdis:    RESB 12     ; per-slab mask disable flags
 en_x:       RESB 1      ; enemy world x
 en_dir:     RESB 1      ; 0=+x 1=-x
 en_anim:    RESB 1
+lift_h:     RESB 1      ; current lift surface height (bounces between
+                        ; room_lift_ymin/ymax)
+lift_dir:   RESB 1      ; 0=rising(+) 1=falling(-)
+on_lift:    RESB 1      ; nonzero while Sam is actually riding it this
+                        ; frame (drives the forced-movement push and
+                        ; locks sam_h to lift_h instead of the static
+                        ; floor_surface scan)
+lift_ride_t: RESB 1     ; frames since boarding this ride - the forced
+                        ; push only kicks in once this passes a short
+                        ; grace period, so a just-boarded player has
+                        ; time to notice before being shoved (an
+                        ; instant push was shoving people into the
+                        ; adjacent cell before they even realized
+                        ; they'd boarded - Fausto's own report)
 sfx_step:   RESB 2      ; frequency slide per frame
 ex_st:      RESB 1      ; exit blink state (0/16)
 lives:      RESB 1
@@ -245,9 +259,15 @@ room_en_axis:    RESB 1  ; 0=horizontal patrol (existing rooms), 1=
                          ; (room_enz,room_ensurf) - approaching each
                          ; other as the gap shrinks, receding as it grows
 room_en_centerx: RESB 1  ; only meaningful when room_en_axis=2
+room_lift_wx:    RESB 1  ; fixed world x of the rising/falling lift
+                         ; platform's centre; 0FFh (never a valid world
+                         ; x, MAPW*16=128 max) = no lift in this room
+room_lift_wz:    RESB 1  ; fixed world z
+room_lift_ymin:  RESB 1  ; lift bounces its surface height between
+room_lift_ymax:  RESB 1  ; these two, reversing at each bound
 room_name_ptr:   RESB 2
 room_state_end:
-NROOMS equ 7
+NROOMS equ 8
 ram_end:
 
 ram_map     equ 0C100h  ; 6*8*8 = 384 bytes  (index = z*64+y*8+x)
@@ -495,6 +515,8 @@ room_start:
         ld  (BANK3R),a
         ld  a,(room_enxmin)
         ld  (en_x),a
+        ld  a,(room_lift_ymin)
+        ld  (lift_h),a
         call load_room
         call sam_init
         call level_music_init
@@ -703,6 +725,7 @@ main_loop:
         ld  a,(level_done)
         or  a
         jr  nz,.won
+        call lift_update
         call sam_update
         call enemy_update
         call hazard_check
@@ -770,6 +793,14 @@ load_room:
         ; enemy: 2 frames at sprite patterns 0 and 4
         ld  hl,(room_enemy_gfx_ptr)
         ld  de,VR_SPRP
+        ld  bc,64
+        call LDIRVM
+
+        ; lift platform: 2 halves (left/right) at sprite patterns 8/12 -
+        ; a single fixed design, not per-room (only unused when a room
+        ; has no lift, room_lift_wx=0FFh skips ever drawing it)
+        ld  hl,lift_gfx
+        ld  de,VR_SPRP+8*8
         ld  bc,64
         call LDIRVM
 
@@ -1029,6 +1060,37 @@ sam_update:
         call move_x
 .noconv:
 
+        ; ---- lift forced-movement push (+x), same cadence as the
+        ; conveyor drag above - if Sam doesn't counter it while riding
+        ; the rising/falling lift, he's pushed off its footprint and
+        ; falls (no static floor under the lift's own shaft). A short
+        ; grace period after boarding (GRACE_FRAMES) delays the push
+        ; itself, so a just-boarded player has a moment to notice
+        ; before being shoved - an instant push was shoving people
+        ; into the adjacent cell before they even realized they'd
+        ; boarded, which then never re-catches since the lift no
+        ; longer shares that cell (Fausto's own report, "non riesco a
+        ; salire sulla piattaforma"). ----
+        ld  a,(sam_fl)
+        bit 0,a
+        jr  z,.nolift
+        ld  a,(on_lift)
+        or  a
+        jr  z,.nolift
+        ld  a,(lift_ride_t)
+        cp  200
+        jr  nc,.noinc
+        inc a
+        ld  (lift_ride_t),a
+.noinc: cp  GRACE_FRAMES
+        jr  c,.nolift
+        ld  a,(frame)
+        and 1
+        jr  nz,.nolift
+        ld  a,1
+        call move_x
+.nolift:
+
         ; ---- jump ----
         ld  a,(sam_fl)
         bit 0,a
@@ -1072,7 +1134,7 @@ sam_update:
         srl a
         srl a
         cp  MAPH
-        jr  nc,.chkpit
+        jp  nc,.chkpit
         ld  c,a             ; head cell y
         ld  a,(sam_wx)
         srl a
@@ -1088,9 +1150,9 @@ sam_update:
         ld  d,a
         call map_at
         or  a
-        jr  z,.chkpit
+        jp  z,.chkpit
         cp  T_CRUMB+1
-        jr  nc,.chkpit
+        jp  nc,.chkpit
         ; bonk: clamp feet just below the cell, start falling
         ld  a,c
         add a,a
@@ -1104,11 +1166,14 @@ sam_update:
         ld  (sam_vy),hl
         jp  .chkpit
 .faller:
+        call lift_land_check
+        or  a
+        jp  nz,.chkpit
         call get_fs
         ld  b,a
         ld  a,(sam_h+1)
         cp  b
-        jr  nc,.chkpit
+        jp  nc,.chkpit
         ; land
         ld  a,b
         ld  (sam_h+1),a
@@ -1121,15 +1186,18 @@ sam_update:
         ld  (sam_fl),a
         ld  a,e
         ld  (ground_t),a
-        jr  .chkpit
+        jp  .chkpit
 .grounded:
+        call lift_ride_check
+        or  a
+        jp  nz,.chkpit
         call get_fs
         ld  b,a
         ld  a,e
         ld  (ground_t),a
         ld  a,(sam_h+1)
         cp  b
-        jr  z,.chkpit
+        jp  z,.chkpit
         ld  a,(sam_fl)
         res 0,a
         ld  (sam_fl),a
@@ -1521,6 +1589,200 @@ get_fs:
         ld  a,(sam_h+1)
         ld  c,a
         call floor_surface
+        ret
+
+; ------------------------------------------------------------
+; lift: a rising/falling platform riding a fixed (room_lift_wx,
+; room_lift_wz) column, bouncing its surface height between
+; room_lift_ymin/ymax. Not part of the static map at all (the shaft
+; it rides is otherwise open air) - handled as a special case injected
+; into sam_update's existing landing/grounded checks instead.
+; LIFT_GT is a synthetic ground_t value (no real tile uses 8) so the
+; forced-push block in sam_update can tell "standing on the lift" apart
+; from every real floor tile.
+; ------------------------------------------------------------
+LIFT_GT equ 8
+BOARD_TOL equ 24   ; boarding-from-the-ground height tolerance in px -
+                    ; the lift is a moving target, so this needs to be
+                    ; wide enough to give a real multi-frame catch
+                    ; window each time it swings back down near
+                    ; standing height, not an exact match
+GRACE_FRAMES equ 25 ; frames after boarding before the forced push
+                    ; starts (~0.5s) - gives a just-boarded player time
+                    ; to notice before being shoved
+
+; lift_in_footprint: A=1 if Sam's (wx,wz) is in the SAME GRID CELL as
+; the lift (and a lift actually exists in this room), else A=0. Uses
+; the exact-cell convention every other environmental check in this
+; game already uses (hazard_check, key pickup) rather than a bespoke
+; pixel-radius box - a player has no way to see an arbitrary sub-cell
+; catch zone, but "stand in the lift's cell" matches how every other
+; interactive tile in the game already works, and gives a full 16x16
+; window instead of a much smaller one (an earlier draft's tighter
+; radius made boarding from a standstill feel broken - Fausto's own
+; report, "continuo a non riuscire a salirci").
+lift_in_footprint:
+        ld  a,(room_lift_wx)
+        cp  0FFh
+        jr  z,.no
+        srl a
+        srl a
+        srl a
+        srl a
+        ld  b,a
+        ld  a,(sam_wx)
+        srl a
+        srl a
+        srl a
+        srl a
+        cp  b
+        jr  nz,.no
+        ld  a,(room_lift_wz)
+        srl a
+        srl a
+        srl a
+        srl a
+        ld  b,a
+        ld  a,(sam_wz)
+        srl a
+        srl a
+        srl a
+        srl a
+        cp  b
+        jr  nz,.no
+        ld  a,1
+        ret
+.no:    xor a
+        ret
+
+; lift_land_check: called only while airborne+falling. Lands Sam on
+; the lift (grounded, height synced, on_lift=1) if he's within its
+; footprint and has fallen to/below its current surface; returns A=1
+; when handled (caller skips the normal static-floor landing check
+; this frame), A=0 otherwise (normal check runs, e.g. for the real
+; floor far below the lift's own open shaft).
+lift_land_check:
+        call lift_in_footprint
+        or  a
+        ret  z
+        ld  a,(lift_h)
+        ld  b,a
+        ld  a,(sam_h+1)
+        cp  b
+        jr  nc,.no2         ; still above the lift - keep falling
+        ld  a,b
+        ld  (sam_h+1),a
+        xor a
+        ld  (sam_h),a
+        ld  hl,0
+        ld  (sam_vy),hl
+        ld  a,(sam_fl)
+        set 0,a
+        ld  (sam_fl),a
+        ld  a,LIFT_GT
+        ld  (ground_t),a
+        ld  a,1
+        ld  (on_lift),a
+        xor a
+        ld  (lift_ride_t),a     ; fresh board - grace period restarts
+        ld  a,1
+        ret
+.no2:   xor a
+        ret
+
+; lift_ride_check: called only while grounded. Two cases both return
+; A=1 (handled, sam_h synced to lift_h, ground_t=LIFT_GT, on_lift=1):
+; (1) was already riding (on_lift!=0) and is still within the lift's
+; footprint - keeps tracking its moving height unconditionally, or
+; (2) wasn't riding yet but just walked into the footprint at a height
+; already CLOSE to the lift's current surface (boarding it from
+; adjacent floor, not falling onto it - that's lift_land_check's job).
+; Case 2 uses a tolerance (BOARD_TOL), not exact equality: the lift is
+; a moving target that bounces 1px every other frame, so it only
+; passes through any exact height for 1-2 real frames per cycle -
+; requiring an exact match made boarding it while standing still
+; practically un-timeable for a real player (found via Fausto's own
+; playtesting - "non riesco a salire sulla piattaforma"). A tolerance
+; gives a real multi-frame window each time the lift swings back down
+; near standing height, while still small enough that merely passing
+; under the lift's column at some unrelated height (e.g. it's high
+; overhead) doesn't falsely snap Sam up to meet it.
+lift_ride_check:
+        call lift_in_footprint
+        or  a
+        jr  z,.notlift
+        ld  a,(on_lift)
+        or  a
+        jr  nz,.continuing       ; already riding - sync unconditionally
+        ld  a,(lift_h)
+        ld  b,a
+        ld  a,(sam_h+1)
+        sub b
+        jr  nc,.bdx
+        neg
+.bdx:   cp  BOARD_TOL
+        jr  nc,.notlift          ; too far from the lift's own height
+        ld  a,(lift_h)
+        ld  (sam_h+1),a
+        xor a
+        ld  (sam_h),a
+        ld  (lift_ride_t),a     ; fresh board - grace period restarts
+        ld  a,LIFT_GT
+        ld  (ground_t),a
+        ld  a,1
+        ld  (on_lift),a
+        ret
+.continuing:
+        ld  a,(lift_h)
+        ld  (sam_h+1),a
+        xor a
+        ld  (sam_h),a
+        ld  a,LIFT_GT
+        ld  (ground_t),a
+        ld  a,1
+        ld  (on_lift),a
+        ret
+.notlift:
+        xor a
+        ld  (on_lift),a
+        ret
+
+; lift_update: bounces lift_h between room_lift_ymin/ymax, 1px every
+; other frame - same cadence/structure as enemy_update's horizontal
+; patrol bounce, just applied to a platform instead of an enemy.
+lift_update:
+        ld  a,(room_lift_wx)
+        cp  0FFh
+        ret z
+        ld  a,(frame)
+        and 1
+        ret nz
+        ld  a,(lift_dir)
+        or  a
+        ld  a,(lift_h)
+        jr  nz,.down
+        inc a
+        ld  b,a
+        ld  a,(room_lift_ymax)
+        ld  c,a
+        ld  a,b
+        cp  c
+        jr  c,.st
+        ld  a,1
+        ld  (lift_dir),a
+        ld  a,(room_lift_ymax)
+        jr  .st
+.down:  dec a
+        ld  b,a
+        ld  a,(room_lift_ymin)
+        ld  c,a
+        ld  a,b
+        cp  c
+        jr  nc,.st
+        xor a
+        ld  (lift_dir),a
+        ld  a,(room_lift_ymin)
+.st:    ld  (lift_h),a
         ret
 
 ; ------------------------------------------------------------
@@ -2573,6 +2835,70 @@ sam_draw:
         call WRTVRM
         inc hl
 
+        ; lift platform (2 side-by-side 16x16 sprites, patterns 8/12) -
+        ; whichever room has none (room_lift_wx=0FFh) just skips this
+        ld  a,(room_lift_wx)
+        cp  0FFh
+        jr  z,.noliftdraw
+        push hl              ; hl is the running VRAM sprite pointer -
+                             ; the sx/sy math below clobbers hl itself,
+                             ; same lesson as the mirrored-pair enemy's
+                             ; .mkpos (see the Processing Plant comment)
+        ld  a,(room_lift_wx)
+        ld  l,a
+        ld  h,0
+        ld  de,PX0-8
+        add hl,de
+        ld  a,(room_lift_wz)
+        ld  e,a
+        ld  d,0
+        or  a
+        sbc hl,de
+        ld  a,l              ; base sx
+        sub 8
+        ld  c,a              ; left-half sx
+        ld  a,(room_lift_wx)
+        ld  hl,room_lift_wz
+        add a,(hl)
+        srl a
+        add a,PY0
+        push af
+        ld  a,(lift_h)
+        add a,16
+        ld  e,a
+        pop af
+        sub e
+        dec a
+        ld  b,a              ; sy-1 (shared by both halves)
+        pop hl
+        ld  a,b
+        call WRTVRM
+        inc hl
+        ld  a,c
+        call WRTVRM
+        inc hl
+        ld  a,8
+        call WRTVRM
+        inc hl
+        ld  a,6
+        call WRTVRM
+        inc hl
+        ld  a,c
+        add a,16
+        ld  c,a              ; right-half sx
+        ld  a,b
+        call WRTVRM
+        inc hl
+        ld  a,c
+        call WRTVRM
+        inc hl
+        ld  a,12
+        call WRTVRM
+        inc hl
+        ld  a,6
+        call WRTVRM
+        inc hl
+.noliftdraw:
         ld  a,208
         call WRTVRM
         ret
@@ -4093,6 +4419,13 @@ bass_tab:
 gfx_sprites:
         INCBIN "src/sam_sprites.bin"
 
+; lift_gfx: the rising/falling lift platform's sprite art (2 halves,
+; 64 bytes total) - a single fixed design shared by every room that
+; has a lift, not per-room data, so it lives here in bank0's spare
+; space alongside gfx_sprites rather than in the tight bank1 window.
+lift_gfx:
+        INCBIN "src/lift_gfx.bin"
+
 ; ============================================================
 ;  BANK 1: level data (fixed at 6000, but see gfx_sprites above -
 ;  it may push this a little past 06000h if bank0 ran out of room)
@@ -4117,6 +4450,12 @@ enemy_gfx:
 ; ============================================================
         ORG 0A000h
         INCBIN "src/bg_color.bin"
+keys_gfx:
+        INCBIN "src/keys_gfx.bin"
+exit_gfx_0:
+        INCBIN "src/exit_gfx_0.bin"
+exit_gfx_1:
+        INCBIN "src/exit_gfx_1.bin"
         BLOCK 0C000h-$,0FFh
 
 ; ============================================================
@@ -4144,6 +4483,12 @@ bear_gfx:
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color2.bin"
+keys_gfx2:
+        INCBIN "src/keys_gfx2.bin"
+exit_gfx2_0:
+        INCBIN "src/exit_gfx2_0.bin"
+exit_gfx2_1:
+        INCBIN "src/exit_gfx2_1.bin"
         BLOCK 0C000h-$,0FFh
 
 ; ============================================================
@@ -4167,6 +4512,12 @@ chicken_gfx:
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color3.bin"
+keys_gfx3:
+        INCBIN "src/keys_gfx3.bin"
+exit_gfx3_0:
+        INCBIN "src/exit_gfx3_0.bin"
+exit_gfx3_1:
+        INCBIN "src/exit_gfx3_1.bin"
         BLOCK 0C000h-$,0FFh
 
 ; ============================================================
@@ -4191,6 +4542,12 @@ rat_gfx:
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color4.bin"
+keys_gfx4:
+        INCBIN "src/keys_gfx4.bin"
+exit_gfx4_0:
+        INCBIN "src/exit_gfx4_0.bin"
+exit_gfx4_1:
+        INCBIN "src/exit_gfx4_1.bin"
         BLOCK 0C000h-$,0FFh
 
 ; ============================================================
@@ -4208,6 +4565,12 @@ eugene_gfx:
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color5.bin"
+keys_gfx5:
+        INCBIN "src/keys_gfx5.bin"
+exit_gfx5_0:
+        INCBIN "src/exit_gfx5_0.bin"
+exit_gfx5_1:
+        INCBIN "src/exit_gfx5_1.bin"
         BLOCK 0C000h-$,0FFh
 
 ; ============================================================
@@ -4225,6 +4588,12 @@ pacman_gfx:
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color6.bin"
+keys_gfx6:
+        INCBIN "src/keys_gfx6.bin"
+exit_gfx6_0:
+        INCBIN "src/exit_gfx6_0.bin"
+exit_gfx6_1:
+        INCBIN "src/exit_gfx6_1.bin"
         BLOCK 0C000h-$,0FFh
 
 ; ============================================================
@@ -4242,6 +4611,41 @@ guardian_gfx:
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color7.bin"
+keys_gfx7:
+        INCBIN "src/keys_gfx7.bin"
+exit_gfx7_0:
+        INCBIN "src/exit_gfx7_0.bin"
+exit_gfx7_1:
+        INCBIN "src/exit_gfx7_1.bin"
+        BLOCK 0C000h-$,0FFh
+
+; ============================================================
+;  BANK 99: room 8's own crumbling-platform variants (must match
+;  CRUMBBANK4 in tools/gen_iso.py)
+; ============================================================
+CRUMBBANK4 equ 99
+        INCBIN "src/crumb4.bin"
+
+; ============================================================
+;  BANKS 100-101: room 8 (Kong Beast) pre-rendered background.
+;  Bank numbers must match ROOM8_BGBANK/ROOM8_BGCOLBANK in
+;  tools/gen_iso.py.
+; ============================================================
+ROOM8_BGBANK    equ 100
+ROOM8_BGCOLBANK equ 101
+        ORG 08000h
+        INCBIN "src/bg_pattern8.bin"
+kong_gfx:
+        INCBIN "src/enemy_gfx8.bin"
+        BLOCK 0A000h-$,0FFh
+        ORG 0A000h
+        INCBIN "src/bg_color8.bin"
+keys_gfx8:
+        INCBIN "src/keys_gfx8.bin"
+exit_gfx8_0:
+        INCBIN "src/exit_gfx8_0.bin"
+exit_gfx8_1:
+        INCBIN "src/exit_gfx8_1.bin"
         BLOCK 0C000h-$,0FFh
 
         ; pad the ROM back out to a full 1MB (128 x 8KB banks) - openMSX's
@@ -4250,4 +4654,4 @@ guardian_gfx:
         ; at all (falls through to plain MSX BASIC). Measured then
         ; computed exactly (1048576 - actual size before this BLOCK),
         ; not guessed by hand.
-        BLOCK 237568,0FFh
+        BLOCK 212992,0FFh

@@ -70,39 +70,6 @@ slab_tab:
         db 121,33,32,32,14
         db 105,25,16,32,14
 
-keys_gfx:
-        db 003h,040h,01Eh,033h,0A1h,021h,0B3h,09Eh,0C0h,010h,011h,060h,040h,011h,014h,000h
-        db 007h,0F6h,0E0h,060h,080h,000h,000h,000h,0FEh,036h,0B6h,080h,000h,000h,000h,000h
-        db 021h,061h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,021h,061h,061h,061h,061h,061h,061h,0F1h
-        db 0F1h,0B1h,0B1h,0FBh,0FBh,0FBh,0FBh,0FBh,0F1h,0F1h,0F1h,0B1h,0FBh,0FBh,0FBh,0FBh
-        db 000h,000h,01Eh,033h,021h,021h,0B3h,09Eh,000h,000h,000h,000h,001h,000h,00Bh,000h
-        db 007h,0F6h,0E0h,081h,007h,0E0h,080h,000h,0FEh,036h,0B6h,080h,001h,007h,0E0h,081h
-        db 0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,061h,0F1h,061h,0F1h
-        db 0F1h,041h,041h,047h,047h,074h,074h,0F4h,0F1h,0F1h,0F1h,041h,074h,074h,047h,047h
-        db 00Ah,000h,000h,000h,07Fh,000h,09Eh,033h,00Ch,0F3h,0E3h,0E4h,0E7h,0E7h,067h,077h
-        db 021h,021h,033h,01Eh,007h,0B6h,0B0h,05Fh,07Fh,00Fh,003h,000h,0FEh,036h,0B6h,080h
-        db 086h,0F6h,0F6h,0F6h,061h,0F1h,0F1h,0F1h,086h,061h,061h,061h,061h,061h,061h,061h
-        db 0F1h,0F1h,0F1h,0F1h,0F1h,061h,061h,061h,061h,061h,061h,0F1h,0F1h,0F1h,0F1h,061h
-
-exit_gfx_0:
-        db 000h,00Eh,040h,020h,060h,006h,05Fh,07Fh,0BFh,006h,05Fh,080h,041h,008h,01Ch,080h
-        db 0C0h,0C0h,01Ch,080h,0C1h,008h,01Ch,080h,000h,000h,000h,03Fh,0C0h,0C0h,01Ch,080h
-        db 001h,038h,013h,084h,01Eh,078h,01Eh,078h,0C1h,008h,01Ch,080h,001h,038h,013h,084h
-        db 0C1h,008h,01Ch,080h,0C0h,00Eh,018h,090h,0C0h,00Eh,018h,090h,043h,00Fh,03Ch,00Fh
-        db 0F6h,061h,061h,061h,061h,0F1h,0F1h,0F1h,061h,0F1h,0F1h,06Fh,07Fh,0F7h,0F7h,07Fh
-        db 0F6h,071h,0F7h,07Fh,07Fh,0F7h,0F7h,07Fh,0F6h,0F6h,0F6h,061h,0F6h,076h,0F7h,07Fh
-        db 07Fh,0F7h,074h,047h,047h,047h,074h,074h,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,074h,047h
-        db 07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,0F7h,074h,07Fh,0F7h,0F7h,074h,047h,074h,047h,047h
-exit_gfx_1:
-        db 000h,00Eh,040h,020h,060h,006h,05Fh,07Fh,0BFh,006h,05Fh,080h,041h,008h,01Ch,080h
-        db 0C0h,0C0h,01Ch,080h,0C1h,008h,01Ch,080h,000h,000h,000h,03Fh,0C0h,0C0h,01Ch,080h
-        db 001h,007h,01Ch,084h,01Eh,078h,01Eh,078h,0C1h,008h,01Ch,080h,001h,007h,01Ch,084h
-        db 0C1h,008h,01Ch,080h,0C0h,00Fh,0E0h,070h,0C0h,00Fh,0E0h,070h,043h,00Fh,03Ch,00Fh
-        db 0F6h,061h,061h,061h,061h,071h,071h,071h,061h,071h,071h,067h,0F7h,07Fh,07Fh,0F7h
-        db 076h,0F1h,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,0F6h,0F6h,0F6h,061h,076h,0F6h,07Fh,0F7h
-        db 0F7h,0F7h,074h,047h,047h,047h,074h,074h,0F7h,07Fh,07Fh,0F7h,0F7h,0F7h,074h,047h
-        db 0F7h,07Fh,07Fh,0F7h,0F7h,07Fh,0F7h,074h,0F7h,07Fh,0F7h,074h,047h,074h,047h,047h
-
 hazards_tab:
         db 1,2,18
         db 5,1,18
@@ -181,39 +148,6 @@ slab_tab2:
         db 105,65,80,24,7
         db 89,65,64,16,15
 
-keys_gfx2:
-        db 038h,0FCh,028h,050h,060h,003h,0A0h,0F9h,08Ch,00Dh,0E7h,007h,003h,007h,005h,007h
-        db 058h,006h,018h,060h,080h,0FFh,0FFh,0FFh,0CFh,005h,00Ch,01Ch,0FFh,001h,007h,0E0h
-        db 05Fh,0F1h,05Fh,05Fh,05Fh,02Fh,05Fh,0F1h,05Fh,0F1h,021h,0F2h,0F2h,0F2h,052h,0F2h
-        db 0F5h,07Fh,07Fh,07Fh,07Fh,0FFh,0FFh,0FFh,0F1h,05Fh,07Fh,0F1h,0FFh,07Fh,07Fh,0F7h
-        db 037h,0F8h,0F9h,003h,038h,0C0h,0F3h,0F9h,03Eh,009h,0E3h,0F4h,0F2h,0F0h,0F0h,0E0h
-        db 04Ch,006h,060h,060h,080h,0FFh,0FFh,0FFh,0C0h,0C0h,0DCh,01Ch,0FFh,0FFh,0FFh,0FFh
-        db 051h,051h,051h,025h,051h,051h,051h,0F1h,051h,051h,021h,021h,021h,021h,021h,021h
-        db 05Fh,07Fh,05Fh,07Fh,07Fh,0FFh,0FFh,0FFh,0F1h,0F1h,0F1h,0F1h,0FFh,0FFh,0FFh,0FFh
-        db 0FFh,001h,002h,0FFh,001h,0FCh,050h,0A0h,080h,070h,003h,058h,050h,00Ch,0E7h,007h
-        db 003h,003h,0A0h,018h,0FCh,0FEh,0FEh,0FEh,007h,007h,007h,0E7h,0C0h,0C0h,0C0h,01Fh
-        db 0FFh,05Fh,05Fh,0FFh,05Fh,0F1h,0F5h,05Fh,057h,0F7h,07Fh,05Fh,05Fh,051h,021h,0F2h
-        db 02Fh,02Fh,05Fh,07Fh,071h,071h,071h,071h,0F2h,0F2h,0F2h,021h,0F7h,0F7h,0F7h,071h
-
-exit_gfx2_0:
-        db 0FFh,0FFh,0FFh,0FFh,0FFh,001h,003h,0FFh,0FFh,001h,003h,0FFh,041h,008h,01Ch,080h
-        db 00Dh,0C0h,0E0h,080h,0C1h,008h,01Ch,080h,084h,0C1h,008h,082h,002h,0C0h,0E0h,080h
-        db 001h,038h,013h,084h,01Eh,078h,01Eh,078h,0C1h,008h,01Ch,080h,001h,038h,013h,084h
-        db 0C1h,008h,01Ch,080h,0C0h,00Eh,018h,090h,0C0h,00Eh,018h,090h,043h,00Fh,03Ch,00Fh
-        db 0FFh,0FFh,0FFh,0FFh,0FFh,07Fh,07Fh,0FFh,0FFh,07Fh,07Fh,0FFh,07Fh,0F7h,0F7h,07Fh
-        db 05Fh,07Fh,07Fh,07Fh,07Fh,0F7h,0F7h,07Fh,05Fh,0F5h,05Fh,05Fh,05Fh,07Fh,07Fh,07Fh
-        db 07Fh,0F7h,074h,047h,047h,047h,074h,074h,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,074h,047h
-        db 07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,0F7h,074h,07Fh,0F7h,0F7h,074h,047h,074h,047h,047h
-exit_gfx2_1:
-        db 0FFh,0FFh,0FFh,0FFh,001h,006h,01Ch,080h,001h,006h,01Ch,080h,041h,008h,01Ch,080h
-        db 00Dh,030h,01Ch,080h,0C1h,008h,01Ch,080h,084h,0C1h,008h,082h,0C0h,030h,01Ch,080h
-        db 001h,007h,01Ch,084h,01Eh,078h,01Eh,078h,0C1h,008h,01Ch,080h,001h,007h,01Ch,084h
-        db 0C1h,008h,01Ch,080h,0C0h,00Fh,0E0h,070h,0C0h,00Fh,0E0h,070h,043h,00Fh,03Ch,00Fh
-        db 0FFh,0FFh,0FFh,0FFh,07Fh,07Fh,07Fh,0F7h,07Fh,07Fh,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h
-        db 05Fh,07Fh,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,05Fh,0F5h,05Fh,05Fh,07Fh,07Fh,07Fh,0F7h
-        db 0F7h,0F7h,074h,047h,047h,047h,074h,074h,0F7h,07Fh,07Fh,0F7h,0F7h,0F7h,074h,047h
-        db 0F7h,07Fh,07Fh,0F7h,0F7h,07Fh,0F7h,074h,0F7h,07Fh,0F7h,074h,047h,074h,047h,047h
-
 hazards_tab2:
         db 3,5,18
         db 5,1,18
@@ -289,43 +223,6 @@ slab_tab3:
         db 169,89,112,16,11
         db 121,65,96,32,10
         db 105,57,80,32,10
-
-keys_gfx3:
-        db 0D0h,080h,09Eh,0B3h,021h,021h,0B3h,09Eh,0FCh,00Ch,07Ch,04Ch,07Fh,01Ah,060h,000h
-        db 007h,050h,060h,060h,080h,000h,000h,000h,0FEh,036h,0B6h,080h,000h,000h,000h,000h
-        db 06Ah,0A1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,061h,06Ah,0A1h,06Ah,0A1h,06Ah,06Ah,0F1h
-        db 0F1h,0A6h,0A1h,0FAh,0FAh,0FAh,0FAh,0FAh,0F1h,0F1h,0F1h,0A1h,0FAh,0FAh,0FAh,0FAh
-        db 020h,080h,09Eh,0B3h,0A1h,021h,0B3h,09Eh,040h,0D0h,028h,044h,029h,07Fh,00Ch,000h
-        db 007h,0F6h,0E0h,060h,080h,000h,000h,000h,0FEh,036h,0B6h,080h,000h,000h,000h,000h
-        db 06Ah,061h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0A6h,0A6h,0A6h,06Ah,06Ah,0A1h,06Ah,0F1h
-        db 0F1h,0A1h,0A1h,0FAh,0FAh,0FAh,0FAh,0FAh,0F1h,0F1h,0F1h,0A1h,0FAh,0FAh,0FAh,0FAh
-        db 05Ch,0C0h,09Eh,0B3h,021h,021h,0B3h,09Eh,000h,00Fh,043h,07Fh,060h,07Fh,041h,000h
-        db 007h,0F6h,0C0h,060h,080h,000h,000h,000h,0FEh,036h,0B6h,080h,000h,000h,000h,000h
-        db 0A6h,0A1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F6h,06Ah,06Ah,0A1h,06Ah,0A1h,06Ah,0F1h
-        db 0F1h,0A1h,0A1h,0FBh,0FBh,0FBh,0FBh,0FBh,0F1h,0F1h,0F1h,0B1h,0FBh,0FBh,0FBh,0FBh
-
-exit_gfx3_0:
-        db 08Ch,000h,002h,084h,004h,002h,008h,092h,012h,006h,03Fh,080h,0BFh,080h,023h,03Fh
-        db 0C0h,030h,01Ch,080h,0C1h,008h,01Ch,080h,01Ch,038h,000h,024h,0C0h,0C0h,01Ch,080h
-        db 080h,008h,042h,006h,048h,009h,045h,000h,000h,038h,013h,084h,01Eh,078h,01Eh,078h
-        db 0C1h,008h,01Ch,080h,001h,038h,013h,084h,0C1h,008h,01Ch,080h,0C0h,00Eh,018h,090h
-        db 0C0h,00Eh,018h,090h,043h,00Fh,03Ch,00Fh,080h,080h,00Ah,015h,031h,00Ah,014h,080h
-        db 06Ah,0F1h,0FDh,0FDh,0FDh,0FDh,0FDh,0FDh,06Ah,0FAh,0F1h,0DFh,0F1h,0D7h,07Fh,0F1h
-        db 0FAh,0F7h,0F7h,07Fh,07Fh,0F7h,0F7h,07Fh,06Ah,06Ah,0FAh,06Ah,0FAh,07Ah,0F7h,07Fh
-        db 06Ah,06Ah,06Ah,06Ah,06Ah,06Ah,06Ah,0FAh,0F1h,0F7h,074h,047h,047h,047h,074h,074h
-        db 07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,074h,047h,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,0F7h,074h
-        db 07Fh,0F7h,0F7h,074h,047h,074h,047h,047h,0FAh,04Ah,06Ah,06Ah,06Ah,06Ah,06Ah,07Ah
-exit_gfx3_1:
-        db 08Ch,000h,002h,084h,004h,002h,008h,092h,012h,006h,03Fh,080h,081h,080h,01Ch,03Fh
-        db 0C0h,030h,01Ch,080h,0C1h,008h,01Ch,080h,01Ch,038h,000h,024h,0C0h,0C0h,01Ch,080h
-        db 080h,008h,042h,006h,048h,009h,045h,000h,000h,007h,01Ch,084h,01Eh,078h,01Eh,078h
-        db 0C1h,008h,01Ch,080h,001h,007h,01Ch,084h,0C1h,008h,01Ch,080h,0C0h,00Fh,0E0h,070h
-        db 0C0h,00Fh,0E0h,070h,043h,00Fh,03Ch,00Fh,080h,080h,00Ah,015h,031h,00Ah,014h,080h
-        db 06Ah,0F1h,0FDh,0FDh,0FDh,0FDh,0FDh,0FDh,06Ah,07Ah,071h,0D7h,0F7h,0DFh,07Fh,071h
-        db 07Ah,07Fh,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,06Ah,06Ah,0FAh,06Ah,07Ah,0FAh,07Fh,0F7h
-        db 06Ah,06Ah,06Ah,06Ah,06Ah,06Ah,06Ah,0FAh,0F1h,0F7h,074h,047h,047h,047h,074h,074h
-        db 0F7h,07Fh,07Fh,0F7h,0F7h,0F7h,074h,047h,0F7h,07Fh,07Fh,0F7h,0F7h,07Fh,0F7h,074h
-        db 0F7h,07Fh,0F7h,074h,047h,074h,047h,047h,07Ah,04Ah,06Ah,06Ah,06Ah,06Ah,06Ah,07Ah
 
 hazards_tab3:
         db 2,3,18
@@ -405,43 +302,6 @@ slab_tab4:
         db 169,89,112,16,13
         db 105,57,80,32,13
 
-keys_gfx4:
-        db 001h,000h,01Eh,033h,021h,021h,033h,01Eh,0C0h,03Fh,00Ch,003h,000h,000h,000h,000h
-        db 007h,006h,010h,060h,080h,000h,000h,000h,0FEh,036h,0B6h,080h,000h,000h,000h,000h
-        db 081h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,084h,041h,081h,081h,0F1h,0F1h,0F1h,0F1h
-        db 0F1h,0F1h,0F1h,0FDh,0FDh,0FDh,0FDh,0FDh,0F1h,0F1h,0F1h,0D1h,0FDh,0FDh,0FDh,0FDh
-        db 001h,000h,01Eh,033h,021h,021h,033h,01Eh,0C0h,03Fh,00Ch,003h,000h,000h,000h,000h
-        db 007h,006h,010h,060h,080h,000h,000h,000h,0FEh,036h,0B6h,080h,000h,000h,000h,000h
-        db 081h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,084h,041h,081h,081h,0F1h,0F1h,0F1h,0F1h
-        db 0F1h,0F1h,0F1h,0FDh,0FDh,0FDh,0FDh,0FDh,0F1h,0F1h,0F1h,0D1h,0FDh,0FDh,0FDh,0FDh
-        db 001h,000h,01Eh,033h,021h,021h,033h,01Eh,0C0h,03Fh,00Ch,003h,000h,000h,000h,000h
-        db 007h,006h,010h,060h,080h,000h,000h,000h,0FEh,036h,0B6h,080h,000h,000h,000h,000h
-        db 081h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,084h,041h,081h,081h,0F1h,0F1h,0F1h,0F1h
-        db 0F1h,0F1h,0F1h,0FDh,0FDh,0FDh,0FDh,0FDh,0F1h,0F1h,0F1h,0D1h,0FDh,0FDh,0FDh,0FDh
-
-exit_gfx4_0:
-        db 0C0h,030h,00Ch,003h,001h,006h,01Ch,07Fh,001h,006h,01Ch,07Fh,041h,008h,01Ch,080h
-        db 0C0h,0C0h,01Ch,080h,0C1h,008h,01Ch,080h,001h,006h,018h,060h,0C0h,0C0h,01Ch,080h
-        db 0C0h,030h,00Ch,003h,000h,000h,000h,000h,001h,038h,013h,084h,01Eh,078h,01Eh,078h
-        db 0C1h,008h,01Ch,080h,001h,038h,013h,084h,0C1h,008h,01Ch,080h,0C0h,00Eh,018h,090h
-        db 0C0h,00Eh,018h,090h,043h,00Fh,03Ch,00Fh,080h,080h,080h,080h,080h,006h,018h,060h
-        db 081h,081h,081h,081h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,07Fh,0F7h,0F7h,07Fh
-        db 0F1h,071h,0F7h,07Fh,07Fh,0F7h,0F7h,07Fh,081h,081h,081h,081h,0F1h,071h,0F7h,07Fh
-        db 081h,081h,081h,081h,0F1h,0F1h,0F1h,0F1h,07Fh,0F7h,074h,047h,047h,047h,074h,074h
-        db 07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,074h,047h,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,0F7h,074h
-        db 07Fh,0F7h,0F7h,074h,047h,074h,047h,047h,0F1h,041h,071h,071h,041h,081h,081h,081h
-exit_gfx4_1:
-        db 0C0h,030h,00Ch,003h,001h,006h,01Ch,07Fh,001h,006h,01Ch,07Fh,041h,008h,01Ch,080h
-        db 0C0h,0C0h,01Ch,080h,0C1h,008h,01Ch,080h,001h,006h,018h,060h,0C0h,0C0h,01Ch,080h
-        db 0C0h,030h,00Ch,003h,000h,000h,000h,000h,001h,007h,01Ch,084h,01Eh,078h,01Eh,078h
-        db 0C1h,008h,01Ch,080h,001h,007h,01Ch,084h,0C1h,008h,01Ch,080h,0C0h,00Fh,0E0h,070h
-        db 0C0h,00Fh,0E0h,070h,043h,00Fh,03Ch,00Fh,080h,080h,080h,080h,080h,006h,018h,060h
-        db 081h,081h,081h,081h,071h,071h,071h,071h,071h,071h,071h,071h,0F7h,07Fh,07Fh,0F7h
-        db 071h,0F1h,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,081h,081h,081h,081h,071h,0F1h,07Fh,0F7h
-        db 081h,081h,081h,081h,0F1h,0F1h,0F1h,0F1h,0F7h,0F7h,074h,047h,047h,047h,074h,074h
-        db 0F7h,07Fh,07Fh,0F7h,0F7h,0F7h,074h,047h,0F7h,07Fh,07Fh,0F7h,0F7h,07Fh,0F7h,074h
-        db 0F7h,07Fh,0F7h,074h,047h,074h,047h,047h,071h,041h,071h,071h,041h,081h,081h,081h
-
 hazards_tab4:
         db 1,2,18
         db 3,4,18
@@ -510,39 +370,6 @@ slab_tab5:
         db 137,73,112,32,2
         db 105,57,80,32,2
         db 89,73,64,8,7
-
-keys_gfx5:
-        db 000h,000h,001h,007h,01Fh,01Fh,01Fh,01Fh,000h,000h,0E0h,0F8h,0FEh,080h,080h,080h
-        db 00Fh,007h,010h,060h,080h,000h,000h,000h,0FCh,0F8h,000h,003h,000h,000h,000h,000h
-        db 0F1h,0F1h,081h,081h,081h,061h,061h,061h,0F1h,0F1h,081h,081h,081h,069h,069h,069h
-        db 061h,061h,031h,032h,032h,0F2h,0F2h,0F2h,091h,091h,0F1h,032h,0F2h,0F2h,0F2h,0F2h
-        db 000h,000h,001h,007h,01Fh,01Fh,01Fh,01Fh,03Fh,00Fh,0E3h,0F8h,0FEh,080h,080h,080h
-        db 00Fh,007h,010h,060h,080h,000h,000h,000h,0FCh,0F8h,000h,003h,000h,000h,000h,000h
-        db 0F1h,0F1h,081h,081h,081h,061h,061h,061h,0A1h,0A1h,081h,081h,081h,069h,069h,069h
-        db 061h,061h,031h,032h,032h,0F2h,0F2h,0F2h,091h,091h,0F1h,032h,0F2h,0F2h,0F2h,0F2h
-        db 000h,000h,001h,007h,01Fh,01Fh,01Fh,01Fh,03Fh,00Fh,0E3h,0F8h,0FEh,080h,080h,080h
-        db 00Fh,007h,010h,060h,080h,000h,000h,000h,0FCh,0F8h,000h,003h,000h,000h,000h,000h
-        db 0F1h,0F1h,081h,081h,081h,061h,061h,061h,0A1h,0A1h,081h,081h,081h,069h,069h,069h
-        db 061h,061h,031h,032h,032h,0F2h,0F2h,0F2h,091h,091h,0F1h,032h,0F2h,0F2h,0F2h,0F2h
-
-exit_gfx5_0:
-        db 000h,000h,000h,000h,001h,006h,01Ch,07Fh,001h,006h,01Ch,07Fh,041h,008h,01Ch,080h
-        db 03Eh,0C0h,0F3h,0FCh,0C1h,008h,01Ch,080h,03Dh,0CDh,0FEh,000h,03Fh,00Eh,0F1h,0FCh
-        db 001h,038h,013h,084h,01Eh,078h,01Eh,078h,0C1h,008h,01Ch,080h,001h,038h,013h,084h
-        db 0C1h,008h,01Ch,080h,0C0h,00Eh,018h,090h,0C0h,00Eh,018h,090h,043h,00Fh,03Ch,00Fh
-        db 0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,07Fh,0F7h,0F7h,07Fh
-        db 041h,071h,071h,0F1h,07Fh,0F7h,0F7h,07Fh,041h,041h,041h,0F4h,041h,041h,071h,0F1h
-        db 07Fh,0F7h,074h,047h,047h,047h,074h,074h,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,074h,047h
-        db 07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,0F7h,074h,07Fh,0F7h,0F7h,074h,047h,074h,047h,047h
-exit_gfx5_1:
-        db 000h,000h,000h,000h,001h,006h,01Ch,07Fh,001h,006h,01Ch,07Fh,041h,008h,01Ch,080h
-        db 03Eh,0C0h,0F3h,0FCh,0C1h,008h,01Ch,080h,03Dh,0CDh,0FEh,000h,03Fh,00Eh,0F1h,0FCh
-        db 001h,007h,01Ch,084h,01Eh,078h,01Eh,078h,0C1h,008h,01Ch,080h,001h,007h,01Ch,084h
-        db 0C1h,008h,01Ch,080h,0C0h,00Fh,0E0h,070h,0C0h,00Fh,0E0h,070h,043h,00Fh,03Ch,00Fh
-        db 0F1h,0F1h,0F1h,0F1h,071h,071h,071h,071h,071h,071h,071h,071h,0F7h,07Fh,07Fh,0F7h
-        db 041h,0F1h,0F1h,071h,0F7h,07Fh,07Fh,0F7h,041h,041h,041h,0F4h,041h,041h,0F1h,071h
-        db 0F7h,0F7h,074h,047h,047h,047h,074h,074h,0F7h,07Fh,07Fh,0F7h,0F7h,0F7h,074h,047h
-        db 0F7h,07Fh,07Fh,0F7h,0F7h,07Fh,0F7h,074h,0F7h,07Fh,0F7h,074h,047h,074h,047h,047h
 
 hazards_tab5:
 
@@ -618,43 +445,6 @@ slab_tab6:
         db 89,49,64,32,3
         db 73,41,48,32,3
 
-keys_gfx6:
-        db 000h,000h,01Eh,033h,021h,021h,0B3h,09Eh,077h,037h,007h,003h,000h,000h,000h,000h
-        db 007h,0F6h,0E0h,080h,041h,008h,01Ch,080h,0FEh,036h,0B6h,080h,0C1h,008h,01Ch,080h
-        db 0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0C1h,0C1h,0C1h,0C1h,0F1h,0F1h,0F1h,0F1h
-        db 0F1h,041h,041h,04Ch,03Ch,0C3h,0C3h,03Ch,0F1h,0F1h,0F1h,031h,03Ch,0C3h,0C3h,03Ch
-        db 001h,000h,01Eh,033h,021h,021h,0B3h,09Eh,01Ch,030h,00Ch,003h,000h,000h,000h,000h
-        db 007h,0F6h,0E0h,080h,041h,008h,01Ch,080h,0FEh,036h,0B6h,080h,0C1h,008h,01Ch,080h
-        db 021h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0C1h,021h,021h,021h,0F1h,0F1h,0F1h,0F1h
-        db 0F1h,031h,031h,03Ch,03Ch,0C3h,0C3h,03Ch,0F1h,0F1h,0F1h,031h,03Ch,0C3h,0C3h,03Ch
-        db 001h,000h,01Eh,033h,021h,021h,033h,01Eh,0C0h,030h,00Ch,003h,000h,000h,000h,000h
-        db 007h,006h,010h,07Fh,041h,008h,01Ch,080h,0FEh,036h,0B6h,080h,0C1h,008h,01Ch,080h
-        db 021h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,021h,021h,021h,021h,0F1h,0F1h,0F1h,0F1h
-        db 0F1h,0F1h,0C1h,0C1h,03Ch,0C3h,0C3h,03Ch,0F1h,0F1h,0F1h,031h,03Ch,0C3h,0C3h,03Ch
-
-exit_gfx6_0:
-        db 040h,030h,00Ch,003h,001h,006h,01Ch,07Fh,001h,006h,01Ch,07Fh,041h,008h,01Ch,080h
-        db 0C0h,0C0h,01Ch,080h,0C1h,008h,01Ch,080h,001h,006h,018h,060h,0C0h,0C0h,01Ch,080h
-        db 0C0h,030h,00Ch,003h,000h,000h,000h,000h,001h,038h,013h,084h,01Eh,078h,01Eh,078h
-        db 0C1h,008h,01Ch,080h,001h,038h,013h,084h,0C1h,008h,01Ch,080h,0C0h,00Eh,018h,090h
-        db 0C0h,00Eh,018h,090h,043h,00Fh,03Ch,00Fh,080h,080h,080h,080h,080h,006h,018h,060h
-        db 021h,021h,021h,021h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,07Fh,0F7h,0F7h,07Fh
-        db 0F1h,071h,0F7h,07Fh,07Fh,0F7h,0F7h,07Fh,021h,021h,021h,021h,0F1h,071h,0F7h,07Fh
-        db 021h,021h,021h,021h,0F1h,0F1h,0F1h,0F1h,07Fh,0F7h,074h,047h,047h,047h,074h,074h
-        db 07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,074h,047h,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,0F7h,074h
-        db 07Fh,0F7h,0F7h,074h,047h,074h,047h,047h,0F1h,041h,071h,071h,041h,021h,021h,021h
-exit_gfx6_1:
-        db 040h,030h,00Ch,003h,001h,006h,01Ch,07Fh,001h,006h,01Ch,07Fh,041h,008h,01Ch,080h
-        db 0C0h,0C0h,01Ch,080h,0C1h,008h,01Ch,080h,001h,006h,018h,060h,0C0h,0C0h,01Ch,080h
-        db 0C0h,030h,00Ch,003h,000h,000h,000h,000h,001h,007h,01Ch,084h,01Eh,078h,01Eh,078h
-        db 0C1h,008h,01Ch,080h,001h,007h,01Ch,084h,0C1h,008h,01Ch,080h,0C0h,00Fh,0E0h,070h
-        db 0C0h,00Fh,0E0h,070h,043h,00Fh,03Ch,00Fh,080h,080h,080h,080h,080h,006h,018h,060h
-        db 021h,021h,021h,021h,071h,071h,071h,071h,071h,071h,071h,071h,0F7h,07Fh,07Fh,0F7h
-        db 071h,0F1h,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,021h,021h,021h,021h,071h,0F1h,07Fh,0F7h
-        db 021h,021h,021h,021h,0F1h,0F1h,0F1h,0F1h,0F7h,0F7h,074h,047h,047h,047h,074h,074h
-        db 0F7h,07Fh,07Fh,0F7h,0F7h,0F7h,074h,047h,0F7h,07Fh,07Fh,0F7h,0F7h,07Fh,0F7h,074h
-        db 0F7h,07Fh,0F7h,074h,047h,074h,047h,047h,071h,041h,071h,071h,041h,021h,021h,021h
-
 hazards_tab6:
 
 ; crumb_tab6 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
@@ -720,43 +510,6 @@ slab_tab7:
         db 121,129,192,16,7
         db 89,65,64,16,11
 
-keys_gfx7:
-        db 0FEh,0C0h,09Eh,0B3h,021h,021h,0B3h,09Eh,03Fh,0CFh,073h,07Ch,07Fh,07Fh,07Fh,000h
-        db 007h,0F6h,0E0h,060h,080h,000h,000h,000h,0FEh,036h,0B6h,080h,000h,000h,000h,000h
-        db 0A1h,0A1h,0F1h,0F1h,0F1h,0F1h,0F1h,0F1h,0A1h,0A1h,0A1h,0A1h,0A1h,0A1h,0A1h,0F1h
-        db 0F1h,0A1h,0A1h,0FBh,0FBh,0FBh,0FBh,0FBh,0F1h,0F1h,0F1h,0B1h,0FBh,0FBh,0FBh,0FBh
-        db 001h,006h,018h,060h,080h,0C0h,09Eh,0B3h,080h,000h,000h,000h,0FEh,0F9h,067h,00Fh
-        db 021h,021h,0B3h,09Eh,007h,0E6h,0E0h,0E0h,007h,070h,070h,000h,0FEh,036h,0B6h,080h
-        db 0FBh,0FBh,0FBh,0FAh,0FAh,0A1h,0F1h,0F1h,0FAh,0FAh,0FAh,0FAh,0A1h,0A1h,0A1h,0A1h
-        db 0F1h,0F1h,0F1h,0F1h,0F1h,0A1h,0A1h,0A1h,0A1h,0B1h,0F1h,0F1h,0F1h,0F1h,0F1h,0B1h
-        db 0FEh,000h,000h,000h,03Fh,0C0h,09Eh,0B3h,007h,00Fh,000h,000h,0FEh,0F9h,067h,01Fh
-        db 021h,021h,0B3h,09Eh,007h,0F6h,0F0h,000h,03Fh,04Fh,073h,000h,0FEh,036h,0B6h,080h
-        db 0A1h,0FAh,0FAh,0FAh,0A1h,0A1h,0F1h,0F1h,0A1h,0A1h,0FAh,0FAh,0A1h,0A1h,0A1h,0A1h
-        db 0F1h,0F1h,0F1h,0F1h,0F1h,0A1h,0A1h,0FAh,0A1h,0A1h,0A1h,0F1h,0F1h,0F1h,0F1h,0A1h
-
-exit_gfx7_0:
-        db 007h,0F0h,0F3h,00Ch,0F9h,00Ch,0F3h,0F0h,001h,006h,060h,07Fh,041h,07Fh,01Ch,07Fh
-        db 0C0h,0C0h,01Ch,080h,0C1h,008h,01Ch,080h,0FEh,0F9h,0E7h,09Fh,0C0h,0C0h,01Ch,080h
-        db 03Fh,0CFh,0F3h,0FCh,000h,000h,000h,000h,060h,007h,013h,084h,01Eh,078h,01Eh,078h
-        db 0C1h,008h,01Ch,080h,001h,038h,013h,084h,0C1h,008h,01Ch,080h,0C0h,00Eh,018h,090h
-        db 0C0h,00Eh,018h,090h,043h,00Fh,03Ch,00Fh,080h,080h,080h,080h,080h,0F8h,060h,080h
-        db 0A1h,0B1h,0F1h,0BFh,0F1h,0BFh,0F1h,0B1h,0FAh,0FAh,0AFh,0F1h,07Fh,071h,0F7h,0F1h
-        db 0FAh,07Ah,0F7h,07Fh,07Fh,0F7h,0F7h,07Fh,0A1h,0A1h,0A1h,0A1h,0FAh,07Ah,0F7h,07Fh
-        db 0A1h,0A1h,0A1h,0A1h,0FAh,0FAh,0FAh,0FAh,0B1h,071h,074h,047h,047h,047h,074h,074h
-        db 07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,074h,047h,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,0F7h,074h
-        db 07Fh,0F7h,0F7h,074h,047h,074h,047h,047h,0FAh,04Ah,07Ah,07Ah,04Ah,0A1h,0A1h,071h
-exit_gfx7_1:
-        db 007h,0F0h,0F3h,00Ch,0F9h,00Ch,0F3h,0F0h,001h,006h,060h,07Fh,041h,07Fh,01Ch,07Fh
-        db 0C0h,0C0h,01Ch,080h,0C1h,008h,01Ch,080h,0FEh,0F9h,0E7h,09Fh,0C0h,0C0h,01Ch,080h
-        db 03Fh,0CFh,0F3h,0FCh,000h,000h,000h,000h,060h,007h,01Ch,084h,01Eh,078h,01Eh,078h
-        db 0C1h,008h,01Ch,080h,001h,007h,01Ch,084h,0C1h,008h,01Ch,080h,0C0h,00Fh,0E0h,070h
-        db 0C0h,00Fh,0E0h,070h,043h,00Fh,03Ch,00Fh,080h,080h,080h,080h,080h,0F8h,060h,080h
-        db 0A1h,0B1h,0F1h,0BFh,0F1h,0BFh,0F1h,0B1h,07Ah,07Ah,0A7h,071h,0F7h,0F1h,07Fh,071h
-        db 07Ah,0FAh,07Fh,0F7h,0F7h,07Fh,07Fh,0F7h,0A1h,0A1h,0A1h,0A1h,07Ah,0FAh,07Fh,0F7h
-        db 0A1h,0A1h,0A1h,0A1h,0FAh,0FAh,0FAh,0FAh,0B1h,0F1h,074h,047h,047h,047h,074h,074h
-        db 0F7h,07Fh,07Fh,0F7h,0F7h,0F7h,074h,047h,0F7h,07Fh,07Fh,0F7h,0F7h,07Fh,0F7h,074h
-        db 0F7h,07Fh,0F7h,074h,047h,074h,047h,047h,07Ah,04Ah,07Ah,07Ah,04Ah,0A1h,0A1h,071h
-
 hazards_tab7:
         db 3,1,18
         db 4,1,18
@@ -777,6 +530,85 @@ hazards_tab7:
 ; crumb_tab7 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
 ;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
 crumb_tab7:
+
+level8_map:
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,003h,000h,000h,000h
+        db 000h,000h,000h,000h,004h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,003h,000h,003h,000h,000h
+        db 000h,000h,000h,004h,000h,004h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,001h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+
+keys_tab8:
+        db 3,3,7,14,6
+        db 4,2,7,18,6
+        db 5,3,7,18,8
+
+slab_tab8:
+        db 89,57,128,56,3
+        db 121,57,128,56,11
+        db 89,57,128,56,7
+        db 89,41,96,56,11
+        db 121,41,96,56,11
+
+hazards_tab8:
+        db 6,1,18
+        db 6,0,18
+
+; crumb_tab8 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
+;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
+crumb_tab8:
+        db 1,3,6,3,255,255,255,13,7,17,15
+        dw 512, 32768
+        db 3,255
+        db 1,4,6,2,255,255,255,17,7,22,15
+        dw 640, 34304
+        db 4,255
+        db 1,5,6,3,255,255,255,17,9,22,17
+        dw 640, 36224
+        db 1,255
 
 ; redefined font, 76 chars from '0' (8 bytes each)
 fonts_tab:
@@ -834,11 +666,13 @@ room6_name:
         db 80,82,79,67,69,83,83,73,78,71,32,80,76,65,78,84,0
 room7_name:
         db 84,72,69,32,86,65,84,0
+room8_name:
+        db 75,79,78,71,32,66,69,65,83,84,0
 
 ; room_tab: one row per room, read into room_state RAM struct
 ; via a single ldir at room_start. Field order/sizes MUST match
 ; the room_state RESB block in src/main.asm exactly.
-ROOMROWLEN equ 41
+ROOMROWLEN equ 45
 room_tab:
         db 2,3
         dw level1_map
@@ -859,6 +693,7 @@ room_tab:
         dw enemy_gfx
         db 3
         db 52,91,40,24,0,0
+        db 255,0,0,0
         dw room1_name
         db 85,86
         dw level2_map
@@ -879,6 +714,7 @@ room_tab:
         dw bear_gfx
         db 14
         db 92,124,56,16,0,0
+        db 255,0,0,0
         dw room2_name
         db 88,89
         dw level3_map
@@ -899,6 +735,7 @@ room_tab:
         dw chicken_gfx
         db 15
         db 48,96,40,32,0,0
+        db 255,0,0,0
         dw room3_name
         db 91,92
         dw level4_map
@@ -919,6 +756,7 @@ room_tab:
         dw rat_gfx
         db 13
         db 48,96,40,32,0,0
+        db 255,0,0,0
         dw room4_name
         db 93,94
         dw level5_map
@@ -939,6 +777,7 @@ room_tab:
         dw eugene_gfx
         db 15
         db 8,44,40,40,1,0
+        db 255,0,0,0
         dw room5_name
         db 95,96
         dw level6_map
@@ -959,6 +798,7 @@ room_tab:
         dw pacman_gfx
         db 10
         db 16,52,40,32,2,56
+        db 255,0,0,0
         dw room6_name
         db 97,98
         dw level7_map
@@ -979,5 +819,27 @@ room_tab:
         dw guardian_gfx
         db 13
         db 64,112,56,8,0,0
+        db 255,0,0,0
         dw room7_name
+        db 100,101
+        dw level8_map
+        dw keys_tab8
+        db 3
+        dw keys_gfx8
+        dw slab_tab8
+        db 5
+        db 3
+        dw crumb_tab8
+        db 99
+        dw hazards_tab8
+        db 2
+        db 64,64,56
+        db 13,9,2,40
+        dw exit_gfx8_0
+        dw exit_gfx8_1
+        dw kong_gfx
+        db 13
+        db 40,88,40,56,0,0
+        db 72,56,8,72
+        dw room8_name
 

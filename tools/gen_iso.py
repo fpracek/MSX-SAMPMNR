@@ -63,6 +63,12 @@ def _wtop_uranium(u):
     futuristic silhouette (Abandoned Uranium Workings)"""
     return 30 + (22 if (int(u) % 16) < 3 else 2)
 
+def _wtop_kong(u):
+    """dense, tall jungle canopy/vine crest (Kong Beast) - taller and
+    more irregular than the cave crest, evoking overgrown vines rather
+    than rock."""
+    return int(50 + 10*abs(_m.sin(u/5.3)) + 6*abs(_m.sin(u/2.1 + 0.9)))
+
 def _stone(u, v):
     """True on the dark joints between stacked irregular blocks"""
     band = (v + int(3*_m.sin(u/9.0))) // 11
@@ -454,12 +460,29 @@ def db(bs, per=13):
 T_EMPTY, T_STONE, T_CONV, T_CRUMB, T_KEY, T_DOORT, T_DOORB = range(7)
 T_EXIT = 7
 
+def draw_lift_marker(bx, bz, color=11):
+    """flat ring painted directly on the floor at the lift's boarding
+    cell. The lift sprite itself is only visible at floor level for a
+    fraction of its cycle (it spends most of its time up near the
+    summit), so without a permanent floor cue a player has no way to
+    know where to stand and wait for it - found via Fausto's own
+    playtesting ("non capisco dove devo mettermi")."""
+    cx, cz = bx*16+8, bz*16+8
+    for dz in range(-7, 8):
+        for dx in range(-7, 8):
+            r2 = dx*dx + dz*dz
+            if 28 <= r2 <= 50:
+                sx, sy = proj(cx+dx, cz+dz, 8)
+                put(sx, sy, color)
+
 def _draw_room_floor(spec):
     gaps = spec.get('floor_gaps', frozenset())
     if spec.get('floor_style') == 'grid':
         draw_floor_grid(spec['floor_base'], spec['floor_speckle'], gaps)
     else:
         draw_floor(spec['floor_base'], spec['floor_speckle'], gaps)
+    if spec.get('lift_wx', 0xFF) != 0xFF:
+        draw_lift_marker(spec['lift_wx']//16, spec['lift_wz']//16)
 
 def pack_sprite_frames(frames):
     """N x 16x16 ascii ('X'=set) -> N*32 bytes (16x16 MSX sprite pattern:
@@ -701,6 +724,8 @@ def render_room(spec):
         name=spec['name'], enxmin=spec['enxmin'], enxmax=spec['enxmax'],
         enz=spec['enz'], ensurf=spec['ensurf'], enemy_color=spec['enemy_color'],
         en_axis=spec.get('en_axis', 0), en_centerx=spec.get('en_centerx', 0),
+        lift_wx=spec.get('lift_wx', 0xFF), lift_wz=spec.get('lift_wz', 0),
+        lift_ymin=spec.get('lift_ymin', 0), lift_ymax=spec.get('lift_ymax', 0),
         hazards=spec['hazards'],
     )
 
@@ -1274,6 +1299,133 @@ ROOM7 = dict(
     name="THE VAT",
 )
 
+# Kong Beast: a big ape silhouette, broad shoulders and short bent
+# legs (distinct body plan from the vertical-humanoid enemies used so
+# far) - arms flared wide (frame A, roaring) vs pulled in tight against
+# the chest (frame B), same "dramatic not subtle" contrast lesson as
+# the bear's swipe animation.
+KONG_A = [
+    _bar(16, (5,11)),
+    _bar(16, (4,12)),
+    _bar(16, (3,13)),
+    _bar(16, (4,12)),
+    _bar(16, (1,6), (10,15)),
+    _bar(16, (0,5), (11,16)),   # arms flared fully out
+    _bar(16, (1,15)),
+    _bar(16, (1,15)),
+    _bar(16, (2,14)),
+    _bar(16, (3,13)),
+    _bar(16, (3,7), (9,13)),
+    _bar(16, (3,7), (9,13)),
+    _bar(16, (2,7), (9,14)),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+]
+KONG_B = [
+    _bar(16, (5,11)),
+    _bar(16, (4,12)),
+    _bar(16, (3,13)),
+    _bar(16, (4,12)),
+    _bar(16, (3,13)),
+    _bar(16, (2,14)),           # arms tucked in tight
+    _bar(16, (1,15)),
+    _bar(16, (1,15)),
+    _bar(16, (2,14)),
+    _bar(16, (3,13)),
+    _bar(16, (4,6), (10,12)),
+    _bar(16, (4,6), (10,12)),
+    _bar(16, (3,7), (9,13)),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+]
+
+# thrown dagger/bone hazard - a chunky diagonal bar (not a thin blade
+# outline, which wouldn't survive draw_hazard's dilation pass intact -
+# same "chunky, not fine linework" lesson as every other hazard here)
+def _dagger_art():
+    return [
+        _art_row(16, (10,13,'V')),
+        _art_row(16, (8,12,'V')),
+        _art_row(16, (6,11,'V')),
+        _art_row(16, (5,10,'V')),
+        _art_row(16, (3,8,'V')),
+        _art_row(16, (2,7,'V')),
+        _art_row(16, (1,5,'V')),
+        _art_row(16),
+    ]
+DAGGER_ART = _dagger_art()
+
+# lift platform sprite: 2 side-by-side 16x16 halves forming a 32px-wide
+# plank, with a couple of thin gap-rows for a wood-grain/grate look -
+# drawn as real hardware sprites (not baked into the background) since
+# its height changes every frame, same "dynamic sprite for a dynamic
+# entity" approach as the enemies/pacmen.
+LIFT_LEFT = [('X'*16 if r != 8 else '.'*16) for r in range(16)]
+LIFT_RIGHT = LIFT_LEFT
+LIFT_FRAMES = [LIFT_LEFT, LIFT_RIGHT]
+
+# Kong Beast: a tall jungle-canopy climb - a rising/falling lift (new
+# mechanic, see room_lift_* in src/main.asm) rides a fixed column from
+# floor level up to a high summit ringed by 3 single-cell crumbling
+# platforms (one key each), patrolled by the beast; a fixed platform
+# beside the lift holds the exit so the way out never requires
+# re-touching an already-visited crumbling cell. The lift itself also
+# drags Sam sideways (the same conveyor push already used in Room1) -
+# holding still while riding walks him off its narrow footprint and he
+# falls back down, so climbing it demands continuous counter-steering.
+room8_slabs_def = [
+    (4, 4, 6, T_STONE),   # fixed exit platform, atop, beside the lift
+    (3, 3, 6, T_CRUMB),   # 3 single-cell crumbling platforms ringing
+    (4, 2, 6, T_CRUMB),   # the lift's summit position, one key each
+    (5, 3, 6, T_CRUMB),
+]
+room8_crumb_units = [[(3, 3, 6)], [(4, 2, 6)], [(5, 3, 6)]]
+
+ROOM8 = dict(
+    label='8',
+    wallcol=dict(lit=3, rock=12, joint=1),
+    crest_fn=_wtop_kong,
+    floor_base=1, floor_speckle=2,
+    slabs_def=room8_slabs_def,
+    style={
+        T_STONE: dict(top_fill=3, top_edge=15, face_l=12, face_r=2, rocky=True),
+        T_CRUMB: dict(top_fill=11, top_edge=15, face_l=6, face_r=8, rocky=True),
+    },
+    keys=[(3,3,7,14), (4,2,7,14), (5,3,7,14)],   # one per crumbling platform
+    exit_bx=4, exit_bz=4, exit_y=6,
+    hazards=[(6,1,8), (6,0,8)],
+    hazard_art=DAGGER_ART,
+    crumb_units=room8_crumb_units,
+    enemy_frames=[KONG_A, KONG_B],
+    # enz=40 (bz=2, key2's row) deliberately does NOT match the lift's
+    # own row (lift_wz=56, bz=3) - the beast only ever threatens key2,
+    # never the lift ride itself. An earlier draft used enz=56 (matching
+    # both the lift AND key1/key3), which meant the beast could kill
+    # Sam mid-ride (compounding the already-demanding forced-push climb
+    # with enemy-dodging) - found via real playtesting (a "why did I
+    # die instantly" investigation traced to a genuine kill-zone
+    # overlap, not a bug), fixed by separating the two challenges.
+    enxmin=40, enxmax=88, enz=40, ensurf=56, enemy_color=13,
+    # lift_ymax=72 (16px ABOVE the summit platforms' surf=56), not 56
+    # itself - stepping sideways onto a real platform only lands
+    # safely if Sam is approaching from AT OR ABOVE its surface (the
+    # normal falling-catch logic is tolerant: it lands the instant your
+    # height drops to/below the target, however far above you started).
+    # Stepping off while BELOW the target's height falls straight
+    # through to the real ground far below instead - so with
+    # ymax=56 exactly, the only safe instant to disembark onto the
+    # platforms/exit was the single moment lift_h hit exactly 56, an
+    # unrealistic timing window (found via Fausto's own playtesting -
+    # collected all 3 keys through persistence, but could never reach
+    # the exit). The extra 16px of headroom turns that instant into a
+    # real ~25% wide window each cycle (lift_h from 56 up to 72) where
+    # stepping off is always safe.
+    lift_wx=72, lift_wz=56, lift_ymin=8, lift_ymax=72,
+    name="KONG BEAST",
+)
+
 ROOM5 = dict(
     label='5',
     wallcol=dict(lit=11, rock=10, joint=1),
@@ -1304,6 +1456,7 @@ R4 = render_room(ROOM4)
 R5 = render_room(ROOM5)
 R6 = render_room(ROOM6)
 R7 = render_room(ROOM7)
+R8 = render_room(ROOM8)
 
 # Each room's 2-frame enemy sprite table (64B) rides along in the spare
 # tail of its own bg_pattern bank (6144 of 8192 bytes used, ~2KB free)
@@ -1333,6 +1486,36 @@ _write_room_bg(R4['label'], R4)
 _write_room_bg(R5['label'], R5)
 _write_room_bg(R6['label'], R6)
 _write_room_bg(R7['label'], R7)
+_write_room_bg(R8['label'], R8)
+
+# keys_gfx/exit_gfx (per-room graphics blobs, like enemy_gfx) ride in
+# the spare tail of that room's own bg_COLOR bank - same rationale as
+# enemy_gfx, just spread across the pattern vs color bank tail so
+# neither one bank has to carry the whole per-room graphics load.
+# exit_gfx's 2 frames are written as TWO separate files (not one
+# concatenated file with a second label) for the exact reason
+# documented above for enemy_gfx: a label placed after a single INCBIN
+# of concatenated data lands past the data it's meant to point at.
+def _write_room_extra_gfx(lab, R):
+    suffix = '' if lab == '' else lab
+    keys_blob = b''.join(bytes(blk) for blk in R['keys_gfx'])
+    open(os.path.join(ROOT,'src',f'keys_gfx{suffix}.bin'),'wb').write(keys_blob)
+    open(os.path.join(ROOT,'src',f'exit_gfx{suffix}_0.bin'),'wb').write(bytes(R['exit_gfx'][0]))
+    open(os.path.join(ROOT,'src',f'exit_gfx{suffix}_1.bin'),'wb').write(bytes(R['exit_gfx'][1]))
+
+_write_room_extra_gfx(R1['label'], R1)
+_write_room_extra_gfx(R2['label'], R2)
+_write_room_extra_gfx(R3['label'], R3)
+_write_room_extra_gfx(R4['label'], R4)
+_write_room_extra_gfx(R5['label'], R5)
+_write_room_extra_gfx(R6['label'], R6)
+_write_room_extra_gfx(R7['label'], R7)
+_write_room_extra_gfx(R8['label'], R8)
+
+# lift_gfx.bin: the rising/falling lift platform's sprite art (2
+# halves, 64B) - a single fixed design shared by every room with a
+# lift (only Room8 has one so far), not per-room data.
+open(os.path.join(ROOT,'src','lift_gfx.bin'),'wb').write(bytes(pack_sprite_frames(LIFT_FRAMES)))
 
 # crumb.bin: room 1's crumbling-cell variants, laid out exactly as before
 crumb_bin = bytearray(R1['crumb_bin'])
@@ -1353,6 +1536,13 @@ assert len(crumb_bin3) <= 8192, len(crumb_bin3)
 crumb_bin3 += bytes(8192 - len(crumb_bin3))
 open(os.path.join(ROOT,'src','crumb3.bin'),'wb').write(crumb_bin3)
 
+# crumb4.bin: room 8's own crumbling-cell variants (the 3 summit
+# platforms ringing the lift)
+crumb_bin4 = bytearray(R8['crumb_bin'])
+assert len(crumb_bin4) <= 8192, len(crumb_bin4)
+crumb_bin4 += bytes(8192 - len(crumb_bin4))
+open(os.path.join(ROOT,'src','crumb4.bin'),'wb').write(crumb_bin4)
+
 # ------------------------------------------------------------------
 # ROM bank numbers (must match the equ's added in src/main.asm)
 # ------------------------------------------------------------------
@@ -1363,13 +1553,17 @@ ROOM4_BGBANK, ROOM4_BGCOLBANK = 91, 92
 ROOM5_BGBANK, ROOM5_BGCOLBANK = 93, 94
 ROOM6_BGBANK, ROOM6_BGCOLBANK = 95, 96
 ROOM7_BGBANK, ROOM7_BGCOLBANK = 97, 98
+CRUMBBANK4 = 99
+ROOM8_BGBANK, ROOM8_BGCOLBANK = 100, 101
 CRUMBBANK = 84
 CRUMBBANK2 = 87
 CRUMBBANK3 = 90
 # Rooms 4, 5, 6 and 7 have no crumbling platforms (room_nunits=0, cell_at
 # returns "no match" immediately) so their crumb_bank field is never
 # actually read - reuse CRUMBBANK as a harmless placeholder instead of
-# allocating a whole new (empty) bank for either of them.
+# allocating a whole new (empty) bank for either of them. Room 8 DOES
+# have crumbling platforms again, so it gets its own real bank
+# (CRUMBBANK4), same as rooms 1-3.
 
 def emit_room(R, lines):
     lab = R['label']
@@ -1387,15 +1581,10 @@ def emit_room(R, lines):
     lines.append(f"slab_tab{lab}:")
     lines.extend(R['slab_lines'])
     lines.append("")
-    lines.append(f"keys_gfx{lab}:")
-    for blk in R['keys_gfx']:
-        lines.append(db(list(blk), 16))
-    lines.append("")
-    lines.append(f"exit_gfx{lab}_0:")
-    lines.append(db(list(R['exit_gfx'][0]), 16))
-    lines.append(f"exit_gfx{lab}_1:")
-    lines.append(db(list(R['exit_gfx'][1]), 16))
-    lines.append("")
+    # keys_gfx/exit_gfx are NOT emitted here - both are pure per-room
+    # graphics blobs (like enemy_gfx) that ride in the spare tail of
+    # that room's own bg_COLOR bank instead (see _write_room_extra_gfx),
+    # keeping them out of the tight, shared bank1/leveldata.asm window.
     lines.append(f"hazards_tab{lab}:")
     for bx,bz,surf in R['hazards']:
         lines.append(f"        db {bx},{bz},{surf+10}")
@@ -1437,6 +1626,8 @@ emit_room(R6, lines)
 emit_crumb_tab(R6, lines)
 emit_room(R7, lines)
 emit_crumb_tab(R7, lines)
+emit_room(R8, lines)
+emit_crumb_tab(R8, lines)
 
 lines.append("; redefined font, 76 chars from '0' (8 bytes each)")
 _f = open(os.path.join(ROOT,'tools','fonts.c')).read()
@@ -1480,10 +1671,12 @@ lines.append("room6_name:")
 lines.append("        db " + _ds_encode(R6['name']) + ",0")
 lines.append("room7_name:")
 lines.append("        db " + _ds_encode(R7['name']) + ",0")
+lines.append("room8_name:")
+lines.append("        db " + _ds_encode(R8['name']) + ",0")
 lines.append("")
 
-ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx'}
-ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name'}
+ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx'}
+ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name'}
 
 def room_row(R, bgbank, bgcolbank, crumbbank):
     exb16 = R['exit_bx']*16
@@ -1501,13 +1694,15 @@ def room_row(R, bgbank, bgcolbank, crumbbank):
         ENEMY_GFX_LABEL[R['label']], R['enemy_color'],
         R['enxmin'], R['enxmax'], R['enz'], R['ensurf'], R.get('en_axis', 0),
         R.get('en_centerx', 0),
+        R.get('lift_wx', 0xFF), R.get('lift_wz', 0),
+        R.get('lift_ymin', 0), R.get('lift_ymax', 0),
         ROOM_NAME_LABEL[R['label']],
     ]
 
 lines.append("; room_tab: one row per room, read into room_state RAM struct")
 lines.append("; via a single ldir at room_start. Field order/sizes MUST match")
 lines.append("; the room_state RESB block in src/main.asm exactly.")
-lines.append("ROOMROWLEN equ 41")
+lines.append("ROOMROWLEN equ 45")
 lines.append("room_tab:")
 for R, bgbank, bgcolbank, crumbbank in (
         (R1, ROOM1_BGBANK, ROOM1_BGCOLBANK, CRUMBBANK),
@@ -1516,7 +1711,8 @@ for R, bgbank, bgcolbank, crumbbank in (
         (R4, ROOM4_BGBANK, ROOM4_BGCOLBANK, CRUMBBANK),
         (R5, ROOM5_BGBANK, ROOM5_BGCOLBANK, CRUMBBANK),
         (R6, ROOM6_BGBANK, ROOM6_BGCOLBANK, CRUMBBANK),
-        (R7, ROOM7_BGBANK, ROOM7_BGCOLBANK, CRUMBBANK)):
+        (R7, ROOM7_BGBANK, ROOM7_BGCOLBANK, CRUMBBANK),
+        (R8, ROOM8_BGBANK, ROOM8_BGCOLBANK, CRUMBBANK4)):
     f = room_row(R, bgbank, bgcolbank, crumbbank)
     lines.append(f"        db {f[0]},{f[1]}")
     lines.append(f"        dw {f[2]}")
@@ -1537,7 +1733,8 @@ for R, bgbank, bgcolbank, crumbbank in (
     lines.append(f"        dw {f[22]}")
     lines.append(f"        db {f[23]}")
     lines.append(f"        db {f[24]},{f[25]},{f[26]},{f[27]},{f[28]},{f[29]}")
-    lines.append(f"        dw {f[30]}")
+    lines.append(f"        db {f[30]},{f[31]},{f[32]},{f[33]}")
+    lines.append(f"        dw {f[34]}")
 lines.append("")
 
 # gfx_sprites lives in bank0's own spare space (INCBIN'd directly in
@@ -1576,6 +1773,7 @@ save_preview(R4, os.path.join(ROOT,'build','preview5.png'), spawn_wx=24, spawn_w
 save_preview(R5, os.path.join(ROOT,'build','preview6.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R6, os.path.join(ROOT,'build','preview7.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R7, os.path.join(ROOT,'build','preview8.png'), spawn_wx=24, spawn_wz=72)
+save_preview(R8, os.path.join(ROOT,'build','preview9.png'), spawn_wx=24, spawn_wz=72)
 
 print(f"OK room1 color-fixes:{R1['fixes']} keys:{R1['key_rects']}")
 print(f"OK room2 color-fixes:{R2['fixes']} keys:{R2['key_rects']}")
@@ -1584,3 +1782,4 @@ print(f"OK room4 color-fixes:{R4['fixes']} keys:{R4['key_rects']}")
 print(f"OK room5 color-fixes:{R5['fixes']} keys:{R5['key_rects']}")
 print(f"OK room6 color-fixes:{R6['fixes']} keys:{R6['key_rects']}")
 print(f"OK room7 color-fixes:{R7['fixes']} keys:{R7['key_rects']}")
+print(f"OK room8 color-fixes:{R8['fixes']} keys:{R8['key_rects']}")
