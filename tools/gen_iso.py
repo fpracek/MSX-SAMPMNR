@@ -69,6 +69,12 @@ def _wtop_kong(u):
     than rock."""
     return int(50 + 10*abs(_m.sin(u/5.3)) + 6*abs(_m.sin(u/2.1 + 0.9)))
 
+def _wtop_amoeba(u):
+    """bubbly, rounded lab-wall silhouette (Wacky Amoebatrons) - soft
+    repeating humps rather than jagged spikes, matching the room's
+    cartoonish theme."""
+    return int(36 + 8*abs(_m.sin(u/6.0)) + 3*abs(_m.sin(u/2.6)))
+
 def _stone(u, v):
     """True on the dark joints between stacked irregular blocks"""
     band = (v + int(3*_m.sin(u/9.0))) // 11
@@ -1426,6 +1432,123 @@ ROOM8 = dict(
     name="KONG BEAST",
 )
 
+# urchin ("riccio"): a spiky ball, jagged silhouette on its widest rows
+# so it survives as a ball and not a smooth circle - 2 frames pulse
+# slightly bigger/smaller for a wobbling, alive look, reusing the
+# vertical-patrol mechanic (room_en_axis=1) already proven by Eugene -
+# here en_x bounces as height at a FIXED (room_enz, room_ensurf) world
+# (x,z), guarding the one chokepoint climb to the top platform.
+URCHIN_A = [
+    _bar(16, (7,9)),
+    _bar(16, (5,11)),
+    _bar(16, (3,7), (9,13)),
+    _bar(16, (2,14)),
+    _bar(16, (1,15)),
+    _bar(16, (0,16)),
+    _bar(16, (0,16)),
+    _bar(16, (1,15)),
+    _bar(16, (2,14)),
+    _bar(16, (3,7), (9,13)),
+    _bar(16, (5,11)),
+    _bar(16, (7,9)),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+]
+URCHIN_B = [
+    _bar(16),
+    _bar(16, (7,9)),
+    _bar(16, (5,11)),
+    _bar(16, (3,13)),
+    _bar(16, (2,14)),
+    _bar(16, (1,15)),
+    _bar(16, (1,15)),
+    _bar(16, (2,14)),
+    _bar(16, (3,13)),
+    _bar(16, (5,11)),
+    _bar(16, (7,9)),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+]
+
+# amoeba hazard: a small spiky floating ball, decorative/blocking
+# danger scattered in open air along the jump paths (matching the
+# reference's floating spiky blobs) - chunky segments, not thin
+# outlines, so draw_hazard's dilation pass doesn't merge it into a
+# solid blob (same lesson as every hazard in this project).
+def _amoeba_art():
+    # solid filled body every row (never gaps 2+ consecutive rows at
+    # the same columns, which would carve a real hole rather than a
+    # jagged edge - caught via the rendered preview, not assumed) with
+    # just single-row notches (row 3 and row 8) for a spiky silhouette.
+    return [
+        _art_row(16, (7,9,'2')),
+        _art_row(16, (5,11,'2')),
+        _art_row(16, (3,13,'2')),
+        _art_row(16, (2,6,'2'), (10,14,'2')),
+        _art_row(16, (1,15,'2')),
+        _art_row(16, (1,15,'2')),
+        _art_row(16, (2,6,'2'), (10,14,'2')),
+        _art_row(16, (3,13,'2')),
+        _art_row(16, (5,11,'2')),
+        _art_row(16, (7,9,'2')),
+    ]
+AMOEBA_ART = _amoeba_art()
+
+# Wacky Amoebatrons: two stacked tiers of platform clusters (each split
+# into 2 segments with a gap, forcing jumps) bridged by a single
+# stepping stone, plus one small top platform holding the 3rd key -
+# the only way up to it is guarded by the urchin's vertical patrol,
+# right at that one chokepoint, so the climb itself isn't hard but
+# timing past the urchin is. Floating amoeba hazards dot the jump
+# paths for atmosphere/extra danger, matching the reference art.
+room9_slabs_def = [
+    # tier 1 (y=2, surf=24), bz=2 - two 2-cell clusters with a gap
+    (1,2,2,T_STONE), (2,2,2,T_STONE),
+    (4,2,2,T_STONE), (5,2,2,T_STONE),
+    # stepping stone bridging tier1 -> tier2
+    (5,2,4,T_STONE),
+    # tier 2 (y=5, surf=48), bz=3 - two more 2-cell clusters with a gap
+    (1,3,5,T_STONE), (2,3,5,T_STONE),
+    (4,3,5,T_STONE), (5,3,5,T_STONE),
+    # top platform (y=6, surf=56) - reached from cluster D via a single
+    # diagonal jump (dx+1,dz-1, gain 8px) - the urchin-guarded
+    # chokepoint. NOT directly above any tier1/tier2 cell (which would
+    # visually stack two slabs only 8-32px apart) - verified with a
+    # position-collision check (every slab/key/hazard/exit's projected
+    # screen position, same discipline as every prior room).
+    (6,2,6,T_STONE),
+]
+
+ROOM9 = dict(
+    label='9',
+    wallcol=dict(lit=11, rock=2, joint=1),
+    crest_fn=_wtop_amoeba,
+    floor_base=1, floor_speckle=5,
+    slabs_def=room9_slabs_def,
+    style={
+        T_STONE: dict(top_fill=5, top_edge=15, face_l=4, face_r=13, rocky=True),
+    },
+    keys=[(2,2,3,14), (2,3,6,14), (6,2,7,14)],   # one per tier, last one
+                                                    # sits past the urchin
+    exit_bx=7, exit_bz=2, exit_y=6,   # right beside the top platform
+    hazards=[(3,2,36), (3,3,44), (6,1,8), (0,0,8)],
+    hazard_art=AMOEBA_ART,
+    crumb_units=[],
+    enemy_frames=[URCHIN_A, URCHIN_B],
+    # fixed world (x,z) = (72,56), i.e. (bx=4,bz=3) - cluster D's own
+    # column, the takeoff point for the one jump up to the top platform.
+    # Wide bounce range (24-72, 48 units, same width already proven fair
+    # with correct timing in Rooms 4/6/7) so real safe windows exist,
+    # not just an instant.
+    enxmin=24, enxmax=72, enz=72, ensurf=56, en_axis=1, enemy_color=2,
+    name="WACKY AMOEBATRONS",
+)
+
 ROOM5 = dict(
     label='5',
     wallcol=dict(lit=11, rock=10, joint=1),
@@ -1457,6 +1580,7 @@ R5 = render_room(ROOM5)
 R6 = render_room(ROOM6)
 R7 = render_room(ROOM7)
 R8 = render_room(ROOM8)
+R9 = render_room(ROOM9)
 
 # Each room's 2-frame enemy sprite table (64B) rides along in the spare
 # tail of its own bg_pattern bank (6144 of 8192 bytes used, ~2KB free)
@@ -1487,6 +1611,7 @@ _write_room_bg(R5['label'], R5)
 _write_room_bg(R6['label'], R6)
 _write_room_bg(R7['label'], R7)
 _write_room_bg(R8['label'], R8)
+_write_room_bg(R9['label'], R9)
 
 # keys_gfx/exit_gfx (per-room graphics blobs, like enemy_gfx) ride in
 # the spare tail of that room's own bg_COLOR bank - same rationale as
@@ -1511,6 +1636,7 @@ _write_room_extra_gfx(R5['label'], R5)
 _write_room_extra_gfx(R6['label'], R6)
 _write_room_extra_gfx(R7['label'], R7)
 _write_room_extra_gfx(R8['label'], R8)
+_write_room_extra_gfx(R9['label'], R9)
 
 # lift_gfx.bin: the rising/falling lift platform's sprite art (2
 # halves, 64B) - a single fixed design shared by every room with a
@@ -1555,6 +1681,7 @@ ROOM6_BGBANK, ROOM6_BGCOLBANK = 95, 96
 ROOM7_BGBANK, ROOM7_BGCOLBANK = 97, 98
 CRUMBBANK4 = 99
 ROOM8_BGBANK, ROOM8_BGCOLBANK = 100, 101
+ROOM9_BGBANK, ROOM9_BGCOLBANK = 102, 103
 CRUMBBANK = 84
 CRUMBBANK2 = 87
 CRUMBBANK3 = 90
@@ -1628,6 +1755,8 @@ emit_room(R7, lines)
 emit_crumb_tab(R7, lines)
 emit_room(R8, lines)
 emit_crumb_tab(R8, lines)
+emit_room(R9, lines)
+emit_crumb_tab(R9, lines)
 
 lines.append("; redefined font, 76 chars from '0' (8 bytes each)")
 _f = open(os.path.join(ROOT,'tools','fonts.c')).read()
@@ -1673,10 +1802,12 @@ lines.append("room7_name:")
 lines.append("        db " + _ds_encode(R7['name']) + ",0")
 lines.append("room8_name:")
 lines.append("        db " + _ds_encode(R8['name']) + ",0")
+lines.append("room9_name:")
+lines.append("        db " + _ds_encode(R9['name']) + ",0")
 lines.append("")
 
-ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx'}
-ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name'}
+ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx'}
+ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name'}
 
 def room_row(R, bgbank, bgcolbank, crumbbank):
     exb16 = R['exit_bx']*16
@@ -1712,7 +1843,8 @@ for R, bgbank, bgcolbank, crumbbank in (
         (R5, ROOM5_BGBANK, ROOM5_BGCOLBANK, CRUMBBANK),
         (R6, ROOM6_BGBANK, ROOM6_BGCOLBANK, CRUMBBANK),
         (R7, ROOM7_BGBANK, ROOM7_BGCOLBANK, CRUMBBANK),
-        (R8, ROOM8_BGBANK, ROOM8_BGCOLBANK, CRUMBBANK4)):
+        (R8, ROOM8_BGBANK, ROOM8_BGCOLBANK, CRUMBBANK4),
+        (R9, ROOM9_BGBANK, ROOM9_BGCOLBANK, CRUMBBANK)):
     f = room_row(R, bgbank, bgcolbank, crumbbank)
     lines.append(f"        db {f[0]},{f[1]}")
     lines.append(f"        dw {f[2]}")
@@ -1774,6 +1906,7 @@ save_preview(R5, os.path.join(ROOT,'build','preview6.png'), spawn_wx=24, spawn_w
 save_preview(R6, os.path.join(ROOT,'build','preview7.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R7, os.path.join(ROOT,'build','preview8.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R8, os.path.join(ROOT,'build','preview9.png'), spawn_wx=24, spawn_wz=72)
+save_preview(R9, os.path.join(ROOT,'build','preview10.png'), spawn_wx=24, spawn_wz=72)
 
 print(f"OK room1 color-fixes:{R1['fixes']} keys:{R1['key_rects']}")
 print(f"OK room2 color-fixes:{R2['fixes']} keys:{R2['key_rects']}")
@@ -1783,3 +1916,4 @@ print(f"OK room5 color-fixes:{R5['fixes']} keys:{R5['key_rects']}")
 print(f"OK room6 color-fixes:{R6['fixes']} keys:{R6['key_rects']}")
 print(f"OK room7 color-fixes:{R7['fixes']} keys:{R7['key_rects']}")
 print(f"OK room8 color-fixes:{R8['fixes']} keys:{R8['key_rects']}")
+print(f"OK room9 color-fixes:{R9['fixes']} keys:{R9['key_rects']}")

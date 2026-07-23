@@ -267,7 +267,7 @@ room_lift_ymin:  RESB 1  ; lift bounces its surface height between
 room_lift_ymax:  RESB 1  ; these two, reversing at each bound
 room_name_ptr:   RESB 2
 room_state_end:
-NROOMS equ 8
+NROOMS equ 9
 ram_end:
 
 ram_map     equ 0C100h  ; 6*8*8 = 384 bytes  (index = z*64+y*8+x)
@@ -4648,10 +4648,33 @@ exit_gfx8_1:
         INCBIN "src/exit_gfx8_1.bin"
         BLOCK 0C000h-$,0FFh
 
+; ============================================================
+;  BANKS 102-103: room 9 (Wacky Amoebatrons) pre-rendered background.
+;  Bank numbers must match ROOM9_BGBANK/ROOM9_BGCOLBANK in
+;  tools/gen_iso.py. Room 9 has no crumbling platforms, so there is
+;  no dedicated crumb bank for it (room_tab reuses CRUMBBANK).
+; ============================================================
+ROOM9_BGBANK    equ 102
+ROOM9_BGCOLBANK equ 103
+        ORG 08000h
+        INCBIN "src/bg_pattern9.bin"
+urchin_gfx:
+        INCBIN "src/enemy_gfx9.bin"
+        BLOCK 0A000h-$,0FFh
+        ORG 0A000h
+        INCBIN "src/bg_color9.bin"
+keys_gfx9:
+        INCBIN "src/keys_gfx9.bin"
+exit_gfx9_0:
+        INCBIN "src/exit_gfx9_0.bin"
+exit_gfx9_1:
+        INCBIN "src/exit_gfx9_1.bin"
+        BLOCK 0C000h-$,0FFh
+
         ; pad the ROM back out to a full 1MB (128 x 8KB banks) - openMSX's
         ; ascii8 mapper expects a power-of-two file size; a short file
         ; (as left by just rounding up to the next bank) fails to boot
         ; at all (falls through to plain MSX BASIC). Measured then
         ; computed exactly (1048576 - actual size before this BLOCK),
         ; not guessed by hand.
-        BLOCK 212992,0FFh
+        BLOCK 196608,0FFh

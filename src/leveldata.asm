@@ -610,6 +610,84 @@ crumb_tab8:
         dw 640, 36224
         db 1,255
 
+level9_map:
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,001h,001h,000h,001h,001h,000h,000h
+        db 000h,000h,004h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,001h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,004h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,001h,001h,000h,001h,001h,000h,000h
+        db 000h,000h,004h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+
+keys_tab9:
+        db 2,2,3,14,8
+        db 2,3,6,12,6
+        db 6,2,7,22,8
+
+slab_tab9:
+        db 169,65,144,56,7
+        db 121,65,128,48,5
+        db 153,57,128,56,5
+        db 137,81,112,24,5
+        db 137,65,112,40,5
+        db 105,57,112,48,5
+        db 121,73,96,24,5
+        db 73,41,80,48,5
+        db 89,57,64,24,5
+        db 57,33,64,48,5
+        db 73,49,48,24,5
+
+hazards_tab9:
+        db 3,2,46
+        db 3,3,54
+        db 6,1,18
+        db 0,0,18
+
+; crumb_tab9 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
+;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
+crumb_tab9:
+
 ; redefined font, 76 chars from '0' (8 bytes each)
 fonts_tab:
         db 00Eh,019h,031h,031h,031h,033h,03Fh,01Eh,006h,00Eh,03Ch,00Ch,008h,018h,038h,038h
@@ -668,6 +746,8 @@ room7_name:
         db 84,72,69,32,86,65,84,0
 room8_name:
         db 75,79,78,71,32,66,69,65,83,84,0
+room9_name:
+        db 87,65,67,75,89,32,65,77,79,69,66,65,84,82,79,78,83,0
 
 ; room_tab: one row per room, read into room_state RAM struct
 ; via a single ldir at room_start. Field order/sizes MUST match
@@ -842,4 +922,25 @@ room_tab:
         db 40,88,40,56,0,0
         db 72,56,8,72
         dw room8_name
+        db 102,103
+        dw level9_map
+        dw keys_tab9
+        db 3
+        dw keys_gfx9
+        dw slab_tab9
+        db 11
+        db 0
+        dw crumb_tab9
+        db 84
+        dw hazards_tab9
+        db 4
+        db 112,32,56
+        db 23,10,2,32
+        dw exit_gfx9_0
+        dw exit_gfx9_1
+        dw urchin_gfx
+        db 2
+        db 24,72,72,56,1,0
+        db 255,0,0,0
+        dw room9_name
 
