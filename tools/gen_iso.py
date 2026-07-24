@@ -1883,6 +1883,134 @@ ROOM10 = dict(
     name="THE ENDORIAN FOREST",
 )
 
+def _wtop_wires(u):
+    """tight, regular coiled-cord loops (a phone cord viewed edge-on) -
+    Mutant Telephones. Faster/tighter period than every other room's
+    crest for a distinct, "coiled" silhouette rather than a rolling or
+    jagged one."""
+    return int(30 + 14*abs(_m.sin(u/3.2)))
+
+# mutant telephone: a rotary phone body with a curved handset resting
+# on top, tilting side to side between frames - the classic ringing/
+# shaking-with-rage wobble, same "needs a real shape change" lesson as
+# every other enemy sprite here. Body (rows 3-12) is identical between
+# frames; only the handset (rows 0-2) actually moves.
+PHONE_A = [
+    _bar(16, (3,7)),
+    _bar(16, (2,6), (9,13)),
+    _bar(16, (8,12)),
+    _bar(16, (5,11)),
+    _bar(16, (3,13)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (2,5), (11,14)),
+    _bar(16, (2,14)),
+    _bar(16, (3,13)),
+    _bar(16, (3,13)),
+    _bar(16, (4,12)),
+    _bar(16, (4,12)),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+]
+PHONE_B = [
+    _bar(16, (9,13)),
+    _bar(16, (3,7), (10,14)),
+    _bar(16, (4,8)),
+    _bar(16, (5,11)),
+    _bar(16, (3,13)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (2,5), (11,14)),
+    _bar(16, (2,14)),
+    _bar(16, (3,13)),
+    _bar(16, (3,13)),
+    _bar(16, (4,12)),
+    _bar(16, (4,12)),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+]
+
+# Fausto supplied a reference screenshot - Manic Miner's classic
+# "Attack of the Mutant Telephones" (phones as enemies, hanging spark
+# hazards, a central conveyor belt) - and asked for "uno schema
+# divertente e complesso da superare" (a fun, complex layout).
+# Reuses SPARK_ART verbatim (already built for The Vat, and a spark/
+# electric motif fits a telephone room just as well) rather than
+# inventing a near-duplicate hazard shape.
+#
+# Went through 2 more-conservative versions first, both rejected by
+# Fausto as "too similar to Room10" / "three rows like big stairs" -
+# a straight bx=2-5 staircase (even with every tier at its own height,
+# fixing the earlier fusion bug) still reads as the same skeleton as
+# every previous room. This version actually breaks that shape: 6
+# small 2-wide clusters ZIGZAGGING left/right across x while climbing
+# in z, with a real 1-cell gap between every horizontally-adjacent
+# pair - visually scattered, not a staircase, while every individual
+# jump is still one of exactly 3 already-proven types (no new,
+# unverified jump geometry, since there's still no way to live-test
+# this session):
+#   - "climb": same bx range, adjacent bz, +1 level (used everywhere)
+#   - "sideways": same bz, 1-cell bx gap, SAME height (Room1's own
+#     conveyor-entry jump, just rotated 90 degrees - the engine
+#     handles x/z movement symmetrically, so this is the same proven
+#     distance in the other axis, not a new one)
+#   - "exit hop": same bz, 1-cell bx gap, +1 level (the short hop
+#     every room's own exit already uses, just with a 1-cell gap
+#     instead of a direct adjacency)
+# Entry(bx2-3,bz3,y2) -sideways-> Conveyor(bx5-6,bz3,y2) -climb->
+# ClimbRight(bx5-6,bz2,y4) -sideways-> ShiftLeft(bx2-3,bz2,y4)
+# -climb-> ClimbFinal(bx2-3,bz1,y6) [phone ambush lives here]
+# -exit hop-> Refuge+Exit(bx5-6,bz1,y7).
+room11_slabs_def = [
+    (2,3,2,T_STONE), (3,3,2,T_STONE),      # Entry
+    (5,3,2,T_CONV), (6,3,2,T_CONV),        # Conveyor (gap at bx=4, sideways jump from Entry)
+    (5,2,4,T_STONE), (6,2,4,T_STONE),      # ClimbRight (climb from Conveyor)
+    (2,2,4,T_STONE), (3,2,4,T_STONE),      # ShiftLeft (gap at bx=4, sideways jump from ClimbRight)
+    (2,1,6,T_STONE), (3,1,6,T_STONE),      # ClimbFinal (climb from ShiftLeft) - phone ambush
+    (5,1,7,T_STONE), (6,1,7,T_STONE),      # Refuge+Exit (gap at bx=4, exit-hop from ClimbFinal)
+]
+
+ROOM11 = dict(
+    label='11',
+    wallcol=dict(lit=14, rock=13, joint=1),
+    crest_fn=_wtop_wires,
+    floor_base=1, floor_speckle=5,
+    slabs_def=room11_slabs_def,
+    style={
+        T_STONE: dict(top_fill=5, top_edge=15, face_l=4, face_r=13, rocky=True),
+        T_CONV:  dict(top_fill=5, top_edge=15, face_l=4, face_r=13, arrows=True, rocky=True),
+    },
+    # one key per climbing cluster (not the refuge - a key field
+    # there would need y+1=8, out of the map's 0-7 height-layer
+    # range) - Entry, ShiftLeft, ClimbFinal, each at their west cell
+    # (bx=2). y+1 per the pickup-layer quirk.
+    keys=[(2,3,3,14), (2,2,5,14), (2,1,7,14)],
+    exit_bx=6, exit_bz=1, exit_y=7,
+    # 3 sparks scattered across 3 different clusters (Fausto liked
+    # these from Room10) - Entry (bx=3, floor==surf so it's only
+    # lethal AT that platform's own height - see the hazard_check
+    # floor/ceiling fix), ClimbRight (bx=5), plus a ground-level one
+    # far from the spawn column. No hazard on the conveyor (belt
+    # drag is already a real threat) or ClimbFinal (already carries
+    # the phone ambush) or the refuge/exit (kept simple on purpose).
+    hazards=[(3, 3, 24, 24), (5, 2, 40, 40), (6, 4, 8)],
+    hazard_art=SPARK_ART,
+    crumb_units=[],
+    enemy_frames=[PHONE_A, PHONE_B],
+    # walk-past ambush on ClimbFinal: fixed point at that cluster's
+    # own x-midpoint (bx=2-3 -> worldx 32-64 -> 48) and z-center
+    # (bz=1 -> 24). en_x reinterpreted as HEIGHT bouncing enxmin-
+    # enxmax (en_axis=1 convention, same as Room9's urchin). Sam
+    # walks ClimbFinal at h+1=57 (surf=56+1); the enemy's 16px
+    # hitbox [en_x,en_x+16) clears him whenever en_x<=41 OR en_x>=57 -
+    # a real, learnable danger band to wait out before crossing from
+    # key3 (west) to the exit-hop jump-off (east, bx=3).
+    enxmin=16, enxmax=72, enz=48, ensurf=24, en_axis=1, enemy_color=15,
+    name="MUTANT TELEPHONES",
+)
+
 R1 = render_room(ROOM1)
 R2 = render_room(ROOM2)
 R3 = render_room(ROOM3)
@@ -1893,6 +2021,7 @@ R7 = render_room(ROOM7)
 R8 = render_room(ROOM8)
 R9 = render_room(ROOM9)
 R10 = render_room(ROOM10)
+R11 = render_room(ROOM11)
 
 # Each room's 2-frame enemy sprite table (64B) rides along in the spare
 # tail of its own bg_pattern bank (6144 of 8192 bytes used, ~2KB free)
@@ -1925,6 +2054,7 @@ _write_room_bg(R7['label'], R7)
 _write_room_bg(R8['label'], R8)
 _write_room_bg(R9['label'], R9)
 _write_room_bg(R10['label'], R10)
+_write_room_bg(R11['label'], R11)
 
 # keys_gfx/exit_gfx (per-room graphics blobs, like enemy_gfx) ride in
 # the spare tail of that room's own bg_COLOR bank - same rationale as
@@ -1951,6 +2081,7 @@ _write_room_extra_gfx(R7['label'], R7)
 _write_room_extra_gfx(R8['label'], R8)
 _write_room_extra_gfx(R9['label'], R9)
 _write_room_extra_gfx(R10['label'], R10)
+_write_room_extra_gfx(R11['label'], R11)
 
 # lift_gfx.bin: the rising/falling lift platform's sprite art (2
 # halves, 64B) - a single fixed design shared by every room with a
@@ -2013,6 +2144,7 @@ CRUMBBANK4 = 99
 ROOM8_BGBANK, ROOM8_BGCOLBANK = 100, 101
 ROOM9_BGBANK, ROOM9_BGCOLBANK = 102, 103
 ROOM10_BGBANK, ROOM10_BGCOLBANK = 106, 107
+ROOM11_BGBANK, ROOM11_BGCOLBANK = 108, 109
 CRUMBBANK = 84
 CRUMBBANK2 = 87
 CRUMBBANK3 = 90
@@ -2108,6 +2240,8 @@ emit_room(R9, lines)
 emit_crumb_tab(R9, lines, bank_map={'a': CRUMBBANK9, 'b': CRUMBBANK9B})
 emit_room(R10, lines)
 emit_crumb_tab(R10, lines, bank_map={'a': CRUMBBANK})
+emit_room(R11, lines)
+emit_crumb_tab(R11, lines, bank_map={'a': CRUMBBANK})
 
 lines.append("; redefined font, 76 chars from '0' (8 bytes each)")
 _f = open(os.path.join(ROOT,'tools','fonts.c')).read()
@@ -2157,10 +2291,12 @@ lines.append("room9_name:")
 lines.append("        db " + _ds_encode(R9['name']) + ",0")
 lines.append("room10_name:")
 lines.append("        db " + _ds_encode(R10['name']) + ",0")
+lines.append("room11_name:")
+lines.append("        db " + _ds_encode(R11['name']) + ",0")
 lines.append("")
 
-ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx'}
-ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name'}
+ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx', '11': 'phone_gfx'}
+ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name', '11': 'room11_name'}
 
 def room_row(R, bgbank, bgcolbank, crumbbank):
     exb16 = R['exit_bx']*16
@@ -2199,7 +2335,8 @@ for R, bgbank, bgcolbank, crumbbank in (
         (R7, ROOM7_BGBANK, ROOM7_BGCOLBANK, CRUMBBANK),
         (R8, ROOM8_BGBANK, ROOM8_BGCOLBANK, CRUMBBANK4),
         (R9, ROOM9_BGBANK, ROOM9_BGCOLBANK, CRUMBBANK9),
-        (R10, ROOM10_BGBANK, ROOM10_BGCOLBANK, CRUMBBANK)):
+        (R10, ROOM10_BGBANK, ROOM10_BGCOLBANK, CRUMBBANK),
+        (R11, ROOM11_BGBANK, ROOM11_BGCOLBANK, CRUMBBANK)):
     f = room_row(R, bgbank, bgcolbank, crumbbank)
     lines.append(f"        db {f[0]},{f[1]}")
     lines.append(f"        dw {f[2]}")
@@ -2264,6 +2401,7 @@ save_preview(R7, os.path.join(ROOT,'build','preview8.png'), spawn_wx=24, spawn_w
 save_preview(R8, os.path.join(ROOT,'build','preview9.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R9, os.path.join(ROOT,'build','preview10.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R10, os.path.join(ROOT,'build','preview11.png'), spawn_wx=24, spawn_wz=72)
+save_preview(R11, os.path.join(ROOT,'build','preview12.png'), spawn_wx=24, spawn_wz=72)
 
 print(f"OK room1 color-fixes:{R1['fixes']} keys:{R1['key_rects']}")
 print(f"OK room2 color-fixes:{R2['fixes']} keys:{R2['key_rects']}")
@@ -2275,3 +2413,4 @@ print(f"OK room7 color-fixes:{R7['fixes']} keys:{R7['key_rects']}")
 print(f"OK room8 color-fixes:{R8['fixes']} keys:{R8['key_rects']}")
 print(f"OK room9 color-fixes:{R9['fixes']} keys:{R9['key_rects']}")
 print(f"OK room10 color-fixes:{R10['fixes']} keys:{R10['key_rects']}")
+print(f"OK room11 color-fixes:{R11['fixes']} keys:{R11['key_rects']}")

@@ -833,6 +833,85 @@ hazards_tab10:
 ;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2, bank
 crumb_tab10:
 
+level11_map:
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,001h,001h,000h,000h,000h,000h
+        db 000h,000h,004h,000h,000h,001h,001h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,001h,001h,000h,001h,001h,000h
+        db 000h,000h,004h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,001h,001h,000h,002h,002h,000h
+        db 000h,000h,004h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+
+keys_tab11:
+        db 2,3,3,12,9
+        db 2,2,5,14,6
+        db 2,1,7,16,3
+
+slab_tab11:
+        db 137,97,144,24,5
+        db 121,89,128,24,5
+        db 153,73,128,40,5
+        db 137,65,112,40,5
+        db 169,41,112,64,5
+        db 169,41,112,64,7
+        db 89,73,96,24,5
+        db 153,33,96,64,5
+        db 73,65,80,24,5
+        db 105,49,80,40,5
+        db 89,41,64,40,5
+        db 121,25,64,56,5
+        db 105,17,48,56,5
+
+hazards_tab11:
+        db 3,3,24,34
+        db 5,2,40,50
+        db 6,4,0,18
+
+; crumb_tab11 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
+;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2, bank
+crumb_tab11:
+
 ; redefined font, 76 chars from '0' (8 bytes each)
 fonts_tab:
         db 00Eh,019h,031h,031h,031h,033h,03Fh,01Eh,006h,00Eh,03Ch,00Ch,008h,018h,038h,038h
@@ -895,6 +974,8 @@ room9_name:
         db 87,65,67,75,89,32,65,77,79,69,66,65,84,82,79,78,83,0
 room10_name:
         db 84,72,69,32,69,78,68,79,82,73,65,78,32,70,79,82,69,83,84,0
+room11_name:
+        db 77,85,84,65,78,84,32,84,69,76,69,80,72,79,78,69,83,0
 
 ; room_tab: one row per room, read into room_state RAM struct
 ; via a single ldir at room_start. Field order/sizes MUST match
@@ -1120,5 +1201,27 @@ room_tab:
         db 32,88,40,24,0,0
         db 255,0,0,0
         dw room10_name
+        db 0
+        db 108,109
+        dw level11_map
+        dw keys_tab11
+        db 3
+        dw keys_gfx11
+        dw slab_tab11
+        db 13
+        db 0
+        dw crumb_tab11
+        db 84
+        dw hazards_tab11
+        db 3
+        db 96,16,64
+        db 23,7,2,40
+        dw exit_gfx11_0
+        dw exit_gfx11_1
+        dw phone_gfx
+        db 15
+        db 16,72,48,24,1,0
+        db 255,0,0,0
+        dw room11_name
         db 0
 

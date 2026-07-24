@@ -329,7 +329,7 @@ room_crumb_continuous: RESB 1  ; 0=touch-based degrade (original,
                         ; CRUMB_DWELL frames until destroyed - see
                         ; cr_dwell_t.
 room_state_end:
-NROOMS equ 10
+NROOMS equ 11
 ram_end:
 
 ram_map     equ 0C100h  ; 6*8*8 = 384 bytes  (index = z*64+y*8+x)
@@ -4863,11 +4863,34 @@ exit_gfx10_1:
         INCBIN "src/exit_gfx10_1.bin"
         BLOCK 0C000h-$,0FFh
 
+; ============================================================
+;  BANKS 108-109: room 11 (Mutant Telephones) pre-rendered background.
+;  Bank numbers must match ROOM11_BGBANK/ROOM11_BGCOLBANK in
+;  tools/gen_iso.py. Room 11 has no crumbling platforms, so there is
+;  no dedicated crumb bank for it (room_tab reuses CRUMBBANK).
+; ============================================================
+ROOM11_BGBANK    equ 108
+ROOM11_BGCOLBANK equ 109
+        ORG 08000h
+        INCBIN "src/bg_pattern11.bin"
+phone_gfx:
+        INCBIN "src/enemy_gfx11.bin"
+        BLOCK 0A000h-$,0FFh
+        ORG 0A000h
+        INCBIN "src/bg_color11.bin"
+keys_gfx11:
+        INCBIN "src/keys_gfx11.bin"
+exit_gfx11_0:
+        INCBIN "src/exit_gfx11_0.bin"
+exit_gfx11_1:
+        INCBIN "src/exit_gfx11_1.bin"
+        BLOCK 0C000h-$,0FFh
+
         ; pad the ROM back out to a full 1MB (128 x 8KB banks) - openMSX's
         ; ascii8 mapper expects a power-of-two file size; a short file
         ; (as left by just rounding up to the next bank) fails to boot
         ; at all (falls through to plain MSX BASIC). Measured then
         ; computed exactly (1048576 - actual size before this BLOCK),
-        ; not guessed by hand. 108 banks now used (0-107), so 20 banks
-        ; (108-127) remain: 20*8192 = 163840.
-        BLOCK 163840,0FFh
+        ; not guessed by hand. 110 banks now used (0-109), so 18 banks
+        ; (110-127) remain: 18*8192 = 147456.
+        BLOCK 147456,0FFh
