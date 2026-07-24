@@ -46,6 +46,28 @@ T_DOORT equ 5
 T_DOORB equ 6
 GRAV    equ 32          ; 0.125 px/f^2 (8.8)
 JUMPV   equ 0240h       ; 2.25 px/f (apex ~20px: one level per jump)
+CRUMB_DWELL equ 18     ; frames Sam can DWELL on the same still-intact
+                        ; crumbling cell before it degrades one more
+                        ; stage (Room9: Fausto wanted standing still
+                        ; to keep destroying the platform, not just a
+                        ; fresh touch - "sampr non puo' fermarsi su
+                        ; una piattaforma senza che lei si distrugga
+                        ; completamente"). Only active when
+                        ; room_crumb_continuous is set; other rooms
+                        ; keep the original touch-only behaviour.
+COYOTE_MAX equ 18       ; frames of post-edge jump forgiveness (~0.3-
+                        ; 0.36s at 50-60fps). Was 6 (~0.1s) first, but
+                        ; a real diagnostic test (walk toward a gap,
+                        ; add fire only once already past the edge,
+                        ; like a player reacting to seeing the gap
+                        ; rather than anticipating it) showed the
+                        ; actual keypress landing just 1-2 frames
+                        ; PAST a 6-frame window - real human reaction
+                        ; time to a visual cue is closer to 200-300ms,
+                        ; not 100ms. Widened generously; still short
+                        ; enough that a genuine long fall can't be
+                        ; rescued (checked against every other room's
+                        ; existing jump/fall timing, no regressions).
                         ; enemy patrol lane/surface: per-room, in room_state
 MARG    equ 6           ; leading collision margin (symmetric)
 MARGT   equ 4           ; transverse half-width
@@ -144,11 +166,15 @@ tk_k:       RESB 1
 tk_col:     RESB 1
 tk_row:     RESB 1
 tk_src:     RESB 2
-cr_cellst:  RESB 8      ; per-cell crumble states (0 full,1 half,2 gone)
+cr_cellst:  RESB 15     ; per-cell crumble states (0 full,1 half,2 gone)
                         ; sized for worst case group*2+cell id across all
-                        ; rooms, not just 4 (2 groups x 2 cells) - Room3's
-                        ; three 1-cell groups reach id 4
+                        ; rooms - Room9's 8 solo-cell groups (floor1 +
+                        ; the step, every cell but the 2 hazard ones)
+                        ; reach id 14, the current high-water mark
 cr_prev:    RESB 1      ; cell id Sam is standing on (FF none)
+cr_dwell_t: RESB 1      ; frames spent continuously on cr_prev's cell -
+                        ; only used when room_crumb_continuous is set;
+                        ; reset to 0 whenever cr_prev changes
 cb_u:       RESB 1      ; crumble temps
 cb_n:       RESB 1
 cb_st:      RESB 1
@@ -181,6 +207,22 @@ lift_ride_t: RESB 1     ; frames since boarding this ride - the forced
                         ; instant push was shoving people into the
                         ; adjacent cell before they even realized
                         ; they'd boarded - Fausto's own report)
+coyote_t:   RESB 1      ; frames since last grounded, capped at
+                        ; COYOTE_MAX+1 - lets a jump still trigger for
+                        ; a few frames after walking off an edge (see
+                        ; the jump-trigger check), matching every
+                        ; other platformer's standard "coyote time"
+                        ; forgiveness - added after Fausto found that
+                        ; walking continuously toward a gap-jump (the
+                        ; natural way to approach one) steps off the
+                        ; edge and starts falling before there's ever
+                        ; a frame where fire can register a fresh
+                        ; jump, since the old check required being
+                        ; grounded at the EXACT instant fire is
+                        ; pressed - needing a frame-perfect stop right
+                        ; at the edge, then a separate fresh jump, was
+                        ; never a deliberate design, just an
+                        ; unforgiving side effect of the strict check.
 sfx_step:   RESB 2      ; frequency slide per frame
 ex_st:      RESB 1      ; exit blink state (0/16)
 lives:      RESB 1
@@ -266,6 +308,13 @@ room_lift_wz:    RESB 1  ; fixed world z
 room_lift_ymin:  RESB 1  ; lift bounces its surface height between
 room_lift_ymax:  RESB 1  ; these two, reversing at each bound
 room_name_ptr:   RESB 2
+room_crumb_continuous: RESB 1  ; 0=touch-based degrade (original,
+                        ; rooms 1/2/3/8): standing still does nothing,
+                        ; only a FRESH touch (arriving from a different
+                        ; cell) advances one stage. 1=dwell-based
+                        ; (Room9): standing still keeps degrading every
+                        ; CRUMB_DWELL frames until destroyed - see
+                        ; cr_dwell_t.
 room_state_end:
 NROOMS equ 9
 ram_end:
@@ -1091,10 +1140,29 @@ sam_update:
         call move_x
 .nolift:
 
-        ; ---- jump ----
+        ; ---- coyote time bookkeeping: 0 while grounded, otherwise
+        ; counts frames since the last grounded frame (capped) ----
         ld  a,(sam_fl)
         bit 0,a
-        jr  z,.phys
+        jr  z,.coyinc
+        xor a
+        ld  (coyote_t),a
+        jr  .coydone
+.coyinc: ld  a,(coyote_t)
+        cp  COYOTE_MAX+1
+        jr  nc,.coydone
+        inc a
+        ld  (coyote_t),a
+.coydone:
+
+        ; ---- jump ---- (grounded OR still within the coyote window)
+        ld  a,(sam_fl)
+        bit 0,a
+        jr  nz,.jumpok
+        ld  a,(coyote_t)
+        cp  COYOTE_MAX+1
+        jr  nc,.phys
+.jumpok:
         ld  a,(trig)
         or  a
         jr  z,.phys
@@ -1106,6 +1174,9 @@ sam_update:
         ld  a,(sam_fl)
         res 0,a
         ld  (sam_fl),a
+        ld  a,COYOTE_MAX+1
+        ld  (coyote_t),a    ; consumed - block a second coyote jump
+                            ; before the next real landing
         ld  a,20
         ld  (sfx_t),a
         ld  hl,0100h
@@ -1246,12 +1317,35 @@ sam_update:
         ld  e,a
         ld  a,(cr_prev)
         cp  e
-        jr  z,.crd          ; same cell as last frame - already handled
+        jr  nz,.crnew       ; arrived on a different cell than last frame
+        ; same cell as last frame - touch-only rooms ignore this
+        ; entirely; dwell-based rooms (room_crumb_continuous=1) keep
+        ; degrading the longer Sam stands still on it
+        ld  a,(room_crumb_continuous)
+        or  a
+        jr  z,.crd
         ld  a,e
+        cp  0FFh
+        jr  z,.crd          ; standing on solid ground
+        ld  hl,cr_dwell_t
+        inc (hl)
+        ld  a,(hl)
+        cp  CRUMB_DWELL
+        jr  c,.crd          ; not dwelt long enough yet
+        xor a
+        ld  (hl),a          ; reset dwell timer, degrade one more stage
+        ld  a,e
+        call degrade_cell
+        jr  .crd
+.crnew: ld  a,e
         ld  (cr_prev),a
+        xor a
+        ld  (cr_dwell_t),a  ; fresh arrival always resets the dwell clock
+        ld  a,e
         cp  0FFh
         jr  z,.crd          ; stepped onto solid/non-crumbling ground
-        call degrade_cell   ; fresh touch on a crumbling cell
+        call degrade_cell   ; fresh touch always advances one stage,
+                            ; regardless of touch-only vs dwell-based
         jr  .crd
 .crair: ld  a,0FFh
         ld  (cr_prev),a
@@ -1292,7 +1386,13 @@ sam_update:
 
 ; ------------------------------------------------------------
 ; hazard_check: deadly bushes - die when Sam's feet cell matches
-; a bush cell and his feet are below the bush's kill ceiling
+; a bush cell and his feet are within [floor,ceiling) of that bush.
+; A ground-level bush (floor=0) is deadly to anything below the
+; ceiling, same as always; a platform-TOP hazard sets floor==its own
+; surf so the kill zone doesn't extend all the way down through open
+; ground below that column too (real bug: it used to, since this was
+; ceiling-only - Fausto died walking under a hazard-marked platform
+; cell, nowhere near the hazard's visible sprite).
 ; ------------------------------------------------------------
 hazard_check:
         ld  a,(sam_wx)
@@ -1322,10 +1422,18 @@ hazard_check:
         inc hl
         ld  a,(sam_h+1)
         cp  (hl)
-        jr  nc,.n2          ; feet at/above kill ceiling: safe
+        jr  c,.n2           ; feet below the hazard's floor: safe
+        inc hl
+        ld  a,(sam_h+1)
+        cp  (hl)
+        jr  nc,.n4          ; feet at/above kill ceiling: safe
         jp  sam_die
 .n1:    inc hl
+        inc hl
+        jr  .n3
 .n2:    inc hl
+.n4:
+.n3:    inc hl
         djnz .lp
         ret
 
@@ -2819,6 +2927,13 @@ sam_draw:
         ld  a,56
         call WRTVRM
         inc hl
+        ; body layer color 4 (dark blue) - Fausto wants Sam's original
+        ; color kept as-is (reverted an experimental recolor: color 4
+        ; does coincide with the T_STONE platform face_l color and can
+        ; make Sam's body blend into a platform he's standing in front
+        ; of, but that's a secondary visual concern, not what's causing
+        ; the reported "walks onto a platform without jumping" issue -
+        ; see the walk-through investigation instead).
         ld  a,4
         call WRTVRM
         inc hl
@@ -4651,8 +4766,7 @@ exit_gfx8_1:
 ; ============================================================
 ;  BANKS 102-103: room 9 (Wacky Amoebatrons) pre-rendered background.
 ;  Bank numbers must match ROOM9_BGBANK/ROOM9_BGCOLBANK in
-;  tools/gen_iso.py. Room 9 has no crumbling platforms, so there is
-;  no dedicated crumb bank for it (room_tab reuses CRUMBBANK).
+;  tools/gen_iso.py.
 ; ============================================================
 ROOM9_BGBANK    equ 102
 ROOM9_BGCOLBANK equ 103
@@ -4671,10 +4785,18 @@ exit_gfx9_1:
         INCBIN "src/exit_gfx9_1.bin"
         BLOCK 0C000h-$,0FFh
 
+; ============================================================
+;  BANK 104: room 9's own crumbling-platform variants (must match
+;  CRUMBBANK9 in tools/gen_iso.py)
+; ============================================================
+CRUMBBANK9 equ 104
+        INCBIN "src/crumb9.bin"
+
         ; pad the ROM back out to a full 1MB (128 x 8KB banks) - openMSX's
         ; ascii8 mapper expects a power-of-two file size; a short file
         ; (as left by just rounding up to the next bank) fails to boot
         ; at all (falls through to plain MSX BASIC). Measured then
         ; computed exactly (1048576 - actual size before this BLOCK),
-        ; not guessed by hand.
-        BLOCK 196608,0FFh
+        ; not guessed by hand. 105 banks now used (0-104), so 23 banks
+        ; (105-127) remain: 23*8192 = 188416.
+        BLOCK 188416,0FFh

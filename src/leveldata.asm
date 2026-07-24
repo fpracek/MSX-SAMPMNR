@@ -71,9 +71,9 @@ slab_tab:
         db 105,25,16,32,14
 
 hazards_tab:
-        db 1,2,18
-        db 5,1,18
-        db 2,4,34
+        db 1,2,0,18
+        db 5,1,0,18
+        db 2,4,0,34
 
 ; crumb_tab (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
 ;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
@@ -149,8 +149,8 @@ slab_tab2:
         db 89,65,64,16,15
 
 hazards_tab2:
-        db 3,5,18
-        db 5,1,18
+        db 3,5,0,18
+        db 5,1,0,18
 
 ; crumb_tab2 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
 ;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
@@ -225,8 +225,8 @@ slab_tab3:
         db 105,57,80,32,10
 
 hazards_tab3:
-        db 2,3,18
-        db 5,4,18
+        db 2,3,0,18
+        db 5,4,0,18
 
 ; crumb_tab3 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
 ;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
@@ -303,8 +303,8 @@ slab_tab4:
         db 105,57,80,32,13
 
 hazards_tab4:
-        db 1,2,18
-        db 3,4,18
+        db 1,2,0,18
+        db 3,4,0,18
 
 ; crumb_tab4 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
 ;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
@@ -511,21 +511,21 @@ slab_tab7:
         db 89,65,64,16,11
 
 hazards_tab7:
-        db 3,1,18
-        db 4,1,18
-        db 5,1,18
-        db 6,1,18
-        db 3,2,18
-        db 4,2,18
-        db 5,2,18
-        db 6,2,18
-        db 5,3,18
-        db 6,3,18
-        db 3,4,18
-        db 3,5,18
-        db 4,5,18
-        db 5,5,18
-        db 6,5,18
+        db 3,1,0,18
+        db 4,1,0,18
+        db 5,1,0,18
+        db 6,1,0,18
+        db 3,2,0,18
+        db 4,2,0,18
+        db 5,2,0,18
+        db 6,2,0,18
+        db 5,3,0,18
+        db 6,3,0,18
+        db 3,4,0,18
+        db 3,5,0,18
+        db 4,5,0,18
+        db 5,5,0,18
+        db 6,5,0,18
 
 ; crumb_tab7 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
 ;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
@@ -594,8 +594,8 @@ slab_tab8:
         db 121,41,96,56,11
 
 hazards_tab8:
-        db 6,1,18
-        db 6,0,18
+        db 6,1,0,18
+        db 6,0,0,18
 
 ; crumb_tab8 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
 ;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
@@ -624,24 +624,24 @@ level9_map:
         db 000h,000h,000h,000h,000h,000h,000h,000h
         db 000h,000h,000h,000h,000h,000h,000h,000h
         db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,001h,001h,001h,001h,001h,000h,000h
+        db 000h,000h,004h,000h,000h,004h,001h,000h
         db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 001h,001h,001h,001h,001h,001h,001h,001h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,001h,001h,000h,001h,001h,000h,000h
-        db 000h,000h,004h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,001h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,001h,001h
-        db 000h,000h,000h,000h,000h,000h,004h,000h
         db 001h,001h,001h,001h,001h,001h,001h,001h
         db 000h,000h,000h,000h,000h,000h,000h,000h
         db 000h,000h,000h,000h,000h,000h,000h,000h
         db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,001h,001h,001h,001h,001h,000h,000h
         db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,001h,001h,000h,001h,001h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,001h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 001h,001h,001h,001h,001h,001h,001h,001h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,001h,001h,001h,001h,001h,000h,000h
         db 000h,000h,004h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
+        db 000h,000h,000h,000h,000h,000h,000h,000h
         db 000h,000h,000h,000h,000h,000h,000h,000h
         db 001h,001h,001h,001h,001h,001h,001h,001h
         db 000h,000h,000h,000h,000h,000h,000h,000h
@@ -661,32 +661,61 @@ level9_map:
         db 000h,000h,000h,000h,000h,000h,000h,000h
 
 keys_tab9:
-        db 2,2,3,14,8
-        db 2,3,6,12,6
-        db 6,2,7,22,8
+        db 2,3,3,12,9
+        db 2,1,6,16,4
+        db 5,1,6,22,7
 
 slab_tab9:
-        db 169,65,144,56,7
-        db 121,65,128,48,5
-        db 153,57,128,56,5
-        db 137,81,112,24,5
-        db 137,65,112,40,5
-        db 105,57,112,48,5
-        db 121,73,96,24,5
-        db 73,41,80,48,5
-        db 89,57,64,24,5
-        db 57,33,64,48,5
-        db 73,49,48,24,5
+        db 121,89,128,24,10
+        db 153,57,128,56,10
+        db 105,81,112,24,10
+        db 137,65,112,40,10
+        db 169,49,112,56,10
+        db 169,49,112,56,7
+        db 89,73,96,24,10
+        db 121,57,96,40,10
+        db 153,49,96,48,10
+        db 73,65,80,24,10
+        db 105,49,80,40,10
+        db 137,41,80,48,10
+        db 57,57,64,24,10
+        db 89,41,64,40,10
+        db 121,33,64,48,10
+        db 73,33,48,40,10
+        db 105,25,48,48,10
+        db 89,17,32,48,10
 
 hazards_tab9:
-        db 3,2,46
-        db 3,3,54
-        db 6,1,18
-        db 0,0,18
+        db 4,3,24,34
+        db 2,2,40,50
 
 ; crumb_tab9 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
 ;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
 crumb_tab9:
+        db 1,1,2,3,255,255,255,9,9,13,13
+        dw 256, 32768
+        db 12,255
+        db 1,2,2,3,255,255,255,11,10,15,14
+        dw 256, 33536
+        db 9,255
+        db 1,3,2,3,255,255,255,13,11,17,15
+        dw 256, 34304
+        db 6,255
+        db 1,5,2,3,255,255,255,17,13,22,17
+        dw 320, 35072
+        db 0,255
+        db 1,1,4,2,255,255,255,11,6,15,9
+        dw 192, 36032
+        db 15,255
+        db 1,3,4,2,255,255,255,15,8,19,11
+        dw 192, 36608
+        db 10,255
+        db 1,4,4,2,255,255,255,17,9,21,12
+        dw 192, 37184
+        db 7,255
+        db 1,5,4,2,255,255,255,19,10,23,16
+        dw 384, 37760
+        db 3,255
 
 ; redefined font, 76 chars from '0' (8 bytes each)
 fonts_tab:
@@ -752,7 +781,7 @@ room9_name:
 ; room_tab: one row per room, read into room_state RAM struct
 ; via a single ldir at room_start. Field order/sizes MUST match
 ; the room_state RESB block in src/main.asm exactly.
-ROOMROWLEN equ 45
+ROOMROWLEN equ 46
 room_tab:
         db 2,3
         dw level1_map
@@ -775,6 +804,7 @@ room_tab:
         db 52,91,40,24,0,0
         db 255,0,0,0
         dw room1_name
+        db 0
         db 85,86
         dw level2_map
         dw keys_tab2
@@ -796,6 +826,7 @@ room_tab:
         db 92,124,56,16,0,0
         db 255,0,0,0
         dw room2_name
+        db 0
         db 88,89
         dw level3_map
         dw keys_tab3
@@ -817,6 +848,7 @@ room_tab:
         db 48,96,40,32,0,0
         db 255,0,0,0
         dw room3_name
+        db 0
         db 91,92
         dw level4_map
         dw keys_tab4
@@ -838,6 +870,7 @@ room_tab:
         db 48,96,40,32,0,0
         db 255,0,0,0
         dw room4_name
+        db 0
         db 93,94
         dw level5_map
         dw keys_tab5
@@ -859,6 +892,7 @@ room_tab:
         db 8,44,40,40,1,0
         db 255,0,0,0
         dw room5_name
+        db 0
         db 95,96
         dw level6_map
         dw keys_tab6
@@ -880,6 +914,7 @@ room_tab:
         db 16,52,40,32,2,56
         db 255,0,0,0
         dw room6_name
+        db 0
         db 97,98
         dw level7_map
         dw keys_tab7
@@ -901,6 +936,7 @@ room_tab:
         db 64,112,56,8,0,0
         db 255,0,0,0
         dw room7_name
+        db 0
         db 100,101
         dw level8_map
         dw keys_tab8
@@ -922,25 +958,27 @@ room_tab:
         db 40,88,40,56,0,0
         db 72,56,8,72
         dw room8_name
+        db 0
         db 102,103
         dw level9_map
         dw keys_tab9
         db 3
         dw keys_gfx9
         dw slab_tab9
-        db 11
-        db 0
+        db 18
+        db 8
         dw crumb_tab9
-        db 84
+        db 104
         dw hazards_tab9
-        db 4
-        db 112,32,56
-        db 23,10,2,32
+        db 2
+        db 96,16,56
+        db 23,8,2,40
         dw exit_gfx9_0
         dw exit_gfx9_1
         dw urchin_gfx
         db 2
-        db 24,72,72,56,1,0
+        db 16,64,64,24,1,0
         db 255,0,0,0
         dw room9_name
+        db 1
 

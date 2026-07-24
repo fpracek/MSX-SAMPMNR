@@ -561,7 +561,7 @@ def render_room(spec):
                 continue
             style = STYLE_EXIT_FLASH if (flash and t == T_EXIT) else STYLE[t]
             draw_slab(bx, bz, y, half=(st == 1), **style)
-        for bx,bz,surf in spec['hazards']:
+        for bx,bz,surf,*_ in spec['hazards']:
             draw_hazard(bx, bz, surf, spec['hazard_art'])
         return img
 
@@ -580,7 +580,7 @@ def render_room(spec):
             for _xx in range(W):
                 if ra[_xx] != rb[_xx]:
                     slab_surf[_yy][_xx] = _s
-    for bx,bz,surf in spec['hazards']:
+    for bx,bz,surf,*_ in spec['hazards']:
         draw_hazard(bx, bz, surf, spec['hazard_art'])
 
     cover = [[0]*MAPW for _ in range(MAPD)]
@@ -733,6 +733,7 @@ def render_room(spec):
         lift_wx=spec.get('lift_wx', 0xFF), lift_wz=spec.get('lift_wz', 0),
         lift_ymin=spec.get('lift_ymin', 0), lift_ymax=spec.get('lift_ymax', 0),
         hazards=spec['hazards'],
+        crumb_continuous=spec.get('crumb_continuous', 0),
     )
 
 # ------------------------------------------------------------------
@@ -1499,53 +1500,180 @@ def _amoeba_art():
     ]
 AMOEBA_ART = _amoeba_art()
 
-# Wacky Amoebatrons: two stacked tiers of platform clusters (each split
-# into 2 segments with a gap, forcing jumps) bridged by a single
-# stepping stone, plus one small top platform holding the 3rd key -
-# the only way up to it is guarded by the urchin's vertical patrol,
-# right at that one chokepoint, so the climb itself isn't hard but
-# timing past the urchin is. Floating amoeba hazards dot the jump
-# paths for atmosphere/extra danger, matching the reference art.
+# Wacky Amoebatrons - 3rd, FINAL structural approach (Fausto, after
+# the 2nd redesign STILL died at the last key: "DISASTRO... resetta
+# completamente... rifallo totalmente da capo"). Everything about the
+# CLIMB (floor1 -> step -> floor2, all wide/gap-free, straight height-
+# only jumps) stayed - that part was never what was reported broken.
+# What's gone for good is the idea of guarding a JUMP LANDING with the
+# `en_axis=1` fixed-point enemy at all. Across two redesigns this
+# session, every attempt at "jump near/onto a spot the enemy also
+# threatens" ran into the same wall: the enemy's kill check is a
+# 20x20px box (|dx|<10 AND |dz|<10 from a fixed point), and with the
+# platforms this room can fit (edges away from the map's bx/bz clamp
+# extremes), any gap small enough to actually jump (~17-24px) is also
+# too small to keep BOTH the takeoff and landing platform fully clear
+# of that box - proven by two rounds of real tests, each fix for one
+# platform's edge breaking the other. Making the gap wide enough for a
+# clean margin (33px+) made the JUMP ITSELF fail (Sam's height drops
+# below the target before he travels far enough). There is no width
+# that satisfies both at once with this room's dimensions.
+# The actual fix: don't guard a JUMP at all - guard a WALK, the same
+# proven, already-fair mechanic as Room3's chicken and Room5's Eugene
+# (`en_axis=1` was ALWAYS meant for exactly this: a fixed ambush point
+# you walk past and time, not a moving target you fly through). floor2
+# (wide, no gap, height constant while walking) has key2 at its west
+# end and key3 at its east end, with the urchin's fixed point sitting
+# BETWEEN them on that same walkway (same z as the floor, so only
+# HEIGHT timing matters, not position) - reaching key3 means walking
+# past it, waiting for its bounce to clear Sam's own height, exactly
+# like ducking under/past Eugene. The final exit jump (floor2 -> a
+# small platform beyond) is a plain, unguarded, already-proven-safe
+# straight hop with zero enemy interaction, since by that point all 3
+# keys are already in hand and this is just "leave the room", not a
+# challenge.
 room9_slabs_def = [
-    # tier 1 (y=2, surf=24), bz=2 - two 2-cell clusters with a gap
-    (1,2,2,T_STONE), (2,2,2,T_STONE),
-    (4,2,2,T_STONE), (5,2,2,T_STONE),
-    # stepping stone bridging tier1 -> tier2
-    (5,2,4,T_STONE),
-    # tier 2 (y=5, surf=48), bz=3 - two more 2-cell clusters with a gap
-    (1,3,5,T_STONE), (2,3,5,T_STONE),
-    (4,3,5,T_STONE), (5,3,5,T_STONE),
-    # top platform (y=6, surf=56) - reached from cluster D via a single
-    # diagonal jump (dx+1,dz-1, gain 8px) - the urchin-guarded
-    # chokepoint. NOT directly above any tier1/tier2 cell (which would
-    # visually stack two slabs only 8-32px apart) - verified with a
-    # position-collision check (every slab/key/hazard/exit's projected
-    # screen position, same discipline as every prior room).
-    (6,2,6,T_STONE),
+    # floor 1 (y=2, surf=24), bz=3 - ONE continuous 5-wide platform,
+    # no gap - reached by the same straight jump north from spawn
+    # (1,4) already proven to work cleanly every single time tested
+    (1,3,2,T_STONE), (2,3,2,T_STONE), (3,3,2,T_STONE),
+    (4,3,2,T_STONE), (5,3,2,T_STONE),
+    # stepping stone (y=4, surf=40), bz=2 - ALSO 5-wide, matching
+    # floor1/floor2's width (a real test caught this: a 2-cell-wide
+    # step at the west end only, with 5-wide floors either side, left
+    # no landing spot for a straight north jump made from anywhere
+    # else along floor1's width)
+    (1,2,4,T_STONE), (2,2,4,T_STONE), (3,2,4,T_STONE),
+    (4,2,4,T_STONE), (5,2,4,T_STONE),
+    # floor 2 (y=5, surf=48), bz=1 - ONE continuous 5-wide platform,
+    # no gap - reached from the stepping stone via a straight jump
+    # north+up (same proven technique again). This is where the
+    # urchin's walk-past ambush lives (see ROOM9 dict below) - key2 at
+    # the west end, key3 at the east end, past the enemy.
+    (1,1,5,T_STONE), (2,1,5,T_STONE), (3,1,5,T_STONE),
+    (4,1,5,T_STONE), (5,1,5,T_STONE),
+    # exit platform (y=6, surf=56) - a plain, unguarded straight jump,
+    # now from the STEP's own row (bz=2) instead of floor2's far end -
+    # a fresh, unused cell (bx=6 was never part of the 5-wide step),
+    # only 1 row/16px from floor2 - the shortest, safest hop in the
+    # room, with no enemy anywhere near it.
+    (6,2,6,T_STONE), (6,1,6,T_STONE),
 ]
 
 ROOM9 = dict(
     label='9',
-    wallcol=dict(lit=11, rock=2, joint=1),
+    # Fausto: "non voglio piu' vedere la stessa videata" - reskinned
+    # from the cool blue/green lab palette used every previous pass to
+    # a warm amber/rust one, so this reads as visually distinct at a
+    # glance, not just a shuffled version of the same screen.
+    wallcol=dict(lit=10, rock=6, joint=1),
     crest_fn=_wtop_amoeba,
-    floor_base=1, floor_speckle=5,
+    floor_base=6, floor_speckle=8,
     slabs_def=room9_slabs_def,
     style={
-        T_STONE: dict(top_fill=5, top_edge=15, face_l=4, face_r=13, rocky=True),
+        T_STONE: dict(top_fill=10, top_edge=11, face_l=6, face_r=8, rocky=True),
     },
-    keys=[(2,2,3,14), (2,3,6,14), (6,2,7,14)],   # one per tier, last one
-                                                    # sits past the urchin
-    exit_bx=7, exit_bz=2, exit_y=6,   # right beside the top platform
-    hazards=[(3,2,36), (3,3,44), (6,1,8), (0,0,8)],
+    keys=[(2,3,3,14), (2,1,6,14), (5,1,6,14)],   # floor1, floor2 west,
+                                                    # floor2 east (past
+                                                    # the urchin) - key3's
+                                                    # "y" is 6 (floor2's
+                                                    # own y=5, +1 for the
+                                                    # pickup-layer offset
+                                                    # quirk), NOT 7 - a
+                                                    # leftover from the
+                                                    # old design where
+                                                    # key3 sat on a
+                                                    # y=6 platform. Real
+                                                    # bug: standing right
+                                                    # on floor2 at (5,1)
+                                                    # never collected it
+                                                    # (wrong map layer).
+    exit_bx=6, exit_bz=1, exit_y=6,
+    # Fausto (after confirming the redesign WORKS): "facciamo qualche
+    # piattaforma che si distrugge al passaggio e disseminiamo quelle
+    # fisse di ostacoli" - now that the climb/ambush skeleton is proven
+    # solid, add real difficulty on top of it instead of to it: static
+    # obstacles ON the two wide climbing floors (NOT floor2, which
+    # already carries the urchin ambush - stacking two threats on one
+    # platform would be unfair, not fun), placed on a single cell of
+    # each 5-wide floor so the rest of the width stays clear to route
+    # around (same proven pattern as Room1's (2,4,24) hazard: surf
+    # matches the floor's OWN surf, so the kill ceiling sits ABOVE
+    # Sam's standing height there - the hazard cell itself is always
+    # lethal, adjacent cells on the same floor are untouched).
+    # floor1 hazard at (4,3): avoids bx=1-2 (the proven spawn-jump
+    # landing zone) and key1 at (2,3).
+    # step hazard at (2,2): avoids the step's own width-matching role
+    # and sits clear of every key/exit cell.
+    # 4th field = explicit floor (see emit_room in this file for why):
+    # without it, hazard_check's "anything below the ceiling dies"
+    # formula makes the OPEN GROUND directly beneath each hazard cell
+    # invisibly lethal too, since the check is column-only and doesn't
+    # care which platform (if any) occupies that column - real bug
+    # Fausto hit, walking on the ground nowhere near the visible
+    # hazard sprite. floor==surf restricts the kill zone to just that
+    # platform's own standing height.
+    hazards=[(4, 3, 24, 24), (2, 2, 40, 40)],
     hazard_art=AMOEBA_ART,
-    crumb_units=[],
+    # Fausto, once the crumble+hazard addition above was confirmed
+    # visible: "fai che tutte le piattaforme siano instabili (tranne
+    # quelle che hanno gli ostacoli)... se sampr indugia su una
+    # piattaforma la piattaforma deve continuare a distruggersi...
+    # sampr non puo' fermarsi su una piattaforma senza che lei si
+    # distrugga completamente" - every stone cell on floor1 and the
+    # step now crumbles, EXCEPT the 2 cells that already carry a
+    # hazard (4,3) and (2,2) - those stay solid landmarks (they're
+    # already permanently lethal to stand on, so leaving them fixed
+    # keeps them readable as "the thing to route around" rather than
+    # doubling as a second, different kind of danger).
+    # floor2 and the exit platform are deliberately left OUT of the
+    # crumbling set. floor2: tried it first, but each cell's crumble
+    # variants (revealing the ground/void below once destroyed) are
+    # much bigger than a single obstacle sprite, and floor1+step+floor2
+    # together measured 26400 bytes of pre-rendered variants against
+    # this ROM's 8192-byte-per-bank crumble budget - a hard ceiling,
+    # not a preference; floor1+step alone already fills most of that
+    # budget. The exit platform was excluded on purpose (not a budget
+    # issue): it's the terminal "all keys collected, leave the room"
+    # platform, not part of the puzzle, and destabilizing it risked an
+    # edge-case interplay with the win-trigger.
+    # This ALSO switches the degrade model for this room from
+    # touch-based (the original mechanic, still used by rooms 1/3/8:
+    # only a FRESH touch advances one stage, standing still is free)
+    # to dwell-based (`crumb_continuous=1` below): standing on the
+    # SAME still-intact cell keeps degrading it every CRUMB_DWELL
+    # frames, so Sam can never just plant himself somewhere safe -
+    # exactly what was asked ("non puo' fermarsi... senza che lei si
+    # distrugga completamente"). Room has a normal solid ground floor
+    # everywhere (no floor_gaps), so falling through a fully-crumbled
+    # cell just drops Sam to ground level to re-climb - a lost life,
+    # never a permanent stuck state.
+    # Every cell is its OWN single-cell group (not paired) - a 2-cell
+    # group needs 3^2=9 pre-rendered variants vs 3 for a solo cell, and
+    # with this many crumbling cells even 2-cell pairs blew the crumble
+    # bank's 8KB budget (26400 bytes needed - measured, not guessed).
+    crumb_units=[
+        [(1,3,2)], [(2,3,2)], [(3,3,2)], [(5,3,2)],   # floor1, skip (4,3)
+        [(1,2,4)], [(3,2,4)], [(4,2,4)], [(5,2,4)],   # step, skip (2,2)
+    ],
+    crumb_continuous=1,
     enemy_frames=[URCHIN_A, URCHIN_B],
-    # fixed world (x,z) = (72,56), i.e. (bx=4,bz=3) - cluster D's own
-    # column, the takeoff point for the one jump up to the top platform.
-    # Wide bounce range (24-72, 48 units, same width already proven fair
-    # with correct timing in Rooms 4/6/7) so real safe windows exist,
-    # not just an instant.
-    enxmin=24, enxmax=72, enz=72, ensurf=56, en_axis=1, enemy_color=2,
+    # fixed world (x,z) = (64,24): x is floor2's own MIDPOINT (bx=4,
+    # between key2 at the west end and key3 at the east end) - you
+    # cannot reach key3 without passing this x column. z=24 is floor2's
+    # OWN z-center (bz=1's middle) - since Sam WALKS along floor2 at a
+    # constant height (never jumping through this point), dz=0 the
+    # whole time he's on the platform, so position is never the
+    # limiting factor here - ONLY the enemy's current height decides
+    # if crossing x=64 is safe, exactly like Eugene/the chicken.
+    # enxmin=16,enxmax=64 (48-unit range, matching the width already
+    # proven fair in Rooms 4/6/7/8): Sam walks at h+1=49 the whole
+    # time; the enemy's 16px hitbox [en_x,en_x+16) clears him (wholly
+    # above or below) whenever en_x<=33 OR en_x>=49 - roughly 69% of
+    # the cycle is genuinely, unconditionally safe to cross, with a
+    # real ~31% danger band (en_x 34-48) to wait out - a fair, visible,
+    # learnable "watch it, then dash" pattern, not a coin-flip trap.
+    enxmin=16, enxmax=64, enz=64, ensurf=24, en_axis=1, enemy_color=2,
     name="WACKY AMOEBATRONS",
 )
 
@@ -1669,6 +1797,14 @@ assert len(crumb_bin4) <= 8192, len(crumb_bin4)
 crumb_bin4 += bytes(8192 - len(crumb_bin4))
 open(os.path.join(ROOT,'src','crumb4.bin'),'wb').write(crumb_bin4)
 
+# crumb9.bin: room 9's own crumbling-cell variants (step pair + floor1
+# east cell, added per Fausto's request once the climb/ambush skeleton
+# was confirmed solid)
+crumb_bin9 = bytearray(R9['crumb_bin'])
+assert len(crumb_bin9) <= 8192, len(crumb_bin9)
+crumb_bin9 += bytes(8192 - len(crumb_bin9))
+open(os.path.join(ROOT,'src','crumb9.bin'),'wb').write(crumb_bin9)
+
 # ------------------------------------------------------------------
 # ROM bank numbers (must match the equ's added in src/main.asm)
 # ------------------------------------------------------------------
@@ -1685,12 +1821,13 @@ ROOM9_BGBANK, ROOM9_BGCOLBANK = 102, 103
 CRUMBBANK = 84
 CRUMBBANK2 = 87
 CRUMBBANK3 = 90
+CRUMBBANK9 = 104
 # Rooms 4, 5, 6 and 7 have no crumbling platforms (room_nunits=0, cell_at
 # returns "no match" immediately) so their crumb_bank field is never
 # actually read - reuse CRUMBBANK as a harmless placeholder instead of
-# allocating a whole new (empty) bank for either of them. Room 8 DOES
-# have crumbling platforms again, so it gets its own real bank
-# (CRUMBBANK4), same as rooms 1-3.
+# allocating a whole new (empty) bank for either of them. Room 8 and
+# Room 9 DO have crumbling platforms, so each gets its own real bank
+# (CRUMBBANK4, CRUMBBANK9), same as rooms 1-3.
 
 def emit_room(R, lines):
     lab = R['label']
@@ -1712,9 +1849,20 @@ def emit_room(R, lines):
     # graphics blobs (like enemy_gfx) that ride in the spare tail of
     # that room's own bg_COLOR bank instead (see _write_room_extra_gfx),
     # keeping them out of the tight, shared bank1/leveldata.asm window.
+    # 4 bytes/hazard now: bx,bz,floor,ceiling - lethal only when
+    # sam_h+1 is in [floor,ceiling), not "anything below ceiling".
+    # Ground-level hazards (surf=8, the vast majority) keep floor=0 -
+    # unchanged behaviour, nothing walkable exists below y=0 anyway.
+    # Platform-TOP hazards (Room9's) pass an explicit floor==surf so
+    # the invisible kill-zone doesn't extend all the way down through
+    # the open ground below that same (bx,bz) column (real bug hit:
+    # Fausto died walking on the ground under a hazard-marked platform
+    # cell, nowhere near the hazard's own visible sprite).
     lines.append(f"hazards_tab{lab}:")
-    for bx,bz,surf in R['hazards']:
-        lines.append(f"        db {bx},{bz},{surf+10}")
+    for h in R['hazards']:
+        bx, bz, surf = h[0], h[1], h[2]
+        floor = h[3] if len(h) > 3 else 0
+        lines.append(f"        db {bx},{bz},{floor},{surf+10}")
     lines.append("")
 
 lines = ["; AUTOGENERATED by tools/gen_iso.py", ""]
@@ -1828,12 +1976,13 @@ def room_row(R, bgbank, bgcolbank, crumbbank):
         R.get('lift_wx', 0xFF), R.get('lift_wz', 0),
         R.get('lift_ymin', 0), R.get('lift_ymax', 0),
         ROOM_NAME_LABEL[R['label']],
+        R.get('crumb_continuous', 0),
     ]
 
 lines.append("; room_tab: one row per room, read into room_state RAM struct")
 lines.append("; via a single ldir at room_start. Field order/sizes MUST match")
 lines.append("; the room_state RESB block in src/main.asm exactly.")
-lines.append("ROOMROWLEN equ 45")
+lines.append("ROOMROWLEN equ 46")
 lines.append("room_tab:")
 for R, bgbank, bgcolbank, crumbbank in (
         (R1, ROOM1_BGBANK, ROOM1_BGCOLBANK, CRUMBBANK),
@@ -1844,7 +1993,7 @@ for R, bgbank, bgcolbank, crumbbank in (
         (R6, ROOM6_BGBANK, ROOM6_BGCOLBANK, CRUMBBANK),
         (R7, ROOM7_BGBANK, ROOM7_BGCOLBANK, CRUMBBANK),
         (R8, ROOM8_BGBANK, ROOM8_BGCOLBANK, CRUMBBANK4),
-        (R9, ROOM9_BGBANK, ROOM9_BGCOLBANK, CRUMBBANK)):
+        (R9, ROOM9_BGBANK, ROOM9_BGCOLBANK, CRUMBBANK9)):
     f = room_row(R, bgbank, bgcolbank, crumbbank)
     lines.append(f"        db {f[0]},{f[1]}")
     lines.append(f"        dw {f[2]}")
@@ -1867,6 +2016,7 @@ for R, bgbank, bgcolbank, crumbbank in (
     lines.append(f"        db {f[24]},{f[25]},{f[26]},{f[27]},{f[28]},{f[29]}")
     lines.append(f"        db {f[30]},{f[31]},{f[32]},{f[33]}")
     lines.append(f"        dw {f[34]}")
+    lines.append(f"        db {f[35]}")
 lines.append("")
 
 # gfx_sprites lives in bank0's own spare space (INCBIN'd directly in
