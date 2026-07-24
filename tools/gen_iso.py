@@ -2108,6 +2108,11 @@ ROOM11 = dict(
     # key3 (west) to the exit-hop jump-off (east, bx=3).
     enxmin=16, enxmax=72, enz=48, ensurf=24, en_axis=1, enemy_color=15,
     name="MUTANT TELEPHONES",
+    # bank1 overflow again ("Negative BLOCK?") - the new rectangular-
+    # patrol code (enemy_update/enemy2_update/sam_draw) added enough
+    # bytes to tip it over even without any new per-room data. Same
+    # fix, applied here this time (arbitrary choice).
+    map_label='level_map11',
 )
 
 def _wtop_refinery(u):
@@ -2413,32 +2418,31 @@ ROOM13 = dict(
     hazard_art=ORE_ART,
     crumb_units=[],
     enemy_frames=[CART_A, CART_B],
-    # Fausto asked for at least 2 roaming enemies. Reused the proven
-    # en_axis=2 "mirrored pair" mechanic (Room6's pacmen) instead of
-    # building new engine support for a 2nd independent enemy slot -
-    # it already drives 2 real, independently-lethal moving sprites
-    # off a single room_state's worth of fields. Both patrol the back
-    # wall row (bz=0, world z=8), which is entirely hazarded ground
-    # the safe path never crosses (see _room13_safe_cells) - so they
-    # add visible movement/danger to the room without becoming another
-    # source of "died for no reason" on top of the hazard-field fix
-    # above. en_centerx=64 is the floor's horizontal middle; the
-    # 16-56 gap keeps both carts within the room (64-56=8, 64+56=120).
-    enxmin=16, enxmax=56, enz=8, ensurf=8, en_axis=2, en_centerx=64, enemy_color=5,
+    # Fausto: back to exactly 2 enemies (not 4), but make them actually
+    # turn/patrol a circuit instead of just bouncing back and forth on
+    # one line ("falli girare e non fargli fare solo avanti indietro").
+    # This needed a genuinely new mechanic (en_axis=3, rectangular
+    # patrol - see enemy_update's .rect in main.asm): the cart walks
+    # all 4 sides of a box instead of oscillating on 1 axis. Kept
+    # entirely within the back wall row (bz=0, world z 0-16) - the
+    # ONLY row that's fully hazarded with no safe/path cell anywhere
+    # in it (every other row has some safe cells the path uses) - so
+    # the box is wide (x) but thin (z, 2-14), still a real rectangle
+    # (turns all 4 corners) without ever risking a safe-path cell.
+    enxmin=8, enxmax=120, enz=2, ensurf=8, en_axis=3, en_centerx=14, enemy_color=5,
     name="ORE REFINERY",
     # bank1 overflow again ("Negative BLOCK?") - this room's 23-entry
     # hazards_tab (4B each) plus its inline level map together pushed
     # it back over budget, same as Room12. Same fix: relocate the
     # 384-byte map out to this room's own bg_pattern bank tail.
     map_label='level_map13',
-    # 2nd pair of roaming carts, per Fausto's follow-up request for
-    # more enemies - same back wall row (bz=0/world z=8) as the first
-    # pair (still fully hazarded, safe path never crosses it), just a
-    # smaller gap so the two pairs overlap/interleave rather than
-    # simply doubling up in lockstep. Different color (11, light
-    # yellow) so all 4 carts stay visually distinguishable as 2 pairs.
+    # 2nd cart, on its own smaller rectangle in the same back wall row
+    # (see the 2nd-enemy-slot mechanic in main.asm - always runs the
+    # rectangular patrol now, no axis field needed) - a different size
+    # and different color (11, light yellow) so the 2 carts stay
+    # visually distinguishable and don't just move in lockstep.
     enemy2_frames=[CART_A, CART_B],
-    en2xmin=8, en2xmax=32, en2z=8, en2surf=8, en2_centerx=64, enemy2_color=11,
+    en2xmin=16, en2xmax=64, en2z=2, en2surf=8, en2_centerx=14, enemy2_color=11,
 )
 
 R1 = render_room(ROOM1)
@@ -2725,7 +2729,7 @@ emit_room(R9, lines)
 emit_crumb_tab(R9, lines, bank_map={'a': CRUMBBANK9, 'b': CRUMBBANK9B})
 emit_room(R10, lines, map_out=os.path.join(ROOT,'src','level_map10.bin'))
 emit_crumb_tab(R10, lines, bank_map={'a': CRUMBBANK})
-emit_room(R11, lines)
+emit_room(R11, lines, map_out=os.path.join(ROOT,'src','level_map11.bin'))
 emit_crumb_tab(R11, lines, bank_map={'a': CRUMBBANK})
 emit_room(R12, lines, map_out=os.path.join(ROOT,'src','level_map12.bin'))
 emit_crumb_tab(R12, lines, bank_map={'a': CRUMBBANK})

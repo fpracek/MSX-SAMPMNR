@@ -204,27 +204,37 @@ cb_id:      RESB 1
 cb_rec:     RESB 2
 slabdis:    RESB 12     ; per-slab mask disable flags
 en_x:       RESB 1      ; enemy world x
-en_dir:     RESB 1      ; 0=+x 1=-x
+en_dir:     RESB 1      ; en_axis 0/1/2: 0/1 direction; en_axis=3
+                        ; (rectangular patrol): 0-3 = which of the 4
+                        ; legs it's currently walking
 en_anim:    RESB 1
-; ---- 2nd enemy (optional, mirrored-pair only - Fausto asked for more
-; roaming enemies in Room13, reusing the en_axis=2 mechanic a 2nd time
-; rather than adding a general N-enemy engine). room_enemy2_ptr (in
-; room_state) is 0 for every room without one; when non-zero it points
-; at a small enemy2_tab{N} record (dw gfx_ptr, db xmin,xmax,z,surf,
-; centerx,color - 8 bytes) living in that room's OWN bg_pattern bank
-; tail, same relocation reasoning as lever_tab/level_map. room_start
-; copies its 6 scalar bytes into the fixed RAM fields below once per
-; room load (gated on the pointer), so enemy2_update/sam_draw read
-; plain fixed addresses exactly like the first enemy's room_en* fields
-; - no per-frame ROM indirection needed. ----
+en_z:       RESB 1      ; enemy world z - only moves for en_axis=3
+                        ; (rectangular patrol); every other axis mode
+                        ; keeps a fixed z (room_enz) and never touches
+                        ; this byte
+; ---- 2nd enemy (optional - room_enemy2_ptr (in room_state) is 0 for
+; every room without one; when non-zero it points at a small
+; enemy2_tab{N} record (dw gfx_ptr, db xmin,xmax,z,surf,centerx,color
+; - 8 bytes) living in that room's OWN bg_pattern bank tail, same
+; relocation reasoning as lever_tab/level_map. room_start copies its 6
+; scalar bytes into the fixed RAM fields below once per room load
+; (gated on the pointer), so enemy2_update/sam_draw read plain fixed
+; addresses exactly like the first enemy's room_en* fields - no
+; per-frame ROM indirection needed. Always runs the rectangular-patrol
+; mechanic (en_axis=3's, below) - it's the only mode a 2nd enemy has
+; ever needed so far, so unlike the 1st enemy there's no axis field to
+; dispatch on. ----
 en2_x:      RESB 1
-en2_dir:    RESB 1
+en2_dir:    RESB 1      ; which of the 4 legs (see en_dir above)
 en2_anim:   RESB 1
+en2_z:      RESB 1
 room_en2xmin:      RESB 1
 room_en2xmax:      RESB 1
-room_en2z:         RESB 1
+room_en2z:         RESB 1     ; rectangle's z-top (zmin)
 room_en2surf:      RESB 1
-room_en2_centerx:  RESB 1
+room_en2_centerx:  RESB 1     ; rectangle's z-bottom (zmax) - same
+                        ; field reused for the mirrored-pair's centerx
+                        ; before Room13 switched to rectangular patrol
 room_enemy2_color: RESB 1
 lift_h:     RESB 1      ; current lift surface height (bounces between
                         ; room_lift_ymin/ymax)
@@ -2596,6 +2606,8 @@ enemy_update:
         jp  z,.vertical
         cp  2
         jp  z,.mirror
+        cp  3
+        jp  z,.rect
 
 ; ---- horizontal patrol (Rooms 1-4): en_x moves, fixed z/height ----
         ; move at 0.5 px/frame
@@ -2845,11 +2857,134 @@ enemy_update:
         pop hl              ; discard this call's own return address
         jp  sam_die
 
+; ---- rectangular patrol (Ore Refinery carts): walks all 4 sides of a
+; box instead of bouncing back and forth on one line - room_enxmin/
+; enxmax are the box's left/right x edges, room_enz/room_en_centerx
+; are reused as its top/bottom z edges (zmin/zmax), room_ensurf is the
+; fixed height as usual. en_dir holds which of the 4 legs it's
+; currently walking (0=+x along top, 1=+z along right, 2=-x along
+; bottom, 3=-z along left); en_x/en_z are its current position. ----
+.rect:
+        ld  a,(frame)
+        and 1
+        jp  nz,.ranim   ; jr would be out of range across all 4 legs
+        ld  a,(en_dir)
+        or  a
+        jr  z,.rleg0
+        dec a
+        jr  z,.rleg1
+        dec a
+        jr  z,.rleg2
+        jr  .rleg3
+.rleg0: ld  a,(en_x)
+        inc a
+        ld  b,a
+        ld  a,(room_enxmax)
+        cp  b
+        jr  nc,.rleg0st
+        ld  a,1
+        ld  (en_dir),a
+        ld  a,(room_enxmax)
+        ld  b,a
+.rleg0st:
+        ld  a,b
+        ld  (en_x),a
+        ld  a,(room_enz)
+        ld  (en_z),a
+        jr  .ranim
+.rleg1: ld  a,(en_z)
+        inc a
+        ld  b,a
+        ld  a,(room_en_centerx)
+        cp  b
+        jr  nc,.rleg1st
+        ld  a,2
+        ld  (en_dir),a
+        ld  a,(room_en_centerx)
+        ld  b,a
+.rleg1st:
+        ld  a,b
+        ld  (en_z),a
+        ld  a,(room_enxmax)
+        ld  (en_x),a
+        jr  .ranim
+.rleg2: ld  a,(en_x)
+        dec a
+        ld  b,a
+        ld  a,(room_enxmin)
+        cp  b
+        jr  c,.rleg2st
+        ld  a,3
+        ld  (en_dir),a
+        ld  a,(room_enxmin)
+        ld  b,a
+.rleg2st:
+        ld  a,b
+        ld  (en_x),a
+        ld  a,(room_en_centerx)
+        ld  (en_z),a
+        jr  .ranim
+.rleg3: ld  a,(en_z)
+        dec a
+        ld  b,a
+        ld  a,(room_enz)
+        cp  b
+        jr  c,.rleg3st
+        xor a
+        ld  (en_dir),a
+        ld  a,(room_enz)
+        ld  b,a
+.rleg3st:
+        ld  a,b
+        ld  (en_z),a
+        ld  a,(room_enxmin)
+        ld  (en_x),a
+.ranim: ld  a,(en_anim)
+        inc a
+        ld  (en_anim),a
+
+        ; ---- collision with Sam (fixed height, moving x/z) ----
+        ld  a,(sam_wx)
+        ld  b,a
+        ld  a,(en_x)
+        sub b
+        jr  nc,.rdx
+        neg
+.rdx:   cp  10
+        ret nc
+        ld  a,(sam_wz)
+        ld  b,a
+        ld  a,(en_z)
+        sub b
+        jr  nc,.rdz
+        neg
+.rdz:   cp  10
+        ret nc
+        ld  a,(room_ensurf)
+        ld  c,a
+        ld  a,(sam_h+1)
+        ld  b,a
+        ld  a,c
+        add a,16
+        ld  d,a
+        ld  a,b
+        cp  d
+        ret nc              ; Sam wholly above
+        ld  a,c
+        inc a
+        ld  d,a
+        ld  a,b
+        add a,16
+        cp  d
+        ret c               ; Sam wholly below
+        jp  sam_die
+
 ; ------------------------------------------------------------
-; enemy2_update: 2nd roaming enemy, mirrored-pair only (see
-; room_enemy2_ptr) - a straight copy of enemy_update's .mirror/.mcheck
-; above, reading the room_en2*/en2_* fields instead. Duplicated rather
-; than parametrized, matching how .vertical/.mirror already duplicate
+; enemy2_update: 2nd roaming enemy (see room_enemy2_ptr) - always runs
+; the rectangular-patrol mechanic (a straight copy of enemy_update's
+; .rect above, reading the room_en2*/en2_* fields instead - see that
+; comment for the leg/field layout). Duplicated rather than
+; parametrized, matching how .vertical/.mirror/.rect already duplicate
 ; the base patrol logic in enemy_update itself.
 ; ------------------------------------------------------------
 enemy2_update:
@@ -2859,72 +2994,99 @@ enemy2_update:
         ret z               ; no 2nd enemy in this room
         ld  a,(frame)
         and 1
-        jr  nz,.e2anim
+        jp  nz,.e2anim  ; jr would be out of range across all 4 legs
         ld  a,(en2_dir)
         or  a
-        ld  a,(en2_x)
-        jr  nz,.e2shrink
+        jr  z,.e2leg0
+        dec a
+        jr  z,.e2leg1
+        dec a
+        jr  z,.e2leg2
+        jr  .e2leg3
+.e2leg0:ld  a,(en2_x)
         inc a
         ld  b,a
         ld  a,(room_en2xmax)
-        ld  c,a
-        ld  a,b
-        cp  c
-        jr  c,.e2st
+        cp  b
+        jr  nc,.e2leg0st
         ld  a,1
         ld  (en2_dir),a
         ld  a,(room_en2xmax)
-        jr  .e2st
-.e2shrink:
+        ld  b,a
+.e2leg0st:
+        ld  a,b
+        ld  (en2_x),a
+        ld  a,(room_en2z)
+        ld  (en2_z),a
+        jr  .e2anim
+.e2leg1:ld  a,(en2_z)
+        inc a
+        ld  b,a
+        ld  a,(room_en2_centerx)
+        cp  b
+        jr  nc,.e2leg1st
+        ld  a,2
+        ld  (en2_dir),a
+        ld  a,(room_en2_centerx)
+        ld  b,a
+.e2leg1st:
+        ld  a,b
+        ld  (en2_z),a
+        ld  a,(room_en2xmax)
+        ld  (en2_x),a
+        jr  .e2anim
+.e2leg2:ld  a,(en2_x)
         dec a
         ld  b,a
         ld  a,(room_en2xmin)
-        ld  c,a
-        ld  a,b
-        cp  c
-        jr  nc,.e2st
-        xor a
+        cp  b
+        jr  c,.e2leg2st
+        ld  a,3
         ld  (en2_dir),a
         ld  a,(room_en2xmin)
-.e2st:  ld  (en2_x),a
+        ld  b,a
+.e2leg2st:
+        ld  a,b
+        ld  (en2_x),a
+        ld  a,(room_en2_centerx)
+        ld  (en2_z),a
+        jr  .e2anim
+.e2leg3:ld  a,(en2_z)
+        dec a
+        ld  b,a
+        ld  a,(room_en2z)
+        cp  b
+        jr  c,.e2leg3st
+        xor a
+        ld  (en2_dir),a
+        ld  a,(room_en2z)
+        ld  b,a
+.e2leg3st:
+        ld  a,b
+        ld  (en2_z),a
+        ld  a,(room_en2xmin)
+        ld  (en2_x),a
 .e2anim:
         ld  a,(en2_anim)
         inc a
         ld  (en2_anim),a
 
-        ld  a,(room_en2_centerx)
-        ld  b,a
-        ld  a,(en2_x)
-        ld  c,a
-        ld  a,b
-        sub c
-        call .m2check           ; pos1 = centerx - en2_x
-        ld  a,(room_en2_centerx)
-        ld  b,a
-        ld  a,(en2_x)
-        add a,b                 ; pos2 = centerx + en2_x
-        call .m2check
-        ret
-
-.m2check:
-        ld  d,a
+        ; ---- collision with Sam (fixed height, moving x/z) ----
         ld  a,(sam_wx)
         ld  b,a
-        ld  a,d
+        ld  a,(en2_x)
         sub b
-        jr  nc,.m2dx
+        jr  nc,.e2dx
         neg
-.m2dx:  cp  10
+.e2dx:  cp  10
         ret nc
         ld  a,(sam_wz)
         ld  b,a
-        ld  a,(room_en2z)
-        ld  c,a
-        ld  a,b
-        sub c
-        jr  nc,.m2dz
+        ld  a,(en2_z)
+        sub b
+        jr  nc,.e2dz
         neg
-.m2dz:  cp  10
+.e2dz:  cp  10
         ret nc
         ld  a,(room_en2surf)
         ld  c,a
@@ -2943,7 +3105,6 @@ enemy2_update:
         add a,16
         cp  e
         ret c               ; Sam wholly below
-        pop hl              ; discard this call's own return address
         jp  sam_die
 
 ; ------------------------------------------------------------
@@ -3063,6 +3224,8 @@ sam_draw:
         jp  z,.enaxis1
         cp  2
         jp  z,.enaxis2
+        cp  3
+        jp  z,.enaxis3
 
         ld  a,(en_x)
         ld  l,a
@@ -3116,6 +3279,38 @@ sam_draw:
         ld  a,(en_x)
         add a,16
         ld  e,a             ; e = en_x(height)+16
+        pop af
+        sub e
+        dec a
+        ld  b,a             ; sy-1
+        jp  .enpos_done
+
+; ---- rectangular patrol: both en_x and en_z move (see .rect in
+; enemy_update) - same sx/sy formula as the plain-patrol branch above,
+; just reading en_z instead of the fixed room_enz.
+.enaxis3:
+        ld  a,(en_x)
+        ld  l,a
+        ld  h,0
+        ld  de,PX0-8
+        add hl,de
+        ld  a,(en_z)
+        ld  e,a
+        ld  d,0
+        or  a
+        sbc hl,de
+        ld  a,l             ; sx = 112 + en_x - en_z
+        ld  c,a
+        ld  a,(en_x)
+        ld  hl,en_z
+        add a,(hl)
+        srl a
+        add a,PY0
+        push af
+        ld  hl,room_ensurf
+        ld  a,(hl)
+        add a,16
+        ld  e,a
         pop af
         sub e
         dec a
@@ -3216,16 +3411,18 @@ sam_draw:
         inc hl
         ret
 
-; .mk2pos/.spr4b: same as .mkpos/.spr4 above but for the 2nd enemy
-; (room_en2z/room_en2surf/en2_anim/room_enemy2_color, pattern base 16
-; instead of 0).
+; .mk2pos/.spr4b: same as .mkpos/.spr4 above but for the 2nd enemy's
+; rectangular patrol - in: A=en2_x, reads the LIVE en2_z (not the
+; fixed room_en2z, which is now the rectangle's zmin config, not a
+; position) - room_en2surf/en2_anim/room_enemy2_color, pattern base 16
+; instead of 0.
 .mk2pos:
         push af
         ld  l,a
         ld  h,0
         ld  de,PX0-8
         add hl,de
-        ld  a,(room_en2z)
+        ld  a,(en2_z)
         ld  e,a
         ld  d,0
         or  a
@@ -3233,7 +3430,7 @@ sam_draw:
         ld  a,l
         ld  c,a
         pop af
-        ld  hl,room_en2z
+        ld  hl,en2_z
         add a,(hl)
         srl a
         add a,PY0
@@ -3272,33 +3469,28 @@ sam_draw:
         push hl
         pop hl
 
-        ; 2nd enemy (optional, mirrored-pair only - see room_enemy2_ptr):
-        ; 2 more sprites, patterns 16/20, drawn before Sam like the 1st
-        ; enemy above so it keeps priority over him too.
+        ; 2nd enemy (optional - see room_enemy2_ptr): 1 more sprite,
+        ; patterns 16/20, drawn before Sam like the 1st enemy above so
+        ; it keeps priority over him too. bc (Sam's own sy-1/sx,
+        ; popped just above) MUST survive this block untouched - a
+        ; real bug hit here: this code used to clobber b/c computing
+        ; the enemy's own position, so Sam's sprites below got drawn
+        ; at the 2nd enemy's position instead of Sam's own (looked
+        ; like Sam had vanished - he was just being drawn somewhere
+        ; off in the hazard field instead).
+        push bc
         ld  a,(room_enemy2_ptr)
         ld  b,a
         ld  a,(room_enemy2_ptr+1)
         or  b
         jr  z,.noenemy2draw
-        ld  a,(room_en2_centerx)
-        ld  b,a
         ld  a,(en2_x)
-        ld  c,a
-        ld  a,b
-        sub c
-        push hl
-        call .mk2pos
-        pop hl
-        call .spr4b
-        ld  a,(room_en2_centerx)
-        ld  b,a
-        ld  a,(en2_x)
-        add a,b
-        push hl
-        call .mk2pos
-        pop hl
+        push hl              ; .mk2pos uses hl as scratch - save/
+        call .mk2pos         ; restore the running vram pointer around
+        pop hl                ; it, same lesson as the 1st enemy's .mkpos
         call .spr4b
 .noenemy2draw:
+        pop bc
 
         ; 4 overlapped Sam sprites (dynamic masked patterns 48/52/56/60)
         ld  a,b
@@ -5263,6 +5455,11 @@ ROOM11_BGCOLBANK equ 109
         INCBIN "src/bg_pattern11.bin"
 phone_gfx:
         INCBIN "src/enemy_gfx11.bin"
+        ; level_map11: bank1 overflow fix (see the Room13/rectangular-
+        ; patrol comment in tools/gen_iso.py) - same relocation as
+        ; level_map10/12/13.
+level_map11:
+        INCBIN "src/level_map11.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color11.bin"
