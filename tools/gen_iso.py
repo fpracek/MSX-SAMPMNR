@@ -2303,8 +2303,31 @@ _room13_path = [
     (1,4),(1,3),(1,2),(1,1),(2,1),(3,1),(3,2),(3,3),(4,3),(5,3),(5,2),(5,1),
     (6,1),(7,1),(7,2),(7,3),(7,4),(6,4),(5,4),(5,5),(4,5),(3,5),(2,5),(1,5),(0,5),
 ]
+# Fausto played it and reported dying "for no reason" sometimes - real
+# bug, root-caused via main.asm's dxtab/dztab: 4 of the 8 stick
+# directions (the diagonals) move dx AND dz in the SAME frame, so a
+# player can walk in a genuine 45-degree line, not just axis-aligned
+# steps. Every turn in a purely-orthogonal path like this one has a
+# "corner" cell that a diagonal input cuts straight through - e.g. the
+# turn (3,1)->(3,2)->(3,3) then (4,3) has corner cell (4,2), which a
+# diagonal nudge reaches directly from (3,2)/(3,3) without ever
+# visiting (3,3) first. All 6 turns in this path had exactly this cell
+# hazarded, so a player following the intended route with a perfectly
+# normal diagonal-ish input could die on what looks like the safe
+# path. Fixed generally (not per-turn by hand): compute every turn's
+# corner cell and exclude it from hazards, for any future path too.
+def _corner_cut_cells(path):
+    corners = set()
+    for i in range(1, len(path)-1):
+        a, b, c = path[i-1], path[i], path[i+1]
+        if a[0] == b[0] and b[1] == c[1] and a[1] != b[1] and b[0] != c[0]:
+            corners.add((c[0], a[1]))
+        elif a[1] == b[1] and b[0] == c[0] and a[0] != b[0] and b[1] != c[1]:
+            corners.add((a[0], c[1]))
+    return corners
+_room13_safe_cells = set(_room13_path) | _corner_cut_cells(_room13_path)
 _room13_hazard_cells = [(bx,bz) for bz in range(MAPD) for bx in range(MAPW)
-                         if (bx,bz) not in set(_room13_path)]
+                         if (bx,bz) not in _room13_safe_cells]
 
 ROOM12 = dict(
     label='12',
@@ -2369,10 +2392,18 @@ ROOM13 = dict(
     hazard_art=ORE_ART,
     crumb_units=[],
     enemy_frames=[CART_A, CART_B],
-    # patrols the back wall row (bz=0, world z~8) - entirely hazarded
-    # ground the safe path never crosses, so this is ambient danger
-    # only, never a real obstacle on top of the hazard field itself.
-    enxmin=16, enxmax=112, enz=8, ensurf=8, en_axis=0, enemy_color=5,
+    # Fausto asked for at least 2 roaming enemies. Reused the proven
+    # en_axis=2 "mirrored pair" mechanic (Room6's pacmen) instead of
+    # building new engine support for a 2nd independent enemy slot -
+    # it already drives 2 real, independently-lethal moving sprites
+    # off a single room_state's worth of fields. Both patrol the back
+    # wall row (bz=0, world z=8), which is entirely hazarded ground
+    # the safe path never crosses (see _room13_safe_cells) - so they
+    # add visible movement/danger to the room without becoming another
+    # source of "died for no reason" on top of the hazard-field fix
+    # above. en_centerx=64 is the floor's horizontal middle; the
+    # 16-56 gap keeps both carts within the room (64-56=8, 64+56=120).
+    enxmin=16, enxmax=56, enz=8, ensurf=8, en_axis=2, en_centerx=64, enemy_color=5,
     name="ORE REFINERY",
     # bank1 overflow again ("Negative BLOCK?") - this room's 23-entry
     # hazards_tab (4B each) plus its inline level map together pushed

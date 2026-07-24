@@ -960,17 +960,11 @@ hazards_tab13:
         db 0,1,0,18
         db 4,1,0,18
         db 0,2,0,18
-        db 2,2,0,18
-        db 4,2,0,18
-        db 6,2,0,18
         db 0,3,0,18
         db 2,3,0,18
-        db 6,3,0,18
         db 0,4,0,18
         db 2,4,0,18
         db 3,4,0,18
-        db 4,4,0,18
-        db 6,5,0,18
         db 7,5,0,18
 
 ; crumb_tab13 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
@@ -1338,14 +1332,14 @@ room_tab:
         dw crumb_tab13
         db 84
         dw hazards_tab13
-        db 23
+        db 17
         db 0,80,8
         db 3,12,2,40
         dw exit_gfx13_0
         dw exit_gfx13_1
         dw cart_gfx
         db 5
-        db 16,112,8,8,0,0
+        db 16,56,8,8,2,64
         db 255,0,0,0
         dw room13_name
         db 0
