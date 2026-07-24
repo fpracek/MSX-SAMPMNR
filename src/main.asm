@@ -412,7 +412,7 @@ room_debris_ptr:      RESB 2  ; 0 = no falling debris in this room,
                         ; above) in this room's own bg_pattern bank
                         ; spare tail.
 room_state_end:
-NROOMS equ 14
+NROOMS equ 15
 ram_end:
 
 ram_map     equ 0C100h  ; 6*8*8 = 384 bytes  (index = z*64+y*8+x)
@@ -5855,6 +5855,10 @@ cart_gfx14:
 debris_gfx14:
         INCBIN "src/debris_gfx14.bin"
         INCLUDE "src/debris_tab14.asm"
+        ; level_map14: bank1 overflow fix, needed again once Room15
+        ; was added.
+level_map14:
+        INCBIN "src/level_map14.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color14.bin"
@@ -5866,11 +5870,55 @@ exit_gfx14_1:
         INCBIN "src/exit_gfx14_1.bin"
         BLOCK 0C000h-$,0FFh
 
+; ============================================================
+;  BANKS 116-117: room 15 (The Bank) pre-rendered background. Bank
+;  numbers must match ROOM15_BGBANK/ROOM15_BGCOLBANK in tools/
+;  gen_iso.py. Falling-banknote gfx + its debris_tab15 record ride in
+;  this bank's own spare tail, same placement as Room14's.
+; ============================================================
+ROOM15_BGBANK    equ 116
+ROOM15_BGCOLBANK equ 117
+        ORG 08000h
+        INCBIN "src/bg_pattern15.bin"
+cart_gfx15:
+        INCBIN "src/enemy_gfx15.bin"
+debris_gfx15:
+        INCBIN "src/debris_gfx15.bin"
+        INCLUDE "src/debris_tab15.asm"
+        ; level_map15: bank1 overflow fix (this room's 5-group crumb_tab
+        ; plus its inline map pushed it over) - same relocation as
+        ; every other room's own map.
+level_map15:
+        INCBIN "src/level_map15.bin"
+        BLOCK 0A000h-$,0FFh
+        ORG 0A000h
+        INCBIN "src/bg_color15.bin"
+keys_gfx15:
+        INCBIN "src/keys_gfx15.bin"
+exit_gfx15_0:
+        INCBIN "src/exit_gfx15_0.bin"
+exit_gfx15_1:
+        INCBIN "src/exit_gfx15_1.bin"
+        BLOCK 0C000h-$,0FFh
+
+; ============================================================
+;  BANKS 118-119: room 15's crumbling-cell variants, split across 2
+;  banks (see crumb_unit_banks in ROOM15, tools/gen_iso.py) - a first
+;  attempt made both cells of every tier crumble (2-cell groups) and 2
+;  of the 5 groups alone already exceeded one 8KB bank; switched to 1
+;  crumbling cell per tier, which comfortably fits 3+2 groups here.
+;  Bank numbers must match CRUMBBANK15/CRUMBBANK15B in tools/gen_iso.py.
+; ============================================================
+CRUMBBANK15  equ 118
+        INCBIN "src/crumb15.bin"
+CRUMBBANK15B equ 119
+        INCBIN "src/crumb15b.bin"
+
         ; pad the ROM back out to a full 1MB (128 x 8KB banks) - openMSX's
         ; ascii8 mapper expects a power-of-two file size; a short file
         ; (as left by just rounding up to the next bank) fails to boot
         ; at all (falls through to plain MSX BASIC). Measured then
         ; computed exactly (1048576 - actual size before this BLOCK),
-        ; not guessed by hand. 116 banks now used (0-115), so 12 banks
-        ; (116-127) remain: 12*8192 = 98304.
-        BLOCK 98304,0FFh
+        ; not guessed by hand. 120 banks now used (0-119), so 8 banks
+        ; (120-127) remain: 8*8192 = 65536.
+        BLOCK 65536,0FFh

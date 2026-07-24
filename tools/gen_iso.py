@@ -2569,6 +2569,149 @@ ROOM14 = dict(
     debris_hstart=120, debris_hend=8, debris_speed=2, debris_pause=60,
     debris_color=8,
     debris_cols=[(2,3), (6,3), (2,2), (6,2), (2,1), (6,1)],
+    # bank1 overflow fix, needed again once Room15 was added - relocate
+    # this room's map too (there's spare room in its own bank tail).
+    map_label='level_map14',
+)
+
+def _wtop_bank(u):
+    """evenly-spaced wide classical pillars over a low base - a bank
+    facade silhouette, same "deliberately regular" family as the
+    menagerie/uranium/refinery/skylab crests, wider and flatter-topped
+    than any of them (columns, not spikes/antennae)."""
+    return 36 + (16 if (int(u) % 16) < 8 else 4)
+
+# falling banknote - a fluttering rectangle (2 frames: flat/wide vs
+# edge-on/narrow, simulating a tumbling flip) rather than a round
+# blob like Room14's meteor, since paper flutters, it doesn't tumble
+# like a rock. Reuses debris_update/the 2nd falling-object mechanic
+# verbatim - only the sprite art and per-room tuning differ.
+BANKNOTE_A = [
+    _bar(16),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+]
+BANKNOTE_B = [
+    _bar(16),
+    _bar(16),
+    _bar(16, (6,10)),
+    _bar(16, (6,10)),
+    _bar(16, (6,10)),
+    _bar(16, (6,10)),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+]
+
+# security alarm light - a bold red beacon on a black stand, static
+# hazard art (contiguous, no thin isolated parts - the bear-trap
+# dilation lesson).
+SECURITY_ART = [
+    _art_row(16, (7,9,'8')),
+    _art_row(16, (6,10,'8')),
+    _art_row(16, (5,7,'F'), (7,9,'8'), (9,11,'F')),
+    _art_row(16, (4,12,'8')),
+    _art_row(16, (5,11,'8')),
+    _art_row(16, (6,10,'F')),
+    _art_row(16, (7,9,'1')),
+    _art_row(16),
+]
+
+# Fausto: "THE BANK" - "fai cadere dall'alto delle banconote, metti
+# degli ostacoli e rendi molte piattaforme disgregabili" (drop
+# banknotes from above, add obstacles, and make many platforms
+# crumbling). All 3 asks reuse already-proven mechanics (Room14's
+# falling-object system reskinned as banknotes, the standard static
+# hazard system, and the touch-based crumble system) rather than new
+# engine work - this room needed zero main.asm changes, only content.
+# Same zigzag-clusters skeleton as Room14 (kept for safety - no new
+# jump geometry to verify without live testing), but the middle 5
+# tiers (everything except Entry and the final approach) all crumble
+# now - "molte piattaforme disgregabili" taken literally.
+room15_slabs_def = [
+    (1,3,2,T_STONE), (2,3,2,T_STONE),      # Entry (fixed - stable landing from spawn)
+    (5,3,2,T_STONE), (6,3,2,T_STONE),      # Crumble1 (sideways from Entry, gap bx=3-4)
+    (5,2,4,T_STONE), (6,2,4,T_STONE),      # Crumble2 (climb from Crumble1)
+    (1,2,4,T_STONE), (2,2,4,T_STONE),      # Crumble3 (sideways from Crumble2, gap bx=3-4)
+    (1,1,6,T_STONE), (2,1,6,T_STONE),      # Crumble4 (climb from Crumble3)
+    (5,1,6,T_STONE), (6,1,6,T_STONE),      # Crumble5 (sideways from Crumble4, gap bx=3-4)
+    (5,0,7,T_STONE), (6,0,7,T_STONE),      # Final tier (fixed, climb from Crumble5, +1 only)
+    # exit auto-appended at (3,0,7) - sideways from the final tier.
+]
+
+ROOM15 = dict(
+    label='15',
+    wallcol=dict(lit=11, rock=10, joint=1),
+    crest_fn=_wtop_bank,
+    floor_base=1, floor_speckle=11,
+    slabs_def=room15_slabs_def,
+    style={
+        T_STONE: dict(top_fill=11, top_edge=15, face_l=10, face_r=6, rocky=True),
+    },
+    # key1 on the fixed Entry (safe); key2/key3 on crumbling tiers -
+    # both reachable on the first pass through, same as every prior
+    # room's "grab it as you go" crumble+key interaction.
+    keys=[(1,3,3,14), (1,2,5,14), (5,1,7,14)],
+    exit_bx=3, exit_bz=0, exit_y=7,
+    # 2 security-alarm obstacles on cells that carry no key, spread
+    # across an early and a late crumbling tier.
+    hazards=[(6,3,24,24), (2,1,56,56)],
+    hazard_art=SECURITY_ART,
+    # 1 crumbling cell per tier (5 groups total) - "molte piattaforme
+    # disgregabili" (many crumbling platforms). Real bug caught before
+    # shipping: a first attempt made BOTH cells of every 2-wide tier
+    # crumble (2-cell groups, 9 baked variants each vs 3 for a 1-cell
+    # group) - measured sizes varied 5040-9072 bytes/group depending on
+    # position, and 2 of the 5 groups alone already exceeded a single
+    # 8KB bank, before even trying to pack more than one group per
+    # bank. Switched to 1 crumbling cell per tier (the OTHER cell of
+    # each pair stays solid, so every tier keeps some footing even
+    # once its crumbling half is gone) - shrinks each group to ~1/3 the
+    # combos and comfortably fits 2-3 groups per bank.
+    crumb_units=[
+        [(5,3,2)],
+        [(5,2,4)],
+        [(2,2,4)],
+        [(1,1,6)],
+        [(6,1,6)],
+    ],
+    crumb_unit_banks=['a','a','a','b','b'],
+    enemy_frames=[CART_A, CART_B],
+    # required fields, but this room's dangers are the crumbling floor
+    # + falling banknotes + static hazards - same inert placeholder
+    # patrol as Room14, parked off the play area.
+    enxmin=0, enxmax=0, enz=0, ensurf=200, en_axis=0, enemy_color=1,
+    name="THE BANK",
+    debris_frames=[BANKNOTE_A, BANKNOTE_B],
+    debris_hstart=120, debris_hend=8, debris_speed=2, debris_pause=60,
+    debris_color=3,
+    # one column per crumbling tier - falling money crashes through
+    # the same unstable floor tiles you're trying to cross.
+    debris_cols=[(6,3), (5,2), (2,2), (2,1), (6,1)],
+    # bank1 overflow ("Negative BLOCK?") from this room's own data
+    # (crumb_tab's 5 groups + inline map) - same fix as every recent
+    # room, relocate the map to this room's own bank tail.
+    map_label='level_map15',
 )
 
 R1 = render_room(ROOM1)
@@ -2585,6 +2728,7 @@ R11 = render_room(ROOM11)
 R12 = render_room(ROOM12)
 R13 = render_room(ROOM13)
 R14 = render_room(ROOM14)
+R15 = render_room(ROOM15)
 
 # Each room's 2-frame enemy sprite table (64B) rides along in the spare
 # tail of its own bg_pattern bank (6144 of 8192 bytes used, ~2KB free)
@@ -2669,6 +2813,7 @@ _write_room_bg(R11['label'], R11)
 _write_room_bg(R12['label'], R12)
 _write_room_bg(R13['label'], R13)
 _write_room_bg(R14['label'], R14)
+_write_room_bg(R15['label'], R15)
 
 # keys_gfx/exit_gfx (per-room graphics blobs, like enemy_gfx) ride in
 # the spare tail of that room's own bg_COLOR bank - same rationale as
@@ -2699,6 +2844,7 @@ _write_room_extra_gfx(R11['label'], R11)
 _write_room_extra_gfx(R12['label'], R12)
 _write_room_extra_gfx(R13['label'], R13)
 _write_room_extra_gfx(R14['label'], R14)
+_write_room_extra_gfx(R15['label'], R15)
 
 # lift_gfx.bin: the rising/falling lift platform's sprite art (2
 # halves, 64B) - a single fixed design shared by every room with a
@@ -2747,6 +2893,20 @@ assert len(crumb_bin9b) <= 8192, len(crumb_bin9b)
 crumb_bin9b += bytes(8192 - len(crumb_bin9b))
 open(os.path.join(ROOT,'src','crumb9b.bin'),'wb').write(crumb_bin9b)
 
+# crumb15.bin/crumb15b.bin: room 15's 5 crumbling groups split across
+# 2 banks (3+2, see crumb_unit_banks in ROOM15) - same reason as
+# Room9's split, found again independently: 5 groups' pre-rendered
+# variants don't reliably fit one 8KB bank.
+crumb_bin15 = bytearray(R15['crumb_bins'].get('a', bytearray()))
+assert len(crumb_bin15) <= 8192, len(crumb_bin15)
+crumb_bin15 += bytes(8192 - len(crumb_bin15))
+open(os.path.join(ROOT,'src','crumb15.bin'),'wb').write(crumb_bin15)
+
+crumb_bin15b = bytearray(R15['crumb_bins'].get('b', bytearray()))
+assert len(crumb_bin15b) <= 8192, len(crumb_bin15b)
+crumb_bin15b += bytes(8192 - len(crumb_bin15b))
+open(os.path.join(ROOT,'src','crumb15b.bin'),'wb').write(crumb_bin15b)
+
 # ------------------------------------------------------------------
 # ROM bank numbers (must match the equ's added in src/main.asm)
 # ------------------------------------------------------------------
@@ -2765,11 +2925,14 @@ ROOM11_BGBANK, ROOM11_BGCOLBANK = 108, 109
 ROOM12_BGBANK, ROOM12_BGCOLBANK = 110, 111
 ROOM13_BGBANK, ROOM13_BGCOLBANK = 112, 113
 ROOM14_BGBANK, ROOM14_BGCOLBANK = 114, 115
+ROOM15_BGBANK, ROOM15_BGCOLBANK = 116, 117
 CRUMBBANK = 84
 CRUMBBANK2 = 87
 CRUMBBANK3 = 90
 CRUMBBANK9 = 104
 CRUMBBANK9B = 105
+CRUMBBANK15 = 118
+CRUMBBANK15B = 119
 # Rooms 4, 5, 6 and 7 have no crumbling platforms (room_nunits=0, cell_at
 # returns "no match" immediately) so their crumb_bank field is never
 # actually read - reuse CRUMBBANK as a harmless placeholder instead of
@@ -2878,8 +3041,10 @@ emit_room(R12, lines, map_out=os.path.join(ROOT,'src','level_map12.bin'))
 emit_crumb_tab(R12, lines, bank_map={'a': CRUMBBANK})
 emit_room(R13, lines, map_out=os.path.join(ROOT,'src','level_map13.bin'))
 emit_crumb_tab(R13, lines, bank_map={'a': CRUMBBANK})
-emit_room(R14, lines)
+emit_room(R14, lines, map_out=os.path.join(ROOT,'src','level_map14.bin'))
 emit_crumb_tab(R14, lines, bank_map={'a': CRUMBBANK})
+emit_room(R15, lines, map_out=os.path.join(ROOT,'src','level_map15.bin'))
+emit_crumb_tab(R15, lines, bank_map={'a': CRUMBBANK15, 'b': CRUMBBANK15B})
 
 lines.append("; redefined font, 76 chars from '0' (8 bytes each)")
 _f = open(os.path.join(ROOT,'tools','fonts.c')).read()
@@ -2937,10 +3102,12 @@ lines.append("room13_name:")
 lines.append("        db " + _ds_encode(R13['name']) + ",0")
 lines.append("room14_name:")
 lines.append("        db " + _ds_encode(R14['name']) + ",0")
+lines.append("room15_name:")
+lines.append("        db " + _ds_encode(R15['name']) + ",0")
 lines.append("")
 
-ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx', '11': 'phone_gfx', '12': 'alien_gfx', '13': 'cart_gfx', '14': 'cart_gfx14'}
-ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name', '11': 'room11_name', '12': 'room12_name', '13': 'room13_name', '14': 'room14_name'}
+ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx', '11': 'phone_gfx', '12': 'alien_gfx', '13': 'cart_gfx', '14': 'cart_gfx14', '15': 'cart_gfx15'}
+ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name', '11': 'room11_name', '12': 'room12_name', '13': 'room13_name', '14': 'room14_name', '15': 'room15_name'}
 
 def room_row(R, bgbank, bgcolbank, crumbbank):
     exb16 = R['exit_bx']*16
@@ -3003,7 +3170,8 @@ for R, bgbank, bgcolbank, crumbbank in (
         (R11, ROOM11_BGBANK, ROOM11_BGCOLBANK, CRUMBBANK),
         (R12, ROOM12_BGBANK, ROOM12_BGCOLBANK, CRUMBBANK),
         (R13, ROOM13_BGBANK, ROOM13_BGCOLBANK, CRUMBBANK),
-        (R14, ROOM14_BGBANK, ROOM14_BGCOLBANK, CRUMBBANK)):
+        (R14, ROOM14_BGBANK, ROOM14_BGCOLBANK, CRUMBBANK),
+        (R15, ROOM15_BGBANK, ROOM15_BGCOLBANK, CRUMBBANK15)):
     f = room_row(R, bgbank, bgcolbank, crumbbank)
     lines.append(f"        db {f[0]},{f[1]}")
     lines.append(f"        dw {f[2]}")
@@ -3075,6 +3243,7 @@ save_preview(R11, os.path.join(ROOT,'build','preview12.png'), spawn_wx=24, spawn
 save_preview(R12, os.path.join(ROOT,'build','preview13.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R13, os.path.join(ROOT,'build','preview14.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R14, os.path.join(ROOT,'build','preview15.png'), spawn_wx=24, spawn_wz=72)
+save_preview(R15, os.path.join(ROOT,'build','preview16.png'), spawn_wx=24, spawn_wz=72)
 
 print(f"OK room1 color-fixes:{R1['fixes']} keys:{R1['key_rects']}")
 print(f"OK room2 color-fixes:{R2['fixes']} keys:{R2['key_rects']}")
@@ -3090,3 +3259,4 @@ print(f"OK room11 color-fixes:{R11['fixes']} keys:{R11['key_rects']}")
 print(f"OK room12 color-fixes:{R12['fixes']} keys:{R12['key_rects']}")
 print(f"OK room13 color-fixes:{R13['fixes']} keys:{R13['key_rects']}")
 print(f"OK room14 color-fixes:{R14['fixes']} keys:{R14['key_rects']}")
+print(f"OK room15 color-fixes:{R15['fixes']} keys:{R15['key_rects']}")
