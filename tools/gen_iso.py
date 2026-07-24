@@ -2299,9 +2299,16 @@ CART_B = [
 # from it (every floor cell NOT on this path), not hand-typed - avoids
 # the risk of hand-placing 23 hazards and accidentally overlapping the
 # one route through them.
+# Fausto: the corner-cut safety fix (below) removed 6 hazard cells and
+# made the room "troppo facile" (too easy) - shortened/straightened
+# this path (25->21 cells, 6->5 turns) so the same fix leaves MORE
+# open floor for hazards (17->22, close to the original 23) instead of
+# less: fewer turns means fewer mandatory corner-safety cells, and a
+# more direct route leaves more of the 48-cell grid free to hazard.
+# Same keys/exit endpoints as before, so nothing else needed to change.
 _room13_path = [
-    (1,4),(1,3),(1,2),(1,1),(2,1),(3,1),(3,2),(3,3),(4,3),(5,3),(5,2),(5,1),
-    (6,1),(7,1),(7,2),(7,3),(7,4),(6,4),(5,4),(5,5),(4,5),(3,5),(2,5),(1,5),(0,5),
+    (1,4),(1,3),(1,2),(1,1),(2,1),(3,1),(4,1),(5,1),(6,1),(7,1),
+    (7,2),(7,3),(7,4),(6,4),(5,4),(5,5),(4,5),(3,5),(2,5),(1,5),(0,5),
 ]
 # Fausto played it and reported dying "for no reason" sometimes - real
 # bug, root-caused via main.asm's dxtab/dztab: 4 of the 8 stick
