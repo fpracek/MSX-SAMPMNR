@@ -353,7 +353,7 @@ room_lever_ptr:       RESB 2  ; 0 = no lever in this room, else points
                         ; slabidx,c0,r0,c1,r1,dw data_ptr - see
                         ; lever_check/lever_pull for how it's read.
 room_state_end:
-NROOMS equ 12
+NROOMS equ 13
 ram_end:
 
 ram_map     equ 0C100h  ; 6*8*8 = 384 bytes  (index = z*64+y*8+x)
@@ -5069,11 +5069,39 @@ exit_gfx12_1:
         INCBIN "src/exit_gfx12_1.bin"
         BLOCK 0C000h-$,0FFh
 
+; ============================================================
+;  BANKS 112-113: room 13 (Ore Refinery) pre-rendered background.
+;  Bank numbers must match ROOM13_BGBANK/ROOM13_BGCOLBANK in
+;  tools/gen_iso.py. No elevated platforms and no lever/crumble in
+;  this room, so no dedicated crumb bank (room_tab reuses CRUMBBANK).
+; ============================================================
+ROOM13_BGBANK    equ 112
+ROOM13_BGCOLBANK equ 113
+        ORG 08000h
+        INCBIN "src/bg_pattern13.bin"
+cart_gfx:
+        INCBIN "src/enemy_gfx13.bin"
+        ; level_map13: same bank1-overflow fix as level_map12 (see that
+        ; comment above) - this room's 23-entry hazards_tab pushed
+        ; bank1 back over budget on its own.
+level_map13:
+        INCBIN "src/level_map13.bin"
+        BLOCK 0A000h-$,0FFh
+        ORG 0A000h
+        INCBIN "src/bg_color13.bin"
+keys_gfx13:
+        INCBIN "src/keys_gfx13.bin"
+exit_gfx13_0:
+        INCBIN "src/exit_gfx13_0.bin"
+exit_gfx13_1:
+        INCBIN "src/exit_gfx13_1.bin"
+        BLOCK 0C000h-$,0FFh
+
         ; pad the ROM back out to a full 1MB (128 x 8KB banks) - openMSX's
         ; ascii8 mapper expects a power-of-two file size; a short file
         ; (as left by just rounding up to the next bank) fails to boot
         ; at all (falls through to plain MSX BASIC). Measured then
         ; computed exactly (1048576 - actual size before this BLOCK),
-        ; not guessed by hand. 112 banks now used (0-111), so 16 banks
-        ; (112-127) remain: 16*8192 = 131072.
-        BLOCK 131072,0FFh
+        ; not guessed by hand. 114 banks now used (0-113), so 14 banks
+        ; (114-127) remain: 14*8192 = 114688.
+        BLOCK 114688,0FFh

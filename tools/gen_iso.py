@@ -2096,6 +2096,13 @@ ROOM11 = dict(
     name="MUTANT TELEPHONES",
 )
 
+def _wtop_refinery(u):
+    """regular sawtooth pipe/smokestack silhouette (Ore Refinery) -
+    narrow tall spikes evenly spaced over a low flat base, industrial
+    rather than organic (same "deliberately regular" family as the
+    menagerie's cage bars/uranium's pylons, just denser/narrower)."""
+    return 26 + (28 if (int(u) % 10) < 2 else 6)
+
 def _wtop_alien(u):
     """sharp, irregular crystalline peaks - an alien rock/crystal
     formation, distinct from every earlier crest (sharper and more
@@ -2212,6 +2219,93 @@ room12_slabs_def = [
     (6,1,7,T_STONE),                       # Blocking slab, SAME column as the exit cell (6,1,6) - removed by the lever
 ]
 
+# Fausto: next room "Ore Refinery" - "non mettiamo piattaforme ma solo
+# tantissimi ostacoli in modo che sam debba passare senza toccarli per
+# raccogliere le tre chiavi e uscire" (no platforms, just a huge number
+# of obstacles Sam must weave through without touching to collect the
+# 3 keys and exit). First room with NO elevated slabs at all - the
+# whole 8x6 floor is solid ground (y=0 everywhere, no floor_gaps), and
+# the "level" is entirely about which ground cells are safe to step on.
+# Designed as a single winding, hand-verified path of 25 adjacent
+# floor cells (spawn -> key1 -> key2 -> key3 -> exit, every step a
+# plain +-1 move in bx or bz, no repeats - verified with a standalone
+# adjacency/uniqueness check before committing to this layout) with
+# EVERY one of the remaining 23 floor cells carrying a molten-ore
+# hazard - "tantissimi ostacoli" taken literally, almost half the room.
+room13_slabs_def = []
+
+# molten ore chunk - a bold, contiguous orange/red mass with hot-yellow
+# highlights, no thin isolated parts (the bear-trap dilation lesson:
+# gaps <3px between separate blobs get swallowed into one shape by
+# draw_hazard's outline pass - this hazard is drawn as ONE connected
+# blob on purpose, not several).
+ORE_ART = [
+    _art_row(16, (7,9,'Y')),
+    _art_row(16, (5,11,'8')),
+    _art_row(16, (4,12,'8')),
+    _art_row(16, (3,6,'Y'), (6,10,'8'), (10,13,'Y')),
+    _art_row(16, (4,12,'8')),
+    _art_row(16, (5,11,'8')),
+    _art_row(16, (6,10,'8')),
+    _art_row(16),
+]
+
+# ore cart: a small mining cart patrolling the back wall row (bz=0),
+# which is entirely hazarded in this room's layout - the safe path
+# never goes there, so the cart is pure ambient danger/flavour, never
+# an actual threat, matching Fausto's "solo ostacoli" framing (the
+# hazard field itself is the whole challenge, not another enemy to
+# dodge on top of it). 2 frames: beacon light + wheel bounce, same
+# dramatic-contrast lesson as every other enemy here.
+CART_A = [
+    _bar(16, (7,9)),
+    _bar(16, (3,13)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (3,13)),
+    _bar(16, (3,13)),
+    _bar(16, (4,12)),
+    _bar(16, (4,12)),
+    _bar(16, (2,6), (10,14)),
+    _bar(16, (2,6), (10,14)),
+    _bar(16, (2,6), (10,14)),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+]
+CART_B = [
+    _bar(16, (6,10)),
+    _bar(16, (3,13)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (3,13)),
+    _bar(16, (3,13)),
+    _bar(16, (4,12)),
+    _bar(16, (4,12)),
+    _bar(16),
+    _bar(16, (2,6), (10,14)),
+    _bar(16, (2,6), (10,14)),
+    _bar(16, (2,6), (10,14)),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+]
+
+# The winding safe path (spawn -> key1 -> key2 -> key3 -> exit), kept
+# here as an explicit list so the hazard cell list below is derived
+# from it (every floor cell NOT on this path), not hand-typed - avoids
+# the risk of hand-placing 23 hazards and accidentally overlapping the
+# one route through them.
+_room13_path = [
+    (1,4),(1,3),(1,2),(1,1),(2,1),(3,1),(3,2),(3,3),(4,3),(5,3),(5,2),(5,1),
+    (6,1),(7,1),(7,2),(7,3),(7,4),(6,4),(5,4),(5,5),(4,5),(3,5),(2,5),(1,5),(0,5),
+]
+_room13_hazard_cells = [(bx,bz) for bz in range(MAPD) for bx in range(MAPW)
+                         if (bx,bz) not in set(_room13_path)]
+
 ROOM12 = dict(
     label='12',
     wallcol=dict(lit=7, rock=4, joint=1),
@@ -2256,6 +2350,37 @@ ROOM12 = dict(
     map_label='level_map12',
 )
 
+ROOM13 = dict(
+    label='13',
+    wallcol=dict(lit=14, rock=6, joint=1),
+    crest_fn=_wtop_refinery,
+    floor_base=1, floor_speckle=14,
+    slabs_def=room13_slabs_def,
+    style={},
+    # keys sit directly on the floor (y=0), so their tuple's 3rd field
+    # is 0+1=1 per the pickup-layer y+1 quirk. h_off tuned low since
+    # there's no platform underneath to visually anchor them to -
+    # verify/re-tune against build/preview14.png like every past room.
+    keys=[(2,1,1,10), (5,1,1,10), (6,4,1,10)],
+    exit_bx=0, exit_bz=5, exit_y=0,
+    # every floor cell off the safe path gets a hazard - see
+    # _room13_hazard_cells above (derived from the path, not hand-typed)
+    hazards=[(bx,bz,8) for (bx,bz) in _room13_hazard_cells],
+    hazard_art=ORE_ART,
+    crumb_units=[],
+    enemy_frames=[CART_A, CART_B],
+    # patrols the back wall row (bz=0, world z~8) - entirely hazarded
+    # ground the safe path never crosses, so this is ambient danger
+    # only, never a real obstacle on top of the hazard field itself.
+    enxmin=16, enxmax=112, enz=8, ensurf=8, en_axis=0, enemy_color=5,
+    name="ORE REFINERY",
+    # bank1 overflow again ("Negative BLOCK?") - this room's 23-entry
+    # hazards_tab (4B each) plus its inline level map together pushed
+    # it back over budget, same as Room12. Same fix: relocate the
+    # 384-byte map out to this room's own bg_pattern bank tail.
+    map_label='level_map13',
+)
+
 R1 = render_room(ROOM1)
 R2 = render_room(ROOM2)
 R3 = render_room(ROOM3)
@@ -2268,6 +2393,7 @@ R9 = render_room(ROOM9)
 R10 = render_room(ROOM10)
 R11 = render_room(ROOM11)
 R12 = render_room(ROOM12)
+R13 = render_room(ROOM13)
 
 # Each room's 2-frame enemy sprite table (64B) rides along in the spare
 # tail of its own bg_pattern bank (6144 of 8192 bytes used, ~2KB free)
@@ -2323,6 +2449,7 @@ _write_room_bg(R9['label'], R9)
 _write_room_bg(R10['label'], R10)
 _write_room_bg(R11['label'], R11)
 _write_room_bg(R12['label'], R12)
+_write_room_bg(R13['label'], R13)
 
 # keys_gfx/exit_gfx (per-room graphics blobs, like enemy_gfx) ride in
 # the spare tail of that room's own bg_COLOR bank - same rationale as
@@ -2351,6 +2478,7 @@ _write_room_extra_gfx(R9['label'], R9)
 _write_room_extra_gfx(R10['label'], R10)
 _write_room_extra_gfx(R11['label'], R11)
 _write_room_extra_gfx(R12['label'], R12)
+_write_room_extra_gfx(R13['label'], R13)
 
 # lift_gfx.bin: the rising/falling lift platform's sprite art (2
 # halves, 64B) - a single fixed design shared by every room with a
@@ -2415,6 +2543,7 @@ ROOM9_BGBANK, ROOM9_BGCOLBANK = 102, 103
 ROOM10_BGBANK, ROOM10_BGCOLBANK = 106, 107
 ROOM11_BGBANK, ROOM11_BGCOLBANK = 108, 109
 ROOM12_BGBANK, ROOM12_BGCOLBANK = 110, 111
+ROOM13_BGBANK, ROOM13_BGCOLBANK = 112, 113
 CRUMBBANK = 84
 CRUMBBANK2 = 87
 CRUMBBANK3 = 90
@@ -2526,6 +2655,8 @@ emit_room(R11, lines)
 emit_crumb_tab(R11, lines, bank_map={'a': CRUMBBANK})
 emit_room(R12, lines, map_out=os.path.join(ROOT,'src','level_map12.bin'))
 emit_crumb_tab(R12, lines, bank_map={'a': CRUMBBANK})
+emit_room(R13, lines, map_out=os.path.join(ROOT,'src','level_map13.bin'))
+emit_crumb_tab(R13, lines, bank_map={'a': CRUMBBANK})
 
 lines.append("; redefined font, 76 chars from '0' (8 bytes each)")
 _f = open(os.path.join(ROOT,'tools','fonts.c')).read()
@@ -2579,10 +2710,12 @@ lines.append("room11_name:")
 lines.append("        db " + _ds_encode(R11['name']) + ",0")
 lines.append("room12_name:")
 lines.append("        db " + _ds_encode(R12['name']) + ",0")
+lines.append("room13_name:")
+lines.append("        db " + _ds_encode(R13['name']) + ",0")
 lines.append("")
 
-ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx', '11': 'phone_gfx', '12': 'alien_gfx'}
-ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name', '11': 'room11_name', '12': 'room12_name'}
+ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx', '11': 'phone_gfx', '12': 'alien_gfx', '13': 'cart_gfx'}
+ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name', '11': 'room11_name', '12': 'room12_name', '13': 'room13_name'}
 
 def room_row(R, bgbank, bgcolbank, crumbbank):
     exb16 = R['exit_bx']*16
@@ -2635,7 +2768,8 @@ for R, bgbank, bgcolbank, crumbbank in (
         (R9, ROOM9_BGBANK, ROOM9_BGCOLBANK, CRUMBBANK9),
         (R10, ROOM10_BGBANK, ROOM10_BGCOLBANK, CRUMBBANK),
         (R11, ROOM11_BGBANK, ROOM11_BGCOLBANK, CRUMBBANK),
-        (R12, ROOM12_BGBANK, ROOM12_BGCOLBANK, CRUMBBANK)):
+        (R12, ROOM12_BGBANK, ROOM12_BGCOLBANK, CRUMBBANK),
+        (R13, ROOM13_BGBANK, ROOM13_BGCOLBANK, CRUMBBANK)):
     f = room_row(R, bgbank, bgcolbank, crumbbank)
     lines.append(f"        db {f[0]},{f[1]}")
     lines.append(f"        dw {f[2]}")
@@ -2703,6 +2837,7 @@ save_preview(R9, os.path.join(ROOT,'build','preview10.png'), spawn_wx=24, spawn_
 save_preview(R10, os.path.join(ROOT,'build','preview11.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R11, os.path.join(ROOT,'build','preview12.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R12, os.path.join(ROOT,'build','preview13.png'), spawn_wx=24, spawn_wz=72)
+save_preview(R13, os.path.join(ROOT,'build','preview14.png'), spawn_wx=24, spawn_wz=72)
 
 print(f"OK room1 color-fixes:{R1['fixes']} keys:{R1['key_rects']}")
 print(f"OK room2 color-fixes:{R2['fixes']} keys:{R2['key_rects']}")
@@ -2716,3 +2851,4 @@ print(f"OK room9 color-fixes:{R9['fixes']} keys:{R9['key_rects']}")
 print(f"OK room10 color-fixes:{R10['fixes']} keys:{R10['key_rects']}")
 print(f"OK room11 color-fixes:{R11['fixes']} keys:{R11['key_rects']}")
 print(f"OK room12 color-fixes:{R12['fixes']} keys:{R12['key_rects']}")
+print(f"OK room13 color-fixes:{R13['fixes']} keys:{R13['key_rects']}")
