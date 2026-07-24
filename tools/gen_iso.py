@@ -749,6 +749,9 @@ def render_room(spec):
     # main.asm): its own 2-frame sprite, packed the same way.
     enemy2_bytes = pack_sprite_frames(spec['enemy2_frames']) if spec.get('enemy2_frames') else None
 
+    # falling debris (optional - see room_debris_ptr in main.asm)
+    debris_bytes = pack_sprite_frames(spec['debris_frames']) if spec.get('debris_frames') else None
+
     # lever: a switch cell that INSTANTLY removes one specific slab
     # (typically one covering the exit) when Sam touches it, gated on
     # exit_check separately from the key count. Deliberately NOT built
@@ -829,6 +832,10 @@ def render_room(spec):
         en2xmin=spec.get('en2xmin', 0), en2xmax=spec.get('en2xmax', 0),
         en2z=spec.get('en2z', 0), en2surf=spec.get('en2surf', 0),
         en2_centerx=spec.get('en2_centerx', 0), enemy2_color=spec.get('enemy2_color', 0),
+        debris_bytes=debris_bytes,
+        debris_hstart=spec.get('debris_hstart', 0), debris_hend=spec.get('debris_hend', 0),
+        debris_speed=spec.get('debris_speed', 0), debris_pause=spec.get('debris_pause', 0),
+        debris_color=spec.get('debris_color', 0), debris_cols=spec.get('debris_cols', []),
         exit_bx=EXIT_BX, exit_bz=EXIT_BZ, exit_y=EXIT_Y,
         name=spec['name'], enxmin=spec['enxmin'], enxmax=spec['enxmax'],
         enz=spec['enz'], ensurf=spec['ensurf'], enemy_color=spec['enemy_color'],
@@ -1566,6 +1573,11 @@ ROOM8 = dict(
     # stepping off is always safe.
     lift_wx=72, lift_wz=56, lift_ymin=8, lift_ymax=72,
     name="KONG BEAST",
+    # bank1 overflow ("Negative BLOCK?") from Room14's new falling-
+    # debris code - relocated this room's map out to its own bank
+    # tail too (same fix as Room8/9/10/11/12/13's own, arbitrary choice
+    # of which room to pick).
+    map_label='level_map8',
 )
 
 # urchin ("riccio"): a spiky ball, jagged silhouette on its widest rows
@@ -1814,6 +1826,10 @@ ROOM9 = dict(
     # learnable "watch it, then dash" pattern, not a coin-flip trap.
     enxmin=16, enxmax=64, enz=64, ensurf=24, en_axis=1, enemy_color=2,
     name="WACKY AMOEBATRONS",
+    # bank1 overflow fix (see Room8's own comment above) - same
+    # relocation, applied here too since Room14 alone needed more than
+    # one room's worth of freed space this time.
+    map_label='level_map9',
 )
 
 ROOM5 = dict(
@@ -2445,6 +2461,116 @@ ROOM13 = dict(
     en2xmin=16, en2xmax=64, en2z=2, en2surf=8, en2_centerx=14, enemy2_color=11,
 )
 
+def _wtop_skylab(u):
+    """evenly-spaced tall antenna/solar-panel spikes over a low base -
+    a space station silhouette (Skylab Landing Bay), same "deliberately
+    regular" family as the menagerie/uranium/refinery crests, wider
+    spacing and taller spikes than the refinery's dense smokestacks."""
+    return 34 + (20 if (int(u) % 14) < 3 else 4)
+
+# falling meteor/debris chunk - a round tumbling blob (2 frames, body
+# rotated slightly between them) rather than a walking-cycle silhouette
+# like every patrol enemy so far, since it only ever falls straight
+# down. Single colour, same rendering technique as CART_A/B.
+DEBRIS_A = [
+    _bar(16, (6,10)),
+    _bar(16, (4,12)),
+    _bar(16, (3,13)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (3,13)),
+    _bar(16, (4,12)),
+    _bar(16, (6,10)),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+]
+DEBRIS_B = [
+    _bar(16, (5,9)),
+    _bar(16, (3,11)),
+    _bar(16, (2,12)),
+    _bar(16, (2,14)),
+    _bar(16, (3,13)),
+    _bar(16, (4,12)),
+    _bar(16, (5,10)),
+    _bar(16, (7,9)),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+]
+
+# Fausto: "SKYLAB LANDING BAY" - "metti piattaforme su piu' livelli e
+# fai cadere dal soffitto a caso dei nemici con una frequenza in grado
+# di complicare il completamento del livello" (platforms on multiple
+# levels, and randomly drop enemies from the ceiling often enough to
+# meaningfully complicate finishing the level). 4 climbing tiers
+# (y=2,4,6,7 - one more than any previous room) in the same proven
+# zigzag-clusters template (climb/sideways/exit-hop primitives only),
+# PLUS a brand new falling-debris mechanic (see debris_update/rnd8 in
+# main.asm) instead of a patrol enemy - the debris IS this room's
+# danger, so no separate hazards/enemy are needed on top of it.
+room14_slabs_def = [
+    (1,3,2,T_STONE), (2,3,2,T_STONE),      # Entry
+    (5,3,2,T_STONE), (6,3,2,T_STONE),      # ShiftRight (gap bx=3-4, sideways from Entry)
+    (5,2,4,T_STONE), (6,2,4,T_STONE),      # ClimbA (climb from ShiftRight)
+    (1,2,4,T_STONE), (2,2,4,T_STONE),      # ShiftLeft (gap bx=3-4, sideways from ClimbA)
+    (1,1,6,T_STONE), (2,1,6,T_STONE),      # ClimbB (climb from ShiftLeft)
+    (5,1,6,T_STONE), (6,1,6,T_STONE),      # ShiftRight2 (gap bx=3-4, sideways from ClimbB)
+    (5,0,7,T_STONE), (6,0,7,T_STONE),      # ClimbTop (climb from ShiftRight2, +1 only - matches
+                                             # the established "final step can be easier" precedent)
+    # exit auto-appended at (3,0,7) by render_room - sideways hop from
+    # ClimbTop (gap at bx=4, SAME height y=7, the proven "sideways"
+    # jump primitive, not a climb - there's no y=8 to climb to).
+]
+
+ROOM14 = dict(
+    label='14',
+    wallcol=dict(lit=15, rock=4, joint=1),
+    crest_fn=_wtop_skylab,
+    floor_base=1, floor_speckle=7,
+    slabs_def=room14_slabs_def,
+    style={
+        T_STONE: dict(top_fill=7, top_edge=15, face_l=4, face_r=5, rocky=True),
+    },
+    # one key per major cluster (Entry, ShiftLeft, ShiftRight2), west
+    # cell each, y+1 per the pickup-layer quirk. None on ClimbTop
+    # (y=7, would need y+1=8 - out of the map's 0-7 height range).
+    keys=[(1,3,3,14), (1,2,5,14), (5,1,7,14)],
+    exit_bx=3, exit_bz=0, exit_y=7,
+    hazards=[],
+    hazard_art=None,
+    crumb_units=[],
+    # required fields, but this room's real danger is the falling
+    # debris below - kept an inert placeholder patrol (zero range,
+    # parked off the play area, black so it's not even visible) rather
+    # than stacking a 2nd real threat on top of the debris mechanic.
+    enemy_frames=[CART_A, CART_B],
+    enxmin=0, enxmax=0, enz=0, ensurf=200, en_axis=0, enemy_color=1,
+    name="SKYLAB LANDING BAY",
+    # falling debris: 6 columns spread across every cluster except the
+    # final ClimbTop/exit approach (a deliberate breather near the end,
+    # same idea as Room9/10's "don't stack every threat everywhere").
+    # hstart=120 is above even ClimbTop's own surf (64), so it visibly
+    # falls from above the highest platform down past every tier;
+    # hend=8 is ground level. speed=2px/frame (every frame, no "and 1"
+    # gate) reads faster/more urgent than the patrol enemies' 0.5px/
+    # frame bounce. pause=60 frames between landing and the next spawn.
+    debris_frames=[DEBRIS_A, DEBRIS_B],
+    debris_hstart=120, debris_hend=8, debris_speed=2, debris_pause=60,
+    debris_color=8,
+    debris_cols=[(2,3), (6,3), (2,2), (6,2), (2,1), (6,1)],
+)
+
 R1 = render_room(ROOM1)
 R2 = render_room(ROOM2)
 R3 = render_room(ROOM3)
@@ -2458,6 +2584,7 @@ R10 = render_room(ROOM10)
 R11 = render_room(ROOM11)
 R12 = render_room(ROOM12)
 R13 = render_room(ROOM13)
+R14 = render_room(ROOM14)
 
 # Each room's 2-frame enemy sprite table (64B) rides along in the spare
 # tail of its own bg_pattern bank (6144 of 8192 bytes used, ~2KB free)
@@ -2514,6 +2641,19 @@ def _write_room_bg(lab, R):
             f"        db {R['en2xmin']},{R['en2xmax']},{R['en2z']},{R['en2surf']},{R['en2_centerx']},{R['enemy2_color']}",
         ]
         open(os.path.join(ROOT,'src',f'enemy2_tab{suffix}.asm'),'w').write("\n".join(e2t)+"\n")
+    # falling debris (optional): same own-bank-tail single-pointer
+    # trick. Table is dw gfx_ptr + hstart,hend,speed,pause,color,ncols
+    # + ncols*2 bytes of (bx,bz) map-cell column choices (converted to
+    # world coords at spawn time in main.asm, not baked here).
+    if R.get('debris_bytes'):
+        open(os.path.join(ROOT,'src',f'debris_gfx{suffix}.bin'),'wb').write(bytes(R['debris_bytes']))
+        cols = R['debris_cols']
+        dt = [
+            f"debris_tab{suffix}:",
+            f"        dw debris_gfx{suffix}",
+            f"        db {R['debris_hstart']},{R['debris_hend']},{R['debris_speed']},{R['debris_pause']},{R['debris_color']},{len(cols)}",
+        ] + [f"        db {bx},{bz}" for (bx,bz) in cols]
+        open(os.path.join(ROOT,'src',f'debris_tab{suffix}.asm'),'w').write("\n".join(dt)+"\n")
 
 _write_room_bg(R1['label'], R1)
 _write_room_bg(R2['label'], R2)
@@ -2528,6 +2668,7 @@ _write_room_bg(R10['label'], R10)
 _write_room_bg(R11['label'], R11)
 _write_room_bg(R12['label'], R12)
 _write_room_bg(R13['label'], R13)
+_write_room_bg(R14['label'], R14)
 
 # keys_gfx/exit_gfx (per-room graphics blobs, like enemy_gfx) ride in
 # the spare tail of that room's own bg_COLOR bank - same rationale as
@@ -2557,6 +2698,7 @@ _write_room_extra_gfx(R10['label'], R10)
 _write_room_extra_gfx(R11['label'], R11)
 _write_room_extra_gfx(R12['label'], R12)
 _write_room_extra_gfx(R13['label'], R13)
+_write_room_extra_gfx(R14['label'], R14)
 
 # lift_gfx.bin: the rising/falling lift platform's sprite art (2
 # halves, 64B) - a single fixed design shared by every room with a
@@ -2622,6 +2764,7 @@ ROOM10_BGBANK, ROOM10_BGCOLBANK = 106, 107
 ROOM11_BGBANK, ROOM11_BGCOLBANK = 108, 109
 ROOM12_BGBANK, ROOM12_BGCOLBANK = 110, 111
 ROOM13_BGBANK, ROOM13_BGCOLBANK = 112, 113
+ROOM14_BGBANK, ROOM14_BGCOLBANK = 114, 115
 CRUMBBANK = 84
 CRUMBBANK2 = 87
 CRUMBBANK3 = 90
@@ -2723,9 +2866,9 @@ emit_room(R6, lines)
 emit_crumb_tab(R6, lines, bank_map={'a': CRUMBBANK})
 emit_room(R7, lines)
 emit_crumb_tab(R7, lines, bank_map={'a': CRUMBBANK})
-emit_room(R8, lines)
+emit_room(R8, lines, map_out=os.path.join(ROOT,'src','level_map8.bin'))
 emit_crumb_tab(R8, lines, bank_map={'a': CRUMBBANK4})
-emit_room(R9, lines)
+emit_room(R9, lines, map_out=os.path.join(ROOT,'src','level_map9.bin'))
 emit_crumb_tab(R9, lines, bank_map={'a': CRUMBBANK9, 'b': CRUMBBANK9B})
 emit_room(R10, lines, map_out=os.path.join(ROOT,'src','level_map10.bin'))
 emit_crumb_tab(R10, lines, bank_map={'a': CRUMBBANK})
@@ -2735,6 +2878,8 @@ emit_room(R12, lines, map_out=os.path.join(ROOT,'src','level_map12.bin'))
 emit_crumb_tab(R12, lines, bank_map={'a': CRUMBBANK})
 emit_room(R13, lines, map_out=os.path.join(ROOT,'src','level_map13.bin'))
 emit_crumb_tab(R13, lines, bank_map={'a': CRUMBBANK})
+emit_room(R14, lines)
+emit_crumb_tab(R14, lines, bank_map={'a': CRUMBBANK})
 
 lines.append("; redefined font, 76 chars from '0' (8 bytes each)")
 _f = open(os.path.join(ROOT,'tools','fonts.c')).read()
@@ -2790,10 +2935,12 @@ lines.append("room12_name:")
 lines.append("        db " + _ds_encode(R12['name']) + ",0")
 lines.append("room13_name:")
 lines.append("        db " + _ds_encode(R13['name']) + ",0")
+lines.append("room14_name:")
+lines.append("        db " + _ds_encode(R14['name']) + ",0")
 lines.append("")
 
-ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx', '11': 'phone_gfx', '12': 'alien_gfx', '13': 'cart_gfx'}
-ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name', '11': 'room11_name', '12': 'room12_name', '13': 'room13_name'}
+ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx', '11': 'phone_gfx', '12': 'alien_gfx', '13': 'cart_gfx', '14': 'cart_gfx14'}
+ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name', '11': 'room11_name', '12': 'room12_name', '13': 'room13_name', '14': 'room14_name'}
 
 def room_row(R, bgbank, bgcolbank, crumbbank):
     exb16 = R['exit_bx']*16
@@ -2815,6 +2962,9 @@ def room_row(R, bgbank, bgcolbank, crumbbank):
     # (only Room13 uses this so far - a flat per-room field set would
     # cost every other room too).
     enemy2_fields = [f"enemy2_tab{R['label']}" if R.get('enemy2_bytes') else 0]
+    # falling debris (optional): same single-pointer-into-own-bank-tail
+    # trick, for the same reason (only Room14 uses this so far).
+    debris_fields = [f"debris_tab{R['label']}" if R.get('debris_bytes') else 0]
     return [
         bgbank, bgcolbank,
         R.get('map_label') or f"level{R['label'] or 1}_map", f"keys_tab{R['label']}", len(R['keys']),
@@ -2832,12 +2982,12 @@ def room_row(R, bgbank, bgcolbank, crumbbank):
         R.get('lift_ymin', 0), R.get('lift_ymax', 0),
         ROOM_NAME_LABEL[R['label']],
         R.get('crumb_continuous', 0),
-    ] + lever_fields + enemy2_fields
+    ] + lever_fields + enemy2_fields + debris_fields
 
 lines.append("; room_tab: one row per room, read into room_state RAM struct")
 lines.append("; via a single ldir at room_start. Field order/sizes MUST match")
 lines.append("; the room_state RESB block in src/main.asm exactly.")
-lines.append("ROOMROWLEN equ 50")
+lines.append("ROOMROWLEN equ 52")
 lines.append("room_tab:")
 for R, bgbank, bgcolbank, crumbbank in (
         (R1, ROOM1_BGBANK, ROOM1_BGCOLBANK, CRUMBBANK),
@@ -2852,7 +3002,8 @@ for R, bgbank, bgcolbank, crumbbank in (
         (R10, ROOM10_BGBANK, ROOM10_BGCOLBANK, CRUMBBANK),
         (R11, ROOM11_BGBANK, ROOM11_BGCOLBANK, CRUMBBANK),
         (R12, ROOM12_BGBANK, ROOM12_BGCOLBANK, CRUMBBANK),
-        (R13, ROOM13_BGBANK, ROOM13_BGCOLBANK, CRUMBBANK)):
+        (R13, ROOM13_BGBANK, ROOM13_BGCOLBANK, CRUMBBANK),
+        (R14, ROOM14_BGBANK, ROOM14_BGCOLBANK, CRUMBBANK)):
     f = room_row(R, bgbank, bgcolbank, crumbbank)
     lines.append(f"        db {f[0]},{f[1]}")
     lines.append(f"        dw {f[2]}")
@@ -2878,6 +3029,7 @@ for R, bgbank, bgcolbank, crumbbank in (
     lines.append(f"        db {f[35]}")
     lines.append(f"        dw {f[36]}")
     lines.append(f"        dw {f[37]}")
+    lines.append(f"        dw {f[38]}")
 lines.append("")
 
 # gfx_sprites lives in bank0's own spare space (INCBIN'd directly in
@@ -2922,6 +3074,7 @@ save_preview(R10, os.path.join(ROOT,'build','preview11.png'), spawn_wx=24, spawn
 save_preview(R11, os.path.join(ROOT,'build','preview12.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R12, os.path.join(ROOT,'build','preview13.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R13, os.path.join(ROOT,'build','preview14.png'), spawn_wx=24, spawn_wz=72)
+save_preview(R14, os.path.join(ROOT,'build','preview15.png'), spawn_wx=24, spawn_wz=72)
 
 print(f"OK room1 color-fixes:{R1['fixes']} keys:{R1['key_rects']}")
 print(f"OK room2 color-fixes:{R2['fixes']} keys:{R2['key_rects']}")
@@ -2936,3 +3089,4 @@ print(f"OK room10 color-fixes:{R10['fixes']} keys:{R10['key_rects']}")
 print(f"OK room11 color-fixes:{R11['fixes']} keys:{R11['key_rects']}")
 print(f"OK room12 color-fixes:{R12['fixes']} keys:{R12['key_rects']}")
 print(f"OK room13 color-fixes:{R13['fixes']} keys:{R13['key_rects']}")
+print(f"OK room14 color-fixes:{R14['fixes']} keys:{R14['key_rects']}")

@@ -236,6 +236,28 @@ room_en2_centerx:  RESB 1     ; rectangle's z-bottom (zmax) - same
                         ; field reused for the mirrored-pair's centerx
                         ; before Room13 switched to rectangular patrol
 room_enemy2_color: RESB 1
+rnd_seed:   RESB 1      ; 8-bit Galois LFSR state - see rnd8. Must
+                        ; never be 0 - room_start's blanket RAM-clear
+                        ; zeroes it like everything else on every death
+                        ; /room transition, so room_start explicitly
+                        ; re-seeds it right after (see there), same as
+                        ; init: does once at cold boot.
+; ---- falling debris (optional - room_debris_ptr in room_state is 0
+; for every room without one; when non-zero it points at a small
+; debris_tab{N} record (dw gfx_ptr, db hstart,hend,speed,pause,color,
+; ncols, then ncols*2 bytes of (bx,bz) column choices) in that room's
+; own bg_pattern bank tail - same relocation trick as lever_tab/
+; enemy2_tab. Read directly off the ROM table each time (like lever,
+; not like the 2nd enemy's RAM-mirrored config) since it's only
+; touched on a spawn/land event, not every single frame. Only ONE
+; debris is ever active at a time per room - Skylab Landing Bay is the
+; only room using this so far, so there's no need for more. ----
+debris_active: RESB 1
+debris_h:      RESB 1   ; current falling height
+debris_bx:     RESB 1   ; current column's world x (cached at spawn)
+debris_bz:     RESB 1   ; current column's world z (cached at spawn)
+debris_timer:  RESB 1   ; frames left in the post-landing cooldown
+debris_anim:   RESB 1
 lift_h:     RESB 1      ; current lift surface height (bounces between
                         ; room_lift_ymin/ymax)
 lift_dir:   RESB 1      ; 0=rising(+) 1=falling(-)
@@ -385,8 +407,12 @@ room_lever_ptr:       RESB 2  ; 0 = no lever in this room, else points
 room_enemy2_ptr:      RESB 2  ; 0 = no 2nd enemy in this room, else
                         ; points at enemy2_tab{N} (see en2_x above) in
                         ; this room's own bg_pattern bank spare tail.
+room_debris_ptr:      RESB 2  ; 0 = no falling debris in this room,
+                        ; else points at debris_tab{N} (see debris_h
+                        ; above) in this room's own bg_pattern bank
+                        ; spare tail.
 room_state_end:
-NROOMS equ 13
+NROOMS equ 14
 ram_end:
 
 ram_map     equ 0C100h  ; 6*8*8 = 384 bytes  (index = z*64+y*8+x)
@@ -460,6 +486,8 @@ init:
 
         ld  a,LIVES0
         ld  (lives),a
+        ld  a,1
+        ld  (rnd_seed),a        ; must never be 0 - see rnd8
         call psg_init
         call title_setup
         jr  title_loop          ; skip over the two routines below -
@@ -606,6 +634,17 @@ room_start:
         ld  (cr_prev),a
         ld  a,AIRMAX
         ld  (air),a
+        ; rnd_seed lives inside ram_start..ram_end, so the blanket
+        ; clear above just zeroed it too - re-seed to a nonzero value
+        ; every room_start (death/respawn AND room transitions both
+        ; call this), not just once at cold boot, or rnd8 would get
+        ; stuck returning 0 forever after the first death. current_room
+        ; +1 is never 0 and varies the sequence's starting phase a bit
+        ; across rooms/respawns instead of always restarting at the
+        ; exact same point.
+        ld  a,(current_room)
+        inc a
+        ld  (rnd_seed),a
         ; load this room's descriptor row: hl = room_tab + current_room*
         ; ROOMROWLEN, via repeated addition (current_room is always
         ; small) - deliberately NOT hand-tuned shifts: those silently
@@ -849,6 +888,7 @@ main_loop:
         halt
         ld  hl,frame
         inc (hl)
+        call rnd8
         call read_stick_any
         ld  (stick),a
         ld  a,(trig)
@@ -863,6 +903,7 @@ main_loop:
         call sam_update
         call enemy_update
         call enemy2_update
+        call debris_update
         call hazard_check
         call lever_check
         call exit_check
@@ -956,6 +997,21 @@ load_room:
         ld  bc,64
         call LDIRVM
 .noenemy2gfx:
+
+        ; falling debris (optional): 2 frames at sprite patterns 24/28
+        ; - same "gfx pointer is the table's own leading dw" trick.
+        ld  hl,(room_debris_ptr)
+        ld  a,h
+        or  l
+        jr  z,.nodebrisgfx
+        ld  e,(hl)
+        inc hl
+        ld  d,(hl)
+        ex  de,hl
+        ld  de,VR_SPRP+24*8
+        ld  bc,64
+        call LDIRVM
+.nodebrisgfx:
 
         ; map ROM -> RAM
         ld  hl,(room_map_ptr)
@@ -2598,6 +2654,27 @@ mask_or:
 lvl_off: dw 0,2560,5120,7680,10240,12800,15360,17920
 
 ; ------------------------------------------------------------
+; rnd8: updates rnd_seed with one step of an 8-bit Galois LFSR
+; (poly 0xB4) and returns the new value in A. Ticked once every real
+; frame from main_loop (regardless of whether anything consumes it
+; that frame) so its phase keeps drifting relative to player input
+; timing, rather than only advancing right when something asks for a
+; random value. rnd_seed must never be left at 0 (a 0 seed feeds back
+; into itself forever) - room_start's blanket RAM-clear would zero it
+; like everything else, so the cold-boot init: routine sets it to 1
+; once at power-on (see below), never touched by any per-room reset.
+; ------------------------------------------------------------
+rnd8:
+        ld  a,(rnd_seed)
+        or  a
+        rra
+        jr  nc,.norndxor
+        xor 0B4h
+.norndxor:
+        ld  (rnd_seed),a
+        ret
+
+; ------------------------------------------------------------
 ; enemy_update: patrol the conveyor, kill Sam on contact
 ; ------------------------------------------------------------
 enemy_update:
@@ -3108,6 +3185,139 @@ enemy2_update:
         jp  sam_die
 
 ; ------------------------------------------------------------
+; debris_update: falling ceiling debris (Skylab Landing Bay) - see
+; room_debris_ptr. Unlike the 2 enemy slots, this one is read directly
+; off its ROM table each time (like lever) rather than mirrored into
+; RAM, since it's only consulted on a spawn/land event or once/frame
+; for the height compare - not worth a room_start copy step for.
+; Record layout (debris_tab{N}, see tools/gen_iso.py): +0 dw gfx_ptr,
+; +2 hstart, +3 hend, +4 speed, +5 pause, +6 color, +7 ncols, then
+; ncols*2 bytes of (bx,bz) column choices (map cell indices, NOT world
+; coords - converted to world x/z once per spawn below).
+; ------------------------------------------------------------
+debris_update:
+        ld  hl,(room_debris_ptr)
+        ld  a,h
+        or  l
+        ret z               ; no debris in this room
+        ld  a,(debris_active)
+        or  a
+        jp  nz,.dfall
+        ld  a,(debris_timer)
+        or  a
+        jr  z,.dspawn
+        dec a
+        ld  (debris_timer),a
+        ret
+
+.dspawn:
+        call rnd8
+        ld  hl,(room_debris_ptr)
+        ld  de,7
+        add hl,de           ; +7 = ncols
+        ld  b,(hl)
+.dmod:  cp  b
+        jr  c,.dmodok
+        sub b
+        jr  .dmod
+.dmodok:
+        add a,a             ; idx*2
+        ld  e,a
+        ld  d,0
+        ld  hl,(room_debris_ptr)
+        ld  bc,8
+        add hl,bc
+        add hl,de           ; hl -> chosen column's bx byte (+8+idx*2)
+        ld  a,(hl)
+        add a,a
+        add a,a
+        add a,a
+        add a,a             ; bx*16
+        add a,8             ; +8 = world-x cell centre
+        ld  (debris_bx),a
+        inc hl
+        ld  a,(hl)
+        add a,a
+        add a,a
+        add a,a
+        add a,a
+        add a,8
+        ld  (debris_bz),a
+        ld  hl,(room_debris_ptr)
+        ld  de,2
+        add hl,de           ; +2 = hstart
+        ld  a,(hl)
+        ld  (debris_h),a
+        ld  a,1
+        ld  (debris_active),a
+        ret
+
+.dfall: ld  hl,(room_debris_ptr)
+        ld  de,4
+        add hl,de           ; +4 = speed
+        ld  a,(hl)
+        ld  b,a
+        ld  a,(debris_h)
+        sub b
+        ld  (debris_h),a
+        ld  c,a             ; c = new height
+        ld  hl,(room_debris_ptr)
+        ld  de,3
+        add hl,de           ; +3 = hend
+        ld  b,(hl)
+        ld  a,c
+        cp  b
+        jr  nc,.dcheck       ; new height >= hend -> still falling
+        ; landed (fell below hend)
+        xor a
+        ld  (debris_active),a
+        ld  hl,(room_debris_ptr)
+        ld  de,5
+        add hl,de           ; +5 = pause
+        ld  a,(hl)
+        ld  (debris_timer),a
+        ret
+
+.dcheck:
+        ld  a,(debris_anim)
+        inc a
+        ld  (debris_anim),a
+        ld  a,(sam_wx)
+        ld  b,a
+        ld  a,(debris_bx)
+        sub b
+        jr  nc,.ddx
+        neg
+.ddx:   cp  10
+        ret nc
+        ld  a,(sam_wz)
+        ld  b,a
+        ld  a,(debris_bz)
+        sub b
+        jr  nc,.ddz
+        neg
+.ddz:   cp  10
+        ret nc
+        ld  a,(debris_h)
+        ld  c,a
+        ld  a,(sam_h+1)
+        ld  b,a
+        ld  a,c
+        add a,16
+        ld  d,a
+        ld  a,b
+        cp  d
+        ret nc              ; Sam wholly above
+        ld  a,c
+        inc a
+        ld  d,a
+        ld  a,b
+        add a,16
+        cp  d
+        ret c               ; Sam wholly below
+        jp  sam_die
+
+; ------------------------------------------------------------
 ; sam_draw: sprites at sx=PX0-8+wx-wz  sy=PY0+(wx+wz)/2-h-16
 ; ------------------------------------------------------------
 sam_draw:
@@ -3464,6 +3674,64 @@ sam_draw:
         inc hl
         ret
 
+; .mkdpos/.spr4d: same idea as .mkpos/.spr4 for the falling debris -
+; position comes straight from debris_bx/bz/h (all plain RAM, unlike
+; the 2nd enemy's case) since there's nothing to look up in ROM for
+; the position itself; pattern base 24, color read from the debris
+; table (room_debris_ptr+6) since (unlike room_enemy2_color) it was
+; never copied into a fixed RAM field.
+.mkdpos:
+        ld  a,(debris_bx)
+        ld  l,a
+        ld  h,0
+        ld  de,PX0-8
+        add hl,de
+        ld  a,(debris_bz)
+        ld  e,a
+        ld  d,0
+        or  a
+        sbc hl,de
+        ld  a,l
+        ld  c,a
+        ld  a,(debris_bx)
+        ld  hl,debris_bz
+        add a,(hl)
+        srl a
+        add a,PY0
+        push af
+        ld  a,(debris_h)
+        add a,16
+        ld  e,a
+        pop af
+        sub e
+        dec a
+        ld  b,a
+        ret
+
+.spr4d:
+        ld  a,b
+        call WRTVRM
+        inc hl
+        ld  a,c
+        call WRTVRM
+        inc hl
+        ld  a,(debris_anim)
+        and 16
+        srl a
+        srl a
+        add a,24
+        call WRTVRM
+        inc hl
+        push hl              ; room_debris_ptr+6 read uses hl too -
+        ld  hl,(room_debris_ptr)   ; save/restore the running vram
+        ld  de,6                    ; pointer around it (color isn't
+        add hl,de                   ; a fixed RAM field like the 2nd
+        ld  a,(hl)                  ; enemy's room_enemy2_color)
+        pop hl
+        call WRTVRM
+        inc hl
+        ret
+
 .enemy_sprites_done:
         pop bc
         push hl
@@ -3490,6 +3758,26 @@ sam_draw:
         pop hl                ; it, same lesson as the 1st enemy's .mkpos
         call .spr4b
 .noenemy2draw:
+        pop bc
+
+        ; falling debris (optional - see room_debris_ptr), only while
+        ; actually active. Own push/pop bc, same reasoning as the 2nd
+        ; enemy block above - never let an optional block's scratch
+        ; use of bc survive into Sam's own sprite writes below.
+        push bc
+        ld  a,(room_debris_ptr)
+        ld  b,a
+        ld  a,(room_debris_ptr+1)
+        or  b
+        jr  z,.nodebrisdraw
+        ld  a,(debris_active)
+        or  a
+        jr  z,.nodebrisdraw
+        push hl
+        call .mkdpos
+        pop hl
+        call .spr4d
+.nodebrisdraw:
         pop bc
 
         ; 4 overlapped Sam sprites (dynamic masked patterns 48/52/56/60)
@@ -5366,6 +5654,11 @@ ROOM8_BGCOLBANK equ 101
         INCBIN "src/bg_pattern8.bin"
 kong_gfx:
         INCBIN "src/enemy_gfx8.bin"
+        ; level_map8: bank1 overflow fix (see the Room14/falling-
+        ; debris comment in tools/gen_iso.py) - same relocation as
+        ; level_map9/10/11/12/13.
+level_map8:
+        INCBIN "src/level_map8.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color8.bin"
@@ -5388,6 +5681,10 @@ ROOM9_BGCOLBANK equ 103
         INCBIN "src/bg_pattern9.bin"
 urchin_gfx:
         INCBIN "src/enemy_gfx9.bin"
+        ; level_map9: bank1 overflow fix (see level_map8's comment
+        ; above).
+level_map9:
+        INCBIN "src/level_map9.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color9.bin"
@@ -5541,11 +5838,39 @@ exit_gfx13_1:
         INCBIN "src/exit_gfx13_1.bin"
         BLOCK 0C000h-$,0FFh
 
+; ============================================================
+;  BANKS 114-115: room 14 (Skylab Landing Bay) pre-rendered background.
+;  Bank numbers must match ROOM14_BGBANK/ROOM14_BGCOLBANK in
+;  tools/gen_iso.py. No elevated crumble/lever in this room, so no
+;  dedicated crumb bank (room_tab reuses CRUMBBANK). Falling-debris
+;  gfx + its debris_tab14 record ride in this bank's own spare tail,
+;  same placement as the 2nd enemy's own table in Room13's bank.
+; ============================================================
+ROOM14_BGBANK    equ 114
+ROOM14_BGCOLBANK equ 115
+        ORG 08000h
+        INCBIN "src/bg_pattern14.bin"
+cart_gfx14:
+        INCBIN "src/enemy_gfx14.bin"
+debris_gfx14:
+        INCBIN "src/debris_gfx14.bin"
+        INCLUDE "src/debris_tab14.asm"
+        BLOCK 0A000h-$,0FFh
+        ORG 0A000h
+        INCBIN "src/bg_color14.bin"
+keys_gfx14:
+        INCBIN "src/keys_gfx14.bin"
+exit_gfx14_0:
+        INCBIN "src/exit_gfx14_0.bin"
+exit_gfx14_1:
+        INCBIN "src/exit_gfx14_1.bin"
+        BLOCK 0C000h-$,0FFh
+
         ; pad the ROM back out to a full 1MB (128 x 8KB banks) - openMSX's
         ; ascii8 mapper expects a power-of-two file size; a short file
         ; (as left by just rounding up to the next bank) fails to boot
         ; at all (falls through to plain MSX BASIC). Measured then
         ; computed exactly (1048576 - actual size before this BLOCK),
-        ; not guessed by hand. 114 banks now used (0-113), so 14 banks
-        ; (114-127) remain: 14*8192 = 114688.
-        BLOCK 114688,0FFh
+        ; not guessed by hand. 116 banks now used (0-115), so 12 banks
+        ; (116-127) remain: 12*8192 = 98304.
+        BLOCK 98304,0FFh
