@@ -2665,6 +2665,17 @@ ROOM15 = dict(
     crest_fn=_wtop_bank,
     floor_base=1, floor_speckle=11,
     slabs_def=room15_slabs_def,
+    # Fausto: "fai in modo che ci sia il vuoto sotto le piattaforme
+    # dell'ultima fila (quella piu' alta)... se cade in quel punto sam
+    # muoia" - real chasm (not just cosmetic) under the Final tier
+    # (5,0)/(6,0), the highest platforms in the room - same floor_gaps
+    # mechanic Room5 already uses for its own bottomless-pit fall.
+    # Only removes the GROUND-level (y=0) floor tile at those 2
+    # columns - the elevated slab at y=7 is untouched (a separate grid
+    # assignment), so the platform itself and the climb up to it work
+    # exactly as before; only a miss/fall off it now has nothing to
+    # land on (no other slab sits at bz=0 under those 2 columns).
+    floor_gaps={(5,0), (6,0)},
     style={
         T_STONE: dict(top_fill=11, top_edge=15, face_l=10, face_r=6, rocky=True),
     },
