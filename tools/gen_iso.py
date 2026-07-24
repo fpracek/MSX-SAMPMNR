@@ -600,13 +600,22 @@ def render_room(spec):
     base_img = img
     pattern, color, fixes = encode_screen(img)
 
-    # crumble variants (only rooms with crumb_units)
+    # crumble variants (only rooms with crumb_units). Most rooms keep
+    # every group's rendered variants in ONE bank ('a', the common
+    # case); a room can optionally supply crumb_unit_banks (same
+    # length as crumb_units) to route some groups into a SEPARATE bank
+    # instead - needed once a room has enough crumbling cells that all
+    # of them together would blow the crumble bank's 8KB budget (see
+    # the sampr-miner-project memory - Room9 hit this exactly).
     CRUMB_UNITS = spec['crumb_units']
+    CRUMB_BANK_LABELS = spec.get('crumb_unit_banks', ['a'] * len(CRUMB_UNITS))
     base_pat, base_col = bytes(pattern), bytes(color)
     crumb_meta = []
-    crumb_bin = bytearray()
+    crumb_bins = {}
     _sorted_slabs = sorted(slabs, key=lambda s: -(s[0]+s[1]))
     for gi, cells in enumerate(CRUMB_UNITS):
+        bank_label = CRUMB_BANK_LABELS[gi]
+        crumb_bin = crumb_bins.setdefault(bank_label, bytearray())
         n = len(cells)
         combos = [(s0,) for s0 in range(3)] if n == 1 else \
                  [(s0, s1) for s0 in range(3) for s1 in range(3)]
@@ -639,6 +648,7 @@ def render_room(spec):
                 for cc in range(c0, c1+1):
                     off = rr*256 + cc*8
                     crumb_bin += cv[off:off+8]
+        crumb_bins[bank_label] = crumb_bin
         idxs = []
         for (bx, bz, y) in cells:
             for i, s in enumerate(_sorted_slabs):
@@ -646,7 +656,7 @@ def render_room(spec):
                     idxs.append(i)
         while len(idxs) < 2:
             idxs.append(255)
-        crumb_meta.append((c0, r0, w, hgt, rectsize, base_off, cells, idxs))
+        crumb_meta.append((c0, r0, w, hgt, rectsize, base_off, cells, idxs, bank_label))
 
     img = base_img
 
@@ -723,7 +733,8 @@ def render_room(spec):
         label=label, pattern=pattern, color=color, fixes=fixes,
         grid=grid, keys=keys, key_rects=key_rects, keys_gfx=keys_gfx,
         slabs_sorted=_sorted_slabs, slab_lines=slab_lines,
-        crumb_meta=crumb_meta, crumb_bin=crumb_bin,
+        crumb_meta=crumb_meta, crumb_bin=crumb_bins.get('a', bytearray()),
+        crumb_bins=crumb_bins,
         exit_gfx=exit_gfx, EXC0=EXC0, EXR0=EXR0, EXNROW=EXNROW, EXW=EXW,
         cover=cover, enemy_bytes=enemy_bytes, base_img=base_img,
         exit_bx=EXIT_BX, exit_bz=EXIT_BZ, exit_y=EXIT_Y,
@@ -1626,15 +1637,8 @@ ROOM9 = dict(
     # already permanently lethal to stand on, so leaving them fixed
     # keeps them readable as "the thing to route around" rather than
     # doubling as a second, different kind of danger).
-    # floor2 and the exit platform are deliberately left OUT of the
-    # crumbling set. floor2: tried it first, but each cell's crumble
-    # variants (revealing the ground/void below once destroyed) are
-    # much bigger than a single obstacle sprite, and floor1+step+floor2
-    # together measured 26400 bytes of pre-rendered variants against
-    # this ROM's 8192-byte-per-bank crumble budget - a hard ceiling,
-    # not a preference; floor1+step alone already fills most of that
-    # budget. The exit platform was excluded on purpose (not a budget
-    # issue): it's the terminal "all keys collected, leave the room"
+    # The exit platform is deliberately left OUT of the crumbling set
+    # - it's the terminal "all keys collected, leave the room"
     # platform, not part of the puzzle, and destabilizing it risked an
     # edge-case interplay with the win-trigger.
     # This ALSO switches the degrade model for this room from
@@ -1650,12 +1654,23 @@ ROOM9 = dict(
     # never a permanent stuck state.
     # Every cell is its OWN single-cell group (not paired) - a 2-cell
     # group needs 3^2=9 pre-rendered variants vs 3 for a solo cell, and
-    # with this many crumbling cells even 2-cell pairs blew the crumble
-    # bank's 8KB budget (26400 bytes needed - measured, not guessed).
+    # with this many crumbling cells even 2-cell pairs blew a single
+    # crumble bank's 8KB budget (26400 bytes needed for all 13 cells
+    # paired - measured, not guessed).
+    # floor2 (Fausto: "prova a rendere friabili anche le piattaforme
+    # piu' in alto... vediamo come va") went over budget even as solo
+    # cells once floor1+step were already using most of one 8KB bank,
+    # so its 5 cells are routed into a SECOND crumble bank via
+    # crumb_unit_banks below (see CRUMBBANK9B in the ROM bank section)
+    # instead of trimming scope again - each crumb_tab row now carries
+    # its own bank byte (main.asm's degrade_cell switches to whichever
+    # bank a cell's OWN row says, not one fixed room-wide bank).
     crumb_units=[
         [(1,3,2)], [(2,3,2)], [(3,3,2)], [(5,3,2)],   # floor1, skip (4,3)
         [(1,2,4)], [(3,2,4)], [(4,2,4)], [(5,2,4)],   # step, skip (2,2)
+        [(1,1,5)], [(2,1,5)], [(3,1,5)], [(4,1,5)], [(5,1,5)],  # floor2
     ],
+    crumb_unit_banks=['a']*8 + ['b']*5,
     crumb_continuous=1,
     enemy_frames=[URCHIN_A, URCHIN_B],
     # fixed world (x,z) = (64,24): x is floor2's own MIDPOINT (bx=4,
@@ -1797,13 +1812,21 @@ assert len(crumb_bin4) <= 8192, len(crumb_bin4)
 crumb_bin4 += bytes(8192 - len(crumb_bin4))
 open(os.path.join(ROOT,'src','crumb4.bin'),'wb').write(crumb_bin4)
 
-# crumb9.bin: room 9's own crumbling-cell variants (step pair + floor1
-# east cell, added per Fausto's request once the climb/ambush skeleton
-# was confirmed solid)
-crumb_bin9 = bytearray(R9['crumb_bin'])
+# crumb9.bin: room 9's own crumbling-cell variants, bank 'a' (floor1 +
+# the step)
+crumb_bin9 = bytearray(R9['crumb_bins'].get('a', bytearray()))
 assert len(crumb_bin9) <= 8192, len(crumb_bin9)
 crumb_bin9 += bytes(8192 - len(crumb_bin9))
 open(os.path.join(ROOT,'src','crumb9.bin'),'wb').write(crumb_bin9)
+
+# crumb9b.bin: room 9's SECOND crumble bank, bank 'b' (floor2) - added
+# once floor1+step+floor2 together (26400 bytes as solo cells) proved
+# too big for one 8KB bank; each crumb_tab row now carries its own
+# bank byte (see CRUMBBANK9B below and degrade_cell in main.asm)
+crumb_bin9b = bytearray(R9['crumb_bins'].get('b', bytearray()))
+assert len(crumb_bin9b) <= 8192, len(crumb_bin9b)
+crumb_bin9b += bytes(8192 - len(crumb_bin9b))
+open(os.path.join(ROOT,'src','crumb9b.bin'),'wb').write(crumb_bin9b)
 
 # ------------------------------------------------------------------
 # ROM bank numbers (must match the equ's added in src/main.asm)
@@ -1822,12 +1845,17 @@ CRUMBBANK = 84
 CRUMBBANK2 = 87
 CRUMBBANK3 = 90
 CRUMBBANK9 = 104
+CRUMBBANK9B = 105
 # Rooms 4, 5, 6 and 7 have no crumbling platforms (room_nunits=0, cell_at
 # returns "no match" immediately) so their crumb_bank field is never
 # actually read - reuse CRUMBBANK as a harmless placeholder instead of
 # allocating a whole new (empty) bank for either of them. Room 8 and
 # Room 9 DO have crumbling platforms, so each gets its own real bank
-# (CRUMBBANK4, CRUMBBANK9), same as rooms 1-3.
+# (CRUMBBANK4, CRUMBBANK9). Room 9 additionally has a SECOND crumble
+# bank (CRUMBBANK9B, floor2) - each crumb_tab row now carries its own
+# bank byte (see emit_crumb_tab's bank_map param and degrade_cell in
+# main.asm), so a room's groups can be spread across more than one
+# bank once they don't all fit in a single 8KB one.
 
 def emit_room(R, lines):
     lab = R['label']
@@ -1870,12 +1898,12 @@ lines.append(f"MAPW equ {MAPW}")
 lines.append(f"MAPH equ {MAPH}")
 lines.append(f"MAPD equ {MAPD}")
 lines.append("")
-def emit_crumb_tab(R, lines):
+def emit_crumb_tab(R, lines, bank_map=None):
     lab = R['label']
     lines.append(f"; crumb_tab{lab} (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,")
-    lines.append(";   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2")
+    lines.append(";   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2, bank")
     lines.append(f"crumb_tab{lab}:")
-    for (c0, r0, w, hgt, rectsize, base_off, cells, idxs) in R['crumb_meta']:
+    for (c0, r0, w, hgt, rectsize, base_off, cells, idxs, bank_label) in R['crumb_meta']:
         row = [len(cells)]
         for (bx, bz, y) in cells:
             row += [bx, y, bz]
@@ -1885,26 +1913,27 @@ def emit_crumb_tab(R, lines):
         lines.append("        db " + ",".join(str(v) for v in row))
         lines.append(f"        dw {rectsize}, {0x8000+base_off}")
         lines.append("        db " + ",".join(str(v) for v in idxs[:2]))
+        lines.append(f"        db {(bank_map or {}).get(bank_label, 0)}")
     lines.append("")
 
 emit_room(R1, lines)
-emit_crumb_tab(R1, lines)
+emit_crumb_tab(R1, lines, bank_map={'a': CRUMBBANK})
 emit_room(R2, lines)
-emit_crumb_tab(R2, lines)
+emit_crumb_tab(R2, lines, bank_map={'a': CRUMBBANK2})
 emit_room(R3, lines)
-emit_crumb_tab(R3, lines)
+emit_crumb_tab(R3, lines, bank_map={'a': CRUMBBANK3})
 emit_room(R4, lines)
-emit_crumb_tab(R4, lines)
+emit_crumb_tab(R4, lines, bank_map={'a': CRUMBBANK})
 emit_room(R5, lines)
-emit_crumb_tab(R5, lines)
+emit_crumb_tab(R5, lines, bank_map={'a': CRUMBBANK})
 emit_room(R6, lines)
-emit_crumb_tab(R6, lines)
+emit_crumb_tab(R6, lines, bank_map={'a': CRUMBBANK})
 emit_room(R7, lines)
-emit_crumb_tab(R7, lines)
+emit_crumb_tab(R7, lines, bank_map={'a': CRUMBBANK})
 emit_room(R8, lines)
-emit_crumb_tab(R8, lines)
+emit_crumb_tab(R8, lines, bank_map={'a': CRUMBBANK4})
 emit_room(R9, lines)
-emit_crumb_tab(R9, lines)
+emit_crumb_tab(R9, lines, bank_map={'a': CRUMBBANK9, 'b': CRUMBBANK9B})
 
 lines.append("; redefined font, 76 chars from '0' (8 bytes each)")
 _f = open(os.path.join(ROOT,'tools','fonts.c')).read()

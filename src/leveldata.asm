@@ -76,14 +76,16 @@ hazards_tab:
         db 2,4,0,34
 
 ; crumb_tab (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
-;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
+;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2, bank
 crumb_tab:
         db 2,1,3,0,2,3,0,15,5,22,11
         dw 672, 32768
         db 8,7
+        db 84
         db 1,4,2,4,255,255,255,13,13,18,17
         dw 320, 38816
         db 0,255
+        db 84
 
 level2_map:
         db 001h,001h,001h,001h,001h,001h,001h,001h
@@ -153,14 +155,16 @@ hazards_tab2:
         db 5,1,0,18
 
 ; crumb_tab2 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
-;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
+;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2, bank
 crumb_tab2:
         db 1,3,2,2,255,255,255,15,10,19,14
         dw 256, 32768
         db 4,255
+        db 87
         db 1,4,3,2,255,255,255,17,10,22,15
         dw 400, 33536
         db 3,255
+        db 87
 
 level3_map:
         db 001h,001h,001h,001h,001h,001h,001h,001h
@@ -229,17 +233,20 @@ hazards_tab3:
         db 5,4,0,18
 
 ; crumb_tab3 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
-;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
+;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2, bank
 crumb_tab3:
         db 1,3,3,2,255,255,255,15,9,19,14
         dw 320, 32768
         db 4,255
+        db 90
         db 1,4,3,2,255,255,255,17,10,21,15
         dw 320, 33728
         db 3,255
+        db 90
         db 1,5,3,2,255,255,255,19,11,24,16
         dw 400, 34688
         db 1,255
+        db 90
 
 level4_map:
         db 001h,001h,001h,001h,001h,001h,001h,001h
@@ -307,7 +314,7 @@ hazards_tab4:
         db 3,4,0,18
 
 ; crumb_tab4 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
-;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
+;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2, bank
 crumb_tab4:
 
 level5_map:
@@ -374,7 +381,7 @@ slab_tab5:
 hazards_tab5:
 
 ; crumb_tab5 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
-;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
+;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2, bank
 crumb_tab5:
 
 level6_map:
@@ -448,7 +455,7 @@ slab_tab6:
 hazards_tab6:
 
 ; crumb_tab6 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
-;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
+;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2, bank
 crumb_tab6:
 
 level7_map:
@@ -528,7 +535,7 @@ hazards_tab7:
         db 6,5,0,18
 
 ; crumb_tab7 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
-;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
+;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2, bank
 crumb_tab7:
 
 level8_map:
@@ -598,17 +605,20 @@ hazards_tab8:
         db 6,0,0,18
 
 ; crumb_tab8 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
-;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
+;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2, bank
 crumb_tab8:
         db 1,3,6,3,255,255,255,13,7,17,15
         dw 512, 32768
         db 3,255
+        db 99
         db 1,4,6,2,255,255,255,17,7,22,15
         dw 640, 34304
         db 4,255
+        db 99
         db 1,5,6,3,255,255,255,17,9,22,17
         dw 640, 36224
         db 1,255
+        db 99
 
 level9_map:
         db 001h,001h,001h,001h,001h,001h,001h,001h
@@ -690,32 +700,60 @@ hazards_tab9:
         db 2,2,40,50
 
 ; crumb_tab9 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
-;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2
+;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2, bank
 crumb_tab9:
         db 1,1,2,3,255,255,255,9,9,13,13
         dw 256, 32768
         db 12,255
+        db 104
         db 1,2,2,3,255,255,255,11,10,15,14
         dw 256, 33536
         db 9,255
+        db 104
         db 1,3,2,3,255,255,255,13,11,17,15
         dw 256, 34304
         db 6,255
+        db 104
         db 1,5,2,3,255,255,255,17,13,22,17
         dw 320, 35072
         db 0,255
+        db 104
         db 1,1,4,2,255,255,255,11,6,15,9
         dw 192, 36032
         db 15,255
+        db 104
         db 1,3,4,2,255,255,255,15,8,19,11
         dw 192, 36608
         db 10,255
+        db 104
         db 1,4,4,2,255,255,255,17,9,21,12
         dw 192, 37184
         db 7,255
+        db 104
         db 1,5,4,2,255,255,255,19,10,23,16
         dw 384, 37760
         db 3,255
+        db 104
+        db 1,1,5,1,255,255,255,13,4,17,11
+        dw 448, 32768
+        db 17,255
+        db 105
+        db 1,2,5,1,255,255,255,15,5,19,12
+        dw 448, 34112
+        db 16,255
+        db 105
+        db 1,3,5,1,255,255,255,17,6,21,13
+        dw 448, 35456
+        db 14,255
+        db 105
+        db 1,4,5,1,255,255,255,19,7,23,14
+        dw 448, 36800
+        db 11,255
+        db 105
+        db 1,5,5,1,255,255,255,21,8,25,15
+        dw 448, 38144
+        db 8,255
+        db 105
 
 ; redefined font, 76 chars from '0' (8 bytes each)
 fonts_tab:
@@ -966,7 +1004,7 @@ room_tab:
         dw keys_gfx9
         dw slab_tab9
         db 18
-        db 8
+        db 13
         dw crumb_tab9
         db 104
         dw hazards_tab9

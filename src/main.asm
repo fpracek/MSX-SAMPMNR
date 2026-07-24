@@ -46,7 +46,7 @@ T_DOORT equ 5
 T_DOORB equ 6
 GRAV    equ 32          ; 0.125 px/f^2 (8.8)
 JUMPV   equ 0240h       ; 2.25 px/f (apex ~20px: one level per jump)
-CRUMB_DWELL equ 18     ; frames Sam can DWELL on the same still-intact
+CRUMB_DWELL equ 45     ; frames Sam can DWELL on the same still-intact
                         ; crumbling cell before it degrades one more
                         ; stage (Room9: Fausto wanted standing still
                         ; to keep destroying the platform, not just a
@@ -55,6 +55,16 @@ CRUMB_DWELL equ 18     ; frames Sam can DWELL on the same still-intact
                         ; completamente"). Only active when
                         ; room_crumb_continuous is set; other rooms
                         ; keep the original touch-only behaviour.
+                        ; Was 18 (~0.3-0.36s) with an INSTANT crack on
+                        ; the first touch, so total time-to-destroy
+                        ; was ~0.3s - Fausto: "si sgretolano troppo
+                        ; velocemente in una fase sola", barely time
+                        ; to react. Now BOTH stages (crack, then
+                        ; destroy) cost this same wait with no instant
+                        ; first crack, so total time-to-destroy while
+                        ; standing still is ~2x this, roughly 1.5-1.8s
+                        ; at 50-60fps - a real, readable 2-phase
+                        ; process instead of a near-instant collapse.
 COYOTE_MAX equ 18       ; frames of post-edge jump forgiveness (~0.3-
                         ; 0.36s at 50-60fps). Was 6 (~0.1s) first, but
                         ; a real diagnostic test (walk toward a gap,
@@ -166,11 +176,11 @@ tk_k:       RESB 1
 tk_col:     RESB 1
 tk_row:     RESB 1
 tk_src:     RESB 2
-cr_cellst:  RESB 15     ; per-cell crumble states (0 full,1 half,2 gone)
+cr_cellst:  RESB 25     ; per-cell crumble states (0 full,1 half,2 gone)
                         ; sized for worst case group*2+cell id across all
-                        ; rooms - Room9's 8 solo-cell groups (floor1 +
-                        ; the step, every cell but the 2 hazard ones)
-                        ; reach id 14, the current high-water mark
+                        ; rooms - Room9's 13 solo-cell groups (floor1 +
+                        ; step + floor2, every cell but the 2 hazard
+                        ; ones) reach id 24, the current high-water mark
 cr_prev:    RESB 1      ; cell id Sam is standing on (FF none)
 cr_dwell_t: RESB 1      ; frames spent continuously on cr_prev's cell -
                         ; only used when room_crumb_continuous is set;
@@ -178,6 +188,9 @@ cr_dwell_t: RESB 1      ; frames spent continuously on cr_prev's cell -
 cb_u:       RESB 1      ; crumble temps
 cb_n:       RESB 1
 cb_st:      RESB 1
+cb_bank:    RESB 1      ; this cell's own crumble bank (read from its
+                        ; crumb_tab row) - lets a room's groups span
+                        ; more than one 8KB crumble bank
 cb_c0:      RESB 1
 cb_r0:      RESB 1
 cb_c1:      RESB 1
@@ -1344,8 +1357,19 @@ sam_update:
         ld  a,e
         cp  0FFh
         jr  z,.crd          ; stepped onto solid/non-crumbling ground
-        call degrade_cell   ; fresh touch always advances one stage,
-                            ; regardless of touch-only vs dwell-based
+        ld  a,(room_crumb_continuous)
+        or  a
+        jr  nz,.crd         ; dwell-based rooms: a touch alone doesn't
+                            ; crack it - both stages now cost the same
+                            ; CRUMB_DWELL wait, so standing still reads
+                            ; as one smooth process instead of an
+                            ; instant crack followed by a fast kill
+                            ; (Fausto: "si sgretolano troppo
+                            ; velocemente in una fase sola")
+        ld  a,e
+        call degrade_cell   ; touch-based rooms (1/3/8): fresh touch
+                            ; still advances one stage instantly, as
+                            ; always
         jr  .crd
 .crair: ld  a,0FFh
         ld  (cr_prev),a
@@ -2033,7 +2057,9 @@ cell_at:
         jr  nz,.cl
         pop hl
         ld  a,l
-        add a,17
+        add a,18            ; row grew 17->18 bytes/group (added a
+                             ; per-group crumble-bank byte - see
+                             ; degrade_cell)
         ld  l,a
         jr  nc,.k
         inc h
@@ -2066,7 +2092,11 @@ degrade_cell:
         inc (hl)
         ld  a,(hl)
         ld  (cb_st),a
-        ; record base = crumb_tab + group*17
+        ; record base = crumb_tab + group*18 (17 bytes of cell/rect/
+        ; blit data, plus 1 trailing byte: this cell's OWN crumble
+        ; bank - lets a room's groups span more than one 8KB crumble
+        ; bank instead of being stuck with one bank room-wide, needed
+        ; once Room9 grew past a single bank's budget)
         ld  a,(cb_id)
         srl a
         ld  (cb_u),a
@@ -2079,9 +2109,17 @@ degrade_cell:
         ld  e,a
         ld  d,0
         add hl,de           ; *17
+        add hl,de           ; *18
         ld  de,(room_crumb_ptr)
         add hl,de
         ld  (cb_rec),hl
+        ; this cell's own crumble bank lives at record+17 (the new
+        ; trailing byte) - read it now, before hl gets reused below
+        ld  de,17
+        add hl,de
+        ld  a,(hl)
+        ld  (cb_bank),a
+        ld  hl,(cb_rec)
         ; rect
         ld  de,7
         add hl,de
@@ -2143,7 +2181,7 @@ degrade_cell:
         dec a
         jr  nz,.ml
 .m0:    ld  (cb_src),hl
-        ld  a,(room_crumb_bank)
+        ld  a,(cb_bank)
         ld  (BANK2R),a
         call crumb_blit
         ld  a,(room_bg_bank)
@@ -4792,11 +4830,21 @@ exit_gfx9_1:
 CRUMBBANK9 equ 104
         INCBIN "src/crumb9.bin"
 
+; ============================================================
+;  BANK 105: room 9's SECOND crumbling-platform bank (floor2 - must
+;  match CRUMBBANK9B in tools/gen_iso.py). Added once floor1+step+
+;  floor2 together (26400 bytes as solo cells) proved too big for one
+;  8KB bank - each crumb_tab row now carries its own bank byte, so a
+;  room's groups can be split across more than one crumble bank.
+; ============================================================
+CRUMBBANK9B equ 105
+        INCBIN "src/crumb9b.bin"
+
         ; pad the ROM back out to a full 1MB (128 x 8KB banks) - openMSX's
         ; ascii8 mapper expects a power-of-two file size; a short file
         ; (as left by just rounding up to the next bank) fails to boot
         ; at all (falls through to plain MSX BASIC). Measured then
         ; computed exactly (1048576 - actual size before this BLOCK),
-        ; not guessed by hand. 105 banks now used (0-104), so 23 banks
-        ; (105-127) remain: 23*8192 = 188416.
-        BLOCK 188416,0FFh
+        ; not guessed by hand. 106 banks now used (0-105), so 22 banks
+        ; (106-127) remain: 22*8192 = 180224.
+        BLOCK 180224,0FFh
