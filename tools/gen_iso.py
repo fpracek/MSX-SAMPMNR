@@ -660,14 +660,28 @@ def render_room(spec):
 
     img = base_img
 
-    # exit blink variant
-    _fimg = compose({}, flash=True)
+    # exit blink variant. If a lever_platform sits on TOP of the exit
+    # cell (covering it - see the lever mechanic below), the exit's
+    # own pixels are entirely hidden in the true base image (the
+    # blocker's side face extends exactly far enough to butt against
+    # the exit slab's top, one level below - real bug hit: the flash-
+    # rect diff came back completely empty, since there was nothing
+    # visible to flash). The win-flash can only ever actually play
+    # AFTER the lever is pulled anyway (exit_check requires it), so
+    # capture both the normal and flash exit_gfx variants against the
+    # POST-LEVER image (blocker already removed) instead of the raw
+    # base image in that case - matching what the player will really
+    # see at that moment.
+    lever_platform = spec.get('lever_platform')
+    _exit_base_img = compose({lever_platform: 2}) if lever_platform else base_img
+    _exit_base_pat, _exit_base_col, _ = encode_screen(_exit_base_img)
+    _fimg = compose({lever_platform: 2} if lever_platform else {}, flash=True)
     _fp, _fc, _ = encode_screen(_fimg)
     _erect = None
     for crow in range(24):
         for ccol in range(32):
             off = crow*256 + ccol*8
-            if _fp[off:off+8] != base_pat[off:off+8] or _fc[off:off+8] != base_col[off:off+8]:
+            if _fp[off:off+8] != _exit_base_pat[off:off+8] or _fc[off:off+8] != _exit_base_col[off:off+8]:
                 if _erect is None:
                     _erect = [ccol, crow, ccol, crow]
                 else:
@@ -677,7 +691,7 @@ def render_room(spec):
     EXW = EXC1 - EXC0 + 1
     EXNROW = EXR1 - EXR0 + 1
     exit_gfx = []
-    for pv, cv in ((base_pat, base_col), (_fp, _fc)):
+    for pv, cv in ((_exit_base_pat, _exit_base_col), (_fp, _fc)):
         blk = bytearray()
         for rr in range(EXR0, EXR1+1):
             for cc in range(EXC0, EXC1+1):
@@ -717,6 +731,61 @@ def render_room(spec):
     # enemy sprite (2 frames, 16x16 silhouette)
     enemy_bytes = pack_sprite_frames(spec['enemy_frames'])
 
+    # lever: a switch cell that INSTANTLY removes one specific slab
+    # (typically one covering the exit) when Sam touches it, gated on
+    # exit_check separately from the key count. Deliberately NOT built
+    # on the crumb_units/cell_at/degrade_cell machinery every other
+    # room's crumbling uses - that system is scanned every frame by
+    # position, so simply standing on the covered slab would silently
+    # start degrading it via the ordinary touch-crumble path; the
+    # lever needs the covered slab to stay rock-solid until the
+    # switch itself is touched, deliberately, once. Reuses only the
+    # LOW-LEVEL rendering primitive (compose() with the target cell
+    # forced to state 2, i.e. "not drawn" - the exact same technique
+    # crumb_units already uses for their own "gone" variant) to
+    # capture a single before/after pixel diff, with its own separate
+    # ROM fields and a dedicated lever_check/lever_pull routine pair
+    # in main.asm - zero shared runtime code path with crumbling, so
+    # zero risk of this new mechanic disturbing any proven room.
+    lever_data = None
+    lever_platform = spec.get('lever_platform')
+    if lever_platform:
+        lp_img = compose({lever_platform: 2})
+        lp_pat, lp_col, _ = encode_screen(lp_img)
+        rect = None
+        for crow in range(24):
+            for ccol in range(32):
+                off = crow*256 + ccol*8
+                if lp_pat[off:off+8] != base_pat[off:off+8] or lp_col[off:off+8] != base_col[off:off+8]:
+                    if rect is None:
+                        rect = [ccol, crow, ccol, crow]
+                    else:
+                        rect[0] = min(rect[0], ccol); rect[1] = min(rect[1], crow)
+                        rect[2] = max(rect[2], ccol); rect[3] = max(rect[3], crow)
+        c0, r0, c1, r1 = rect
+        lever_bin = bytearray()
+        for rr in range(r0, r1+1):
+            for cc in range(c0, c1+1):
+                off = rr*256 + cc*8
+                lever_bin += lp_pat[off:off+8]
+        for rr in range(r0, r1+1):
+            for cc in range(c0, c1+1):
+                off = rr*256 + cc*8
+                lever_bin += lp_col[off:off+8]
+        lp_bx, lp_bz, lp_y = lever_platform
+        lp_slabidx = 0xFF
+        for i, s in enumerate(_sorted_slabs):
+            if (s[0], s[1], s[2]) == (lp_bx, lp_bz, lp_y):
+                lp_slabidx = i
+                break
+        sw_bx, sw_bz = spec['lever_switch']
+        lever_data = dict(
+            switch_bx=sw_bx, switch_bz=sw_bz,
+            map_bx=lp_bx, map_bz=lp_bz, map_y=lp_y, slabidx=lp_slabidx,
+            c0=c0, r0=r0, c1=c1+1, r1=r1+1,   # +1: crumb_blit's own row/col bounds are EXCLUSIVE, matching emit_crumb_tab's c0+w convention
+            data=lever_bin,
+        )
+
     MASK_COLORS = {t: STYLE[t]['top_fill'] for t in STYLE if t != T_EXIT}
     MASK_COLORS[T_EXIT] = 7
     slab_lines = []
@@ -737,12 +806,14 @@ def render_room(spec):
         crumb_bins=crumb_bins,
         exit_gfx=exit_gfx, EXC0=EXC0, EXR0=EXR0, EXNROW=EXNROW, EXW=EXW,
         cover=cover, enemy_bytes=enemy_bytes, base_img=base_img,
+        lever_data=lever_data,
         exit_bx=EXIT_BX, exit_bz=EXIT_BZ, exit_y=EXIT_Y,
         name=spec['name'], enxmin=spec['enxmin'], enxmax=spec['enxmax'],
         enz=spec['enz'], ensurf=spec['ensurf'], enemy_color=spec['enemy_color'],
         en_axis=spec.get('en_axis', 0), en_centerx=spec.get('en_centerx', 0),
         lift_wx=spec.get('lift_wx', 0xFF), lift_wz=spec.get('lift_wz', 0),
         lift_ymin=spec.get('lift_ymin', 0), lift_ymax=spec.get('lift_ymax', 0),
+        map_label=spec.get('map_label'),
         hazards=spec['hazards'],
         crumb_continuous=spec.get('crumb_continuous', 0),
     )
@@ -2011,6 +2082,150 @@ ROOM11 = dict(
     name="MUTANT TELEPHONES",
 )
 
+def _wtop_alien(u):
+    """sharp, irregular crystalline peaks - an alien rock/crystal
+    formation, distinct from every earlier crest (sharper and more
+    randomly-spaced than the forest's canopy or the wires' regular
+    coil)."""
+    return int(32 + 10*abs(_m.sin(u/3.7)) + 8*abs(_m.sin(u/1.3 + 0.6)))
+
+# alien beast: TALL and THIN (unlike Kong Beast's broad/short body
+# plan) with two head antennae - a genuinely different silhouette
+# from Room8's Kong, not just a recolour. Arms flared wide (frame A)
+# vs pulled in (frame B), same dramatic-contrast lesson as every
+# other enemy here.
+ALIEN_A = [
+    _bar(16, (6,8), (9,11)),    # antennae tips
+    _bar(16, (6,8), (9,11)),    # antennae
+    _bar(16, (6,10)),           # head
+    _bar(16, (5,11)),           # head
+    _bar(16, (0,4), (12,16)),   # arms flared fully out
+    _bar(16, (0,3), (6,10), (13,16)),
+    _bar(16, (6,10)),
+    _bar(16, (6,10)),
+    _bar(16, (5,11)),
+    _bar(16, (5,11)),
+    _bar(16, (6,10)),
+    _bar(16, (6,10)),
+    _bar(16, (5,7), (9,11)),
+    _bar(16, (5,7), (9,11)),
+    _bar(16),
+    _bar(16),
+]
+ALIEN_B = [
+    _bar(16, (6,8), (9,11)),
+    _bar(16, (6,8), (9,11)),
+    _bar(16, (6,10)),
+    _bar(16, (5,11)),
+    _bar(16, (4,12)),           # arms tucked in tight
+    _bar(16, (5,11)),
+    _bar(16, (6,10)),
+    _bar(16, (6,10)),
+    _bar(16, (5,11)),
+    _bar(16, (5,11)),
+    _bar(16, (6,10)),
+    _bar(16, (6,10)),
+    _bar(16, (5,7), (9,11)),
+    _bar(16, (5,7), (9,11)),
+    _bar(16),
+    _bar(16),
+]
+
+# spore pod hazard - a round toxic pod ('2' dark green) with sharp
+# purple ('V') spikes radiating out at odd angles (not a symmetric
+# star like the Vat's spark) - a distinct silhouette for the alien
+# theme.
+def _pod_art():
+    return [
+        _art_row(16, (7,9,'V')),
+        _art_row(16, (3,5,'V'), (10,13,'V')),
+        _art_row(16, (6,10,'2')),
+        _art_row(16, (1,3,'V'), (5,11,'2'), (13,15,'V')),
+        _art_row(16, (4,12,'2')),
+        _art_row(16, (2,4,'V'), (4,12,'2'), (12,14,'V')),
+        _art_row(16, (5,11,'2')),
+        _art_row(16, (6,10,'2')),
+        _art_row(16),
+    ]
+POD_ART = _pod_art()
+
+# Fausto: new room "Alien KONG BEAST", asked for a lever mechanic -
+# "al cambio della leva deve sparire la piattaforma che verra' messa
+# sopra quella del portale che fa uscire dal livello... bisogna sia
+# raccogliere le tre chiavi che girare la leva per poter accedere al
+# portale d'uscita coperto da una piattaforma." Layout left to
+# fantasy ("metti tu le piattaforme un po' a fantasia") - reuses the
+# Room11 zigzag-clusters template (proven, and specifically requested
+# generally as the "don't do 3 straight rows" style going forward),
+# with a NEW lever mechanic layered in.
+# The exit column carries TWO slabs: (6,1,y=6) is the real exit
+# surface, (6,1,y=7) is a second, purely-blocking slab directly above
+# it. floor_surface scans DOWNWARD from Sam's feet and returns the
+# FIRST solid layer it finds - so while the blocker slab's map cell
+# is still set, any approach to that column lands on IT (one level
+# higher, no exit trigger there); once the lever clears the blocker's
+# map cell, the exact same jump/approach now lands one level lower,
+# on the real exit slab, matching exit_check's height/position test.
+# No new jump geometry needed for this - the blocker is never itself
+# a jump target, just an obstacle that happens to occupy the same
+# column.
+room12_slabs_def = [
+    (2,3,2,T_STONE), (3,3,2,T_STONE),      # Entry
+    (5,3,2,T_STONE), (6,3,2,T_STONE),      # Lever cluster (gap at bx=4) - switch at bx=6
+    (5,2,4,T_STONE), (6,2,4,T_STONE),      # ClimbRight (climb from Lever cluster)
+    (2,2,4,T_STONE), (3,2,4,T_STONE),      # ShiftLeft (gap at bx=4, sideways from ClimbRight)
+    (2,1,6,T_STONE), (3,1,6,T_STONE),      # ClimbFinal (climb from ShiftLeft) - alien ambush
+    (5,1,6,T_STONE),                       # stepping stone (gap at bx=4, sideways from ClimbFinal)
+    # NOTE: (6,1,6) is NOT listed here - render_room auto-appends the
+    # actual exit slab at (exit_bx,exit_bz,exit_y) as a T_EXIT tile
+    # itself; adding it again here would create a duplicate entry at
+    # the same cell and break the exit-flash rendering (hit this as a
+    # real bug: "cannot unpack non-iterable NoneType" from the flash-
+    # rect diff finding zero differing pixels, since the flash-tinted
+    # T_EXIT tile got shadowed by this duplicate T_STONE one).
+    (6,1,7,T_STONE),                       # Blocking slab, SAME column as the exit cell (6,1,6) - removed by the lever
+]
+
+ROOM12 = dict(
+    label='12',
+    wallcol=dict(lit=7, rock=4, joint=1),
+    crest_fn=_wtop_alien,
+    floor_base=1, floor_speckle=7,
+    slabs_def=room12_slabs_def,
+    style={
+        T_STONE: dict(top_fill=5, top_edge=7, face_l=4, face_r=13, rocky=True),
+    },
+    # one key per climbing cluster (Entry, ShiftLeft, ClimbFinal),
+    # west cell each, y+1 per the pickup-layer quirk.
+    keys=[(2,3,3,14), (2,2,5,14), (2,1,7,14)],
+    exit_bx=6, exit_bz=1, exit_y=6,
+    # spore pods on ClimbRight and the Lever cluster - Fausto liked
+    # the scattered hazards from the last 2 rooms, so kept that
+    # pattern here too. None on ClimbFinal (already carries the alien
+    # ambush) or the exit column (kept simple, plus it already
+    # carries the lever-gated blocker).
+    hazards=[(6, 3, 24, 24), (5, 2, 40, 40)],
+    hazard_art=POD_ART,
+    crumb_units=[],
+    enemy_frames=[ALIEN_A, ALIEN_B],
+    # walk-past ambush on ClimbFinal (bx=2-3,bz=1 -> x-mid 48, z 24) -
+    # same en_axis=1 pattern as Room9/11, same enxmin/enxmax as
+    # Room11 (identical surf=56 -> h+1=57 at this cluster).
+    enxmin=16, enxmax=72, enz=48, ensurf=24, en_axis=1, enemy_color=3,
+    # lever: switch at the Lever cluster's east cell (bx=6,bz=3) -
+    # reached right after Entry, well before the exit is even in
+    # sight, so the player has to remember to have pulled it. Removes
+    # the blocking slab (6,1,y=7) sitting over the exit surface
+    # (6,1,y=6).
+    lever_switch=(6,3), lever_platform=(6,1,7),
+    name="ALIEN KONG BEAST",
+    # bank1 ("Negative BLOCK?") was 14 bytes over budget with this
+    # room's data added - map_label reroutes room_row's map pointer to
+    # a label living in this room's own bg_pattern bank tail instead
+    # (see emit_room's map_out param and main.asm's level_map12).
+    map_label='level_map12',
+)
+
 R1 = render_room(ROOM1)
 R2 = render_room(ROOM2)
 R3 = render_room(ROOM3)
@@ -2022,6 +2237,7 @@ R8 = render_room(ROOM8)
 R9 = render_room(ROOM9)
 R10 = render_room(ROOM10)
 R11 = render_room(ROOM11)
+R12 = render_room(ROOM12)
 
 # Each room's 2-frame enemy sprite table (64B) rides along in the spare
 # tail of its own bg_pattern bank (6144 of 8192 bytes used, ~2KB free)
@@ -2043,6 +2259,27 @@ def _write_room_bg(lab, R):
     open(os.path.join(ROOT,'src',f'bg_pattern{suffix}.bin'),'wb').write(bytes(R['pattern']))
     open(os.path.join(ROOT,'src',f'bg_color{suffix}.bin'),'wb').write(bytes(R['color']))
     open(os.path.join(ROOT,'src',f'enemy_gfx{suffix}.bin'),'wb').write(bytes(R['enemy_bytes']))
+    # lever "after" pixel data (only rooms with a lever_platform have
+    # this) rides in the same bg_pattern bank's spare tail, right
+    # after enemy_gfx - plenty of room there (pattern+enemy_gfx is
+    # only ~6.2KB of the bank's 8KB), and no BANK2R switch is needed
+    # to blit it since it's the room's own already-mapped bank.
+    if R.get('lever_data'):
+        open(os.path.join(ROOT,'src',f'lever_gfx{suffix}.bin'),'wb').write(bytes(R['lever_data']['data']))
+        # lever_tab{suffix}.asm: the switch/map/rect fields + a
+        # pointer to lever_gfx{suffix} - INCLUDEd (not INCBIN'd, since
+        # it references that label) into this SAME room's bg_pattern
+        # bank section in main.asm, right next to lever_gfx. Kept out
+        # of bank1/leveldata.asm on purpose (see room_row's comment) -
+        # only room_state's 2-byte pointer to this table lives there.
+        lv = R['lever_data']
+        lt = [
+            f"lever_tab{suffix}:",
+            f"        db {lv['switch_bx']},{lv['switch_bz']},{lv['map_bx']},{lv['map_bz']},{lv['map_y']},{lv['slabidx']}",
+            f"        db {lv['c0']},{lv['r0']},{lv['c1']},{lv['r1']}",
+            f"        dw lever_gfx{suffix}",
+        ]
+        open(os.path.join(ROOT,'src',f'lever_tab{suffix}.asm'),'w').write("\n".join(lt)+"\n")
 
 _write_room_bg(R1['label'], R1)
 _write_room_bg(R2['label'], R2)
@@ -2055,6 +2292,7 @@ _write_room_bg(R8['label'], R8)
 _write_room_bg(R9['label'], R9)
 _write_room_bg(R10['label'], R10)
 _write_room_bg(R11['label'], R11)
+_write_room_bg(R12['label'], R12)
 
 # keys_gfx/exit_gfx (per-room graphics blobs, like enemy_gfx) ride in
 # the spare tail of that room's own bg_COLOR bank - same rationale as
@@ -2082,6 +2320,7 @@ _write_room_extra_gfx(R8['label'], R8)
 _write_room_extra_gfx(R9['label'], R9)
 _write_room_extra_gfx(R10['label'], R10)
 _write_room_extra_gfx(R11['label'], R11)
+_write_room_extra_gfx(R12['label'], R12)
 
 # lift_gfx.bin: the rising/falling lift platform's sprite art (2
 # halves, 64B) - a single fixed design shared by every room with a
@@ -2145,6 +2384,7 @@ ROOM8_BGBANK, ROOM8_BGCOLBANK = 100, 101
 ROOM9_BGBANK, ROOM9_BGCOLBANK = 102, 103
 ROOM10_BGBANK, ROOM10_BGCOLBANK = 106, 107
 ROOM11_BGBANK, ROOM11_BGCOLBANK = 108, 109
+ROOM12_BGBANK, ROOM12_BGCOLBANK = 110, 111
 CRUMBBANK = 84
 CRUMBBANK2 = 87
 CRUMBBANK3 = 90
@@ -2161,15 +2401,27 @@ CRUMBBANK9B = 105
 # main.asm), so a room's groups can be spread across more than one
 # bank once they don't all fit in a single 8KB one.
 
-def emit_room(R, lines):
+def emit_room(R, lines, map_out=None):
     lab = R['label']
-    lines.append(f"level{lab or 1}_map:")
     flat = []
     for z in range(MAPD):
         for y in range(MAPH):
             flat += R['grid'][z][y]
-    lines.append(db(flat, MAPW))
-    lines.append("")
+    # map_out: Room12 pushed leveldata.asm/bank1 14 bytes over its 8KB
+    # budget ("Negative BLOCK?") - rather than hunt for scraps to trim,
+    # this moves the 384-byte map (the single biggest per-room table)
+    # out to a standalone .bin, INCBIN'd into that room's OWN bg_pattern
+    # bank tail instead (same precedent as enemy_gfx/keys_gfx/exit_gfx/
+    # lever_gfx - room_map_ptr is read via LDIRVM in load_room with no
+    # bank switch in between, so it just needs to live in the SAME
+    # already-mapped page-2 window as those). Frees far more than 14
+    # bytes, leaving real headroom for future rooms too.
+    if map_out is not None:
+        open(map_out, 'wb').write(bytes(flat))
+    else:
+        lines.append(f"level{lab or 1}_map:")
+        lines.append(db(flat, MAPW))
+        lines.append("")
     lines.append(f"keys_tab{lab}:")
     for bx,bz,y,c0,r0 in R['key_rects']:
         lines.append(f"        db {bx},{bz},{y},{c0},{r0}")
@@ -2242,6 +2494,8 @@ emit_room(R10, lines)
 emit_crumb_tab(R10, lines, bank_map={'a': CRUMBBANK})
 emit_room(R11, lines)
 emit_crumb_tab(R11, lines, bank_map={'a': CRUMBBANK})
+emit_room(R12, lines, map_out=os.path.join(ROOT,'src','level_map12.bin'))
+emit_crumb_tab(R12, lines, bank_map={'a': CRUMBBANK})
 
 lines.append("; redefined font, 76 chars from '0' (8 bytes each)")
 _f = open(os.path.join(ROOT,'tools','fonts.c')).read()
@@ -2293,17 +2547,31 @@ lines.append("room10_name:")
 lines.append("        db " + _ds_encode(R10['name']) + ",0")
 lines.append("room11_name:")
 lines.append("        db " + _ds_encode(R11['name']) + ",0")
+lines.append("room12_name:")
+lines.append("        db " + _ds_encode(R12['name']) + ",0")
 lines.append("")
 
-ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx', '11': 'phone_gfx'}
-ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name', '11': 'room11_name'}
+ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx', '11': 'phone_gfx', '12': 'alien_gfx'}
+ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name', '11': 'room11_name', '12': 'room12_name'}
 
 def room_row(R, bgbank, bgcolbank, crumbbank):
     exb16 = R['exit_bx']*16
     ezb16 = R['exit_bz']*16
+    # lever: a SINGLE pointer field (0 = no lever in this room), not
+    # the 10+ discrete fields inline in every room's own row - the
+    # first version did that and blew bank1's 8KB budget by 132 bytes
+    # ("Negative BLOCK?"), since 10+ bytes x 12 rooms in the FIXED,
+    # uniform-stride room_tab adds up fast even for the 11 rooms that
+    # will never use it. The actual lever table (switch/map/rect/
+    # data_ptr) instead lives in lever_tab{label}, emitted into the
+    # room's OWN bg_pattern bank spare tail (see main.asm) - a single
+    # room_state field stays cheap no matter how many future rooms
+    # add their own lever.
+    lever = R.get('lever_data')
+    lever_fields = [f"lever_tab{R['label']}" if lever else 0]
     return [
         bgbank, bgcolbank,
-        f"level{R['label'] or 1}_map", f"keys_tab{R['label']}", len(R['keys']),
+        R.get('map_label') or f"level{R['label'] or 1}_map", f"keys_tab{R['label']}", len(R['keys']),
         f"keys_gfx{R['label']}",
         f"slab_tab{R['label']}", len(R['slabs_sorted']), len(R['crumb_meta']),
         f"crumb_tab{R['label']}", crumbbank,
@@ -2318,12 +2586,12 @@ def room_row(R, bgbank, bgcolbank, crumbbank):
         R.get('lift_ymin', 0), R.get('lift_ymax', 0),
         ROOM_NAME_LABEL[R['label']],
         R.get('crumb_continuous', 0),
-    ]
+    ] + lever_fields
 
 lines.append("; room_tab: one row per room, read into room_state RAM struct")
 lines.append("; via a single ldir at room_start. Field order/sizes MUST match")
 lines.append("; the room_state RESB block in src/main.asm exactly.")
-lines.append("ROOMROWLEN equ 46")
+lines.append("ROOMROWLEN equ 48")
 lines.append("room_tab:")
 for R, bgbank, bgcolbank, crumbbank in (
         (R1, ROOM1_BGBANK, ROOM1_BGCOLBANK, CRUMBBANK),
@@ -2336,7 +2604,8 @@ for R, bgbank, bgcolbank, crumbbank in (
         (R8, ROOM8_BGBANK, ROOM8_BGCOLBANK, CRUMBBANK4),
         (R9, ROOM9_BGBANK, ROOM9_BGCOLBANK, CRUMBBANK9),
         (R10, ROOM10_BGBANK, ROOM10_BGCOLBANK, CRUMBBANK),
-        (R11, ROOM11_BGBANK, ROOM11_BGCOLBANK, CRUMBBANK)):
+        (R11, ROOM11_BGBANK, ROOM11_BGCOLBANK, CRUMBBANK),
+        (R12, ROOM12_BGBANK, ROOM12_BGCOLBANK, CRUMBBANK)):
     f = room_row(R, bgbank, bgcolbank, crumbbank)
     lines.append(f"        db {f[0]},{f[1]}")
     lines.append(f"        dw {f[2]}")
@@ -2360,6 +2629,7 @@ for R, bgbank, bgcolbank, crumbbank in (
     lines.append(f"        db {f[30]},{f[31]},{f[32]},{f[33]}")
     lines.append(f"        dw {f[34]}")
     lines.append(f"        db {f[35]}")
+    lines.append(f"        dw {f[36]}")
 lines.append("")
 
 # gfx_sprites lives in bank0's own spare space (INCBIN'd directly in
@@ -2402,6 +2672,7 @@ save_preview(R8, os.path.join(ROOT,'build','preview9.png'), spawn_wx=24, spawn_w
 save_preview(R9, os.path.join(ROOT,'build','preview10.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R10, os.path.join(ROOT,'build','preview11.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R11, os.path.join(ROOT,'build','preview12.png'), spawn_wx=24, spawn_wz=72)
+save_preview(R12, os.path.join(ROOT,'build','preview13.png'), spawn_wx=24, spawn_wz=72)
 
 print(f"OK room1 color-fixes:{R1['fixes']} keys:{R1['key_rects']}")
 print(f"OK room2 color-fixes:{R2['fixes']} keys:{R2['key_rects']}")
@@ -2414,3 +2685,4 @@ print(f"OK room8 color-fixes:{R8['fixes']} keys:{R8['key_rects']}")
 print(f"OK room9 color-fixes:{R9['fixes']} keys:{R9['key_rects']}")
 print(f"OK room10 color-fixes:{R10['fixes']} keys:{R10['key_rects']}")
 print(f"OK room11 color-fixes:{R11['fixes']} keys:{R11['key_rects']}")
+print(f"OK room12 color-fixes:{R12['fixes']} keys:{R12['key_rects']}")

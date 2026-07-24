@@ -268,6 +268,9 @@ scb_cnt:    RESB 1      ; scrolling banner: blit tile-column counter
 won_t:      RESB 1      ; frames spent in the post-exit victory blink
 dbg_bit:    RESB 1      ; debug_room_key scratch
 current_room: RESB 1    ; 0=Central Cavern, 1=The Cold Room, ...
+lever_pulled: RESB 1    ; 0=not yet, 1=switch touched this room-load -
+                        ; zeroed by room_start's bulk RAM clear, same
+                        ; as every other room-transient flag
 ; --- room_state: bulk-loaded from room_tab (leveldata.asm) by a single
 ; ldir in room_start. Field order/sizes MUST match room_tab's rows. ---
 room_state:
@@ -328,8 +331,29 @@ room_crumb_continuous: RESB 1  ; 0=touch-based degrade (original,
                         ; (Room9): standing still keeps degrading every
                         ; CRUMB_DWELL frames until destroyed - see
                         ; cr_dwell_t.
+; --- lever: a switch cell that INSTANTLY removes one specific slab
+; (e.g. a platform covering the exit) when touched once - see
+; lever_check/lever_pull. Deliberately separate from the crumb_units/
+; cell_at/degrade_cell machinery (which is scanned every frame by
+; position - reusing it here would let simply STANDING on the
+; covered slab silently start degrading it via the ordinary touch-
+; crumble path, before the switch is ever touched). 0FFh switch_bx =
+; no lever in this room (every field after it is then unread). ---
+room_lever_ptr:       RESB 2  ; 0 = no lever in this room, else points
+                        ; at a small lever_tab{N} record living in
+                        ; this room's OWN bg_pattern bank spare tail
+                        ; (NOT bank1/leveldata.asm - putting the 10+
+                        ; lever fields inline in every room's own
+                        ; fixed-stride row blew bank1's 8KB budget by
+                        ; 132 bytes the first time this was tried,
+                        ; "Negative BLOCK?"; a single 2-byte pointer
+                        ; costs nothing for the 11 rooms that don't
+                        ; use it). Record layout (10 bytes + dw):
+                        ; switch_bx,switch_bz,map_bx,map_bz,map_y,
+                        ; slabidx,c0,r0,c1,r1,dw data_ptr - see
+                        ; lever_check/lever_pull for how it's read.
 room_state_end:
-NROOMS equ 11
+NROOMS equ 12
 ram_end:
 
 ram_map     equ 0C100h  ; 6*8*8 = 384 bytes  (index = z*64+y*8+x)
@@ -791,6 +815,7 @@ main_loop:
         call sam_update
         call enemy_update
         call hazard_check
+        call lever_check
         call exit_check
         call air_update
         call sam_draw
@@ -1462,8 +1487,107 @@ hazard_check:
         ret
 
 ; ------------------------------------------------------------
-; exit_check: standing on top of the exit cube with all keys
-; -> level complete (only reachable by jumping in from above)
+; lever_check: Sam's feet cell matches the room's switch cell and the
+; lever hasn't been pulled yet -> pull it (instant, one-shot)
+; ------------------------------------------------------------
+lever_check:
+        ld  hl,(room_lever_ptr)
+        ld  a,h
+        or  l
+        ret z               ; 0 = no lever in this room
+        ld  a,(lever_pulled)
+        or  a
+        ret nz              ; already pulled
+        ld  a,(sam_wx)
+        srl a
+        srl a
+        srl a
+        srl a
+        ld  b,a
+        ld  a,(hl)          ; record+0 = switch_bx
+        cp  b
+        ret nz
+        inc hl
+        ld  a,(sam_wz)
+        srl a
+        srl a
+        srl a
+        srl a
+        ld  b,a
+        ld  a,(hl)          ; record+1 = switch_bz
+        cp  b
+        ret nz
+        ; fall through to lever_pull - it re-derives everything from
+        ; room_lever_ptr itself, so hl's position here doesn't matter
+; ------------------------------------------------------------
+; lever_pull: mark pulled, clear the covered slab's map cell + mask
+; entry, and blit its pre-rendered "gone" pixels straight from this
+; room's own bg_pattern bank spare tail (already mapped - no BANK2R
+; switch needed, unlike crumbling's dedicated per-room crumble bank).
+; Record layout (see lever_tab{N} in tools/gen_iso.py): +0 switch_bx,
+; +1 switch_bz, +2 map_bx, +3 map_bz, +4 map_y, +5 slabidx, +6 c0,
+; +7 r0, +8 c1, +9 r1, +10 dw data_ptr.
+; ------------------------------------------------------------
+lever_pull:
+        ld  a,1
+        ld  (lever_pulled),a
+        ld  hl,(room_lever_ptr)
+        ld  de,2
+        add hl,de           ; +2 map_bx
+        ld  a,(hl)
+        ld  b,a
+        inc hl              ; +3 map_bz
+        ld  a,(hl)
+        ld  e,a             ; stash map_bz
+        inc hl              ; +4 map_y
+        ld  a,(hl)
+        ld  c,a
+        ld  d,e             ; d = map_bz, b = map_bx, c = map_y
+        push hl
+        call map_addr
+        ld  (hl),0
+        pop hl              ; hl = +4 (map_y) again
+        inc hl              ; +5 slabidx
+        ld  a,(hl)
+        cp  0FFh
+        jr  z,.nomask
+        ld  e,a
+        ld  d,0
+        push hl
+        ld  hl,slabdis
+        add hl,de
+        ld  (hl),1
+        pop hl              ; hl = +5 (slabidx) again
+.nomask:
+        inc hl              ; +6 c0
+        ld  a,(hl)
+        ld  (cb_c0),a
+        inc hl              ; +7 r0
+        ld  a,(hl)
+        ld  (cb_r0),a
+        inc hl              ; +8 c1
+        ld  a,(hl)
+        ld  (cb_c1),a
+        inc hl              ; +9 r1
+        ld  a,(hl)
+        ld  (cb_r1),a
+        inc hl              ; +10 data_ptr lo
+        ld  a,(hl)
+        inc hl              ; +11 data_ptr hi
+        ld  h,(hl)
+        ld  l,a
+        ld  (cb_src),hl
+        call crumb_blit
+        ; crumb_blit's redraw rect is computed from the keyless base
+        ; image, so it can incidentally overwrite a still-uncollected
+        ; pickup that happens to overlap it - put any such pickup back
+        call key_draw_all
+        ret
+
+; ------------------------------------------------------------
+; exit_check: standing on top of the exit cube with all keys (and,
+; if this room has one, the lever pulled) -> level complete (only
+; reachable by jumping in from above)
 ; ------------------------------------------------------------
 exit_check:
         ld  a,(room_nkeys)
@@ -1471,6 +1595,14 @@ exit_check:
         ld  a,(keys_got)
         cp  b
         ret c               ; keys_got < room_nkeys -> not enough yet
+        ld  hl,(room_lever_ptr)
+        ld  a,h
+        or  l
+        jr  z,.nolever      ; 0 = no lever in this room
+        ld  a,(lever_pulled)
+        or  a
+        ret z               ; lever not pulled yet - exit stays covered
+.nolever:
         ld  hl,(sam_vy)
         ld  a,h
         or  l
@@ -4886,11 +5018,47 @@ exit_gfx11_1:
         INCBIN "src/exit_gfx11_1.bin"
         BLOCK 0C000h-$,0FFh
 
+; ============================================================
+;  BANKS 110-111: room 12 (Alien Kong Beast) pre-rendered background.
+;  Bank numbers must match ROOM12_BGBANK/ROOM12_BGCOLBANK in
+;  tools/gen_iso.py. Room 12 has no crumbling platforms, so there is
+;  no dedicated crumb bank for it (room_tab reuses CRUMBBANK). Its
+;  lever "after" pixel data rides in this bank's own spare tail too,
+;  right after enemy_gfx - no BANK2R switch needed to blit it.
+; ============================================================
+ROOM12_BGBANK    equ 110
+ROOM12_BGCOLBANK equ 111
+        ORG 08000h
+        INCBIN "src/bg_pattern12.bin"
+alien_gfx:
+        INCBIN "src/enemy_gfx12.bin"
+lever_gfx12:
+        INCBIN "src/lever_gfx12.bin"
+        INCLUDE "src/lever_tab12.asm"
+        ; level_map12: moved out of leveldata.asm/bank1 (which Room12
+        ; pushed 14 bytes over its 8KB budget, "Negative BLOCK?") into
+        ; this room's own bg_pattern bank tail instead - safe because
+        ; load_room's map copy (ld hl,(room_map_ptr)) runs right after
+        ; the enemy_gfx copy with no bank switch in between, so it just
+        ; needs to live in this same already-mapped page-2 window.
+level_map12:
+        INCBIN "src/level_map12.bin"
+        BLOCK 0A000h-$,0FFh
+        ORG 0A000h
+        INCBIN "src/bg_color12.bin"
+keys_gfx12:
+        INCBIN "src/keys_gfx12.bin"
+exit_gfx12_0:
+        INCBIN "src/exit_gfx12_0.bin"
+exit_gfx12_1:
+        INCBIN "src/exit_gfx12_1.bin"
+        BLOCK 0C000h-$,0FFh
+
         ; pad the ROM back out to a full 1MB (128 x 8KB banks) - openMSX's
         ; ascii8 mapper expects a power-of-two file size; a short file
         ; (as left by just rounding up to the next bank) fails to boot
         ; at all (falls through to plain MSX BASIC). Measured then
         ; computed exactly (1048576 - actual size before this BLOCK),
-        ; not guessed by hand. 110 banks now used (0-109), so 18 banks
-        ; (110-127) remain: 18*8192 = 147456.
-        BLOCK 147456,0FFh
+        ; not guessed by hand. 112 banks now used (0-111), so 16 banks
+        ; (112-127) remain: 16*8192 = 131072.
+        BLOCK 131072,0FFh

@@ -912,6 +912,34 @@ hazards_tab11:
 ;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2, bank
 crumb_tab11:
 
+keys_tab12:
+        db 2,3,3,12,9
+        db 2,2,5,14,6
+        db 2,1,7,16,3
+
+slab_tab12:
+        db 137,97,144,24,5
+        db 121,89,128,24,5
+        db 153,73,128,40,5
+        db 137,65,112,40,5
+        db 169,41,112,64,5
+        db 169,49,112,56,7
+        db 89,73,96,24,5
+        db 153,41,96,56,5
+        db 73,65,80,24,5
+        db 105,49,80,40,5
+        db 89,41,64,40,5
+        db 121,25,64,56,5
+        db 105,17,48,56,5
+
+hazards_tab12:
+        db 6,3,24,34
+        db 5,2,40,50
+
+; crumb_tab12 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
+;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2, bank
+crumb_tab12:
+
 ; redefined font, 76 chars from '0' (8 bytes each)
 fonts_tab:
         db 00Eh,019h,031h,031h,031h,033h,03Fh,01Eh,006h,00Eh,03Ch,00Ch,008h,018h,038h,038h
@@ -976,11 +1004,13 @@ room10_name:
         db 84,72,69,32,69,78,68,79,82,73,65,78,32,70,79,82,69,83,84,0
 room11_name:
         db 77,85,84,65,78,84,32,84,69,76,69,80,72,79,78,69,83,0
+room12_name:
+        db 65,76,73,69,78,32,75,79,78,71,32,66,69,65,83,84,0
 
 ; room_tab: one row per room, read into room_state RAM struct
 ; via a single ldir at room_start. Field order/sizes MUST match
 ; the room_state RESB block in src/main.asm exactly.
-ROOMROWLEN equ 46
+ROOMROWLEN equ 48
 room_tab:
         db 2,3
         dw level1_map
@@ -1004,6 +1034,7 @@ room_tab:
         db 255,0,0,0
         dw room1_name
         db 0
+        dw 0
         db 85,86
         dw level2_map
         dw keys_tab2
@@ -1026,6 +1057,7 @@ room_tab:
         db 255,0,0,0
         dw room2_name
         db 0
+        dw 0
         db 88,89
         dw level3_map
         dw keys_tab3
@@ -1048,6 +1080,7 @@ room_tab:
         db 255,0,0,0
         dw room3_name
         db 0
+        dw 0
         db 91,92
         dw level4_map
         dw keys_tab4
@@ -1070,6 +1103,7 @@ room_tab:
         db 255,0,0,0
         dw room4_name
         db 0
+        dw 0
         db 93,94
         dw level5_map
         dw keys_tab5
@@ -1092,6 +1126,7 @@ room_tab:
         db 255,0,0,0
         dw room5_name
         db 0
+        dw 0
         db 95,96
         dw level6_map
         dw keys_tab6
@@ -1114,6 +1149,7 @@ room_tab:
         db 255,0,0,0
         dw room6_name
         db 0
+        dw 0
         db 97,98
         dw level7_map
         dw keys_tab7
@@ -1136,6 +1172,7 @@ room_tab:
         db 255,0,0,0
         dw room7_name
         db 0
+        dw 0
         db 100,101
         dw level8_map
         dw keys_tab8
@@ -1158,6 +1195,7 @@ room_tab:
         db 72,56,8,72
         dw room8_name
         db 0
+        dw 0
         db 102,103
         dw level9_map
         dw keys_tab9
@@ -1180,6 +1218,7 @@ room_tab:
         db 255,0,0,0
         dw room9_name
         db 1
+        dw 0
         db 106,107
         dw level10_map
         dw keys_tab10
@@ -1202,6 +1241,7 @@ room_tab:
         db 255,0,0,0
         dw room10_name
         db 0
+        dw 0
         db 108,109
         dw level11_map
         dw keys_tab11
@@ -1224,4 +1264,28 @@ room_tab:
         db 255,0,0,0
         dw room11_name
         db 0
+        dw 0
+        db 110,111
+        dw level_map12
+        dw keys_tab12
+        db 3
+        dw keys_gfx12
+        dw slab_tab12
+        db 13
+        db 0
+        dw crumb_tab12
+        db 84
+        dw hazards_tab12
+        db 2
+        db 96,16,56
+        db 23,8,2,32
+        dw exit_gfx12_0
+        dw exit_gfx12_1
+        dw alien_gfx
+        db 3
+        db 16,72,48,24,1,0
+        db 255,0,0,0
+        dw room12_name
+        db 0
+        dw lever_tab12
 
