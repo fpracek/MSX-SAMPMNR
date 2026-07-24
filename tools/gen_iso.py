@@ -563,6 +563,9 @@ def render_room(spec):
             draw_slab(bx, bz, y, half=(st == 1), **style)
         for bx,bz,surf,*_ in spec['hazards']:
             draw_hazard(bx, bz, surf, spec['hazard_art'])
+        if spec.get('lever_switch'):
+            _sw_bx, _sw_bz = spec['lever_switch']
+            draw_hazard(_sw_bx, _sw_bz, spec['lever_switch_surf'], LEVER_ART)
         return img
 
     img = [[1]*W for _ in range(H)]
@@ -582,6 +585,17 @@ def render_room(spec):
                     slab_surf[_yy][_xx] = _s
     for bx,bz,surf,*_ in spec['hazards']:
         draw_hazard(bx, bz, surf, spec['hazard_art'])
+    # lever_switch: a purely decorative prop marking where to pull the
+    # lever (Fausto: "non vedo la leva" - the switch had no visual at
+    # all, only a collision check in main.asm's lever_check). Drawn
+    # directly here (and in compose(), so lever_platform's before/after
+    # diff-rect isn't thrown off by its presence) rather than folded
+    # into spec['hazards'], since it must NOT be lethal like a real
+    # hazard - it's keyed off room_lever_ptr/lever_check, not
+    # hazards_tab/hazard_check.
+    if spec.get('lever_switch'):
+        _sw_bx, _sw_bz = spec['lever_switch']
+        draw_hazard(_sw_bx, _sw_bz, spec['lever_switch_surf'], LEVER_ART)
 
     cover = [[0]*MAPW for _ in range(MAPD)]
     for bz in range(MAPD):
@@ -2149,6 +2163,18 @@ def _pod_art():
     ]
 POD_ART = _pod_art()
 
+# lever/switch prop - a bold red handle (contiguous with its white
+# base plate, no thin isolated gaps - see the "bear trap" dilation
+# lesson) so it reads clearly as a switch, not a hazard.
+LEVER_ART = [
+    _art_row(16, (9,12,'8')),
+    _art_row(16, (8,11,'8')),
+    _art_row(16, (7,10,'8'), (3,7,'F')),
+    _art_row(16, (6,9,'8'), (3,8,'F')),
+    _art_row(16, (3,9,'F')),
+    _art_row(16, (3,9,'F')),
+]
+
 # Fausto: new room "Alien KONG BEAST", asked for a lever mechanic -
 # "al cambio della leva deve sparire la piattaforma che verra' messa
 # sopra quella del portale che fa uscire dal livello... bisogna sia
@@ -2171,7 +2197,7 @@ POD_ART = _pod_art()
 # column.
 room12_slabs_def = [
     (2,3,2,T_STONE), (3,3,2,T_STONE),      # Entry
-    (5,3,2,T_STONE), (6,3,2,T_STONE),      # Lever cluster (gap at bx=4) - switch at bx=6
+    (5,3,2,T_STONE), (6,3,2,T_STONE),      # Lever cluster (gap at bx=4) - switch at bx=5
     (5,2,4,T_STONE), (6,2,4,T_STONE),      # ClimbRight (climb from Lever cluster)
     (2,2,4,T_STONE), (3,2,4,T_STONE),      # ShiftLeft (gap at bx=4, sideways from ClimbRight)
     (2,1,6,T_STONE), (3,1,6,T_STONE),      # ClimbFinal (climb from ShiftLeft) - alien ambush
@@ -2212,12 +2238,16 @@ ROOM12 = dict(
     # same en_axis=1 pattern as Room9/11, same enxmin/enxmax as
     # Room11 (identical surf=56 -> h+1=57 at this cluster).
     enxmin=16, enxmax=72, enz=48, ensurf=24, en_axis=1, enemy_color=3,
-    # lever: switch at the Lever cluster's east cell (bx=6,bz=3) -
+    # lever: switch at the Lever cluster's WEST cell (bx=5,bz=3) -
     # reached right after Entry, well before the exit is even in
     # sight, so the player has to remember to have pulled it. Removes
     # the blocking slab (6,1,y=7) sitting over the exit surface
     # (6,1,y=6).
-    lever_switch=(6,3), lever_platform=(6,1,7),
+    # NOTE: the east cell (bx=6,bz=3) carries the first spore-pod
+    # hazard (see hazards above) - real bug hit: the switch was
+    # originally placed AT (6,3) too, the same cell as that hazard,
+    # making it lethal/impossible to reach. West cell is clear.
+    lever_switch=(5,3), lever_switch_surf=24, lever_platform=(6,1,7),
     name="ALIEN KONG BEAST",
     # bank1 ("Negative BLOCK?") was 14 bytes over budget with this
     # room's data added - map_label reroutes room_row's map pointer to

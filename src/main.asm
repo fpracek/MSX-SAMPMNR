@@ -3190,12 +3190,27 @@ sam_draw:
 
 ; ------------------------------------------------------------
 ; door_fx: blink the exit cube (bright/normal) when all keys held
+; (and, if this room has a lever, only once it's been pulled too - the
+; exit_gfx0/1 frames themselves are baked showing the lever's blocking
+; slab already gone, per render_room's _exit_base_img/lever_platform
+; comment, so blinking them in early would visually pop that slab out
+; of existence the moment keys hit 3, before the lever's really been
+; pulled - a real bug Fausto reported: "la pietra sopra sparisce...
+; senza uso di alcuna leva").
 door_fx:
         ld  a,(room_nkeys)
         ld  b,a
         ld  a,(keys_got)
         cp  b
         ret c
+        ld  hl,(room_lever_ptr)
+        ld  a,h
+        or  l
+        jr  z,.nolever2
+        ld  a,(lever_pulled)
+        or  a
+        ret z
+.nolever2:
         ld  a,(frame)
         and 16
         ld  hl,ex_st
