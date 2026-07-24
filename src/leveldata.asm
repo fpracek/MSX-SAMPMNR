@@ -755,56 +755,6 @@ crumb_tab9:
         db 8,255
         db 105
 
-level10_map:
-        db 001h,001h,001h,001h,001h,001h,001h,001h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 001h,001h,001h,001h,001h,001h,001h,001h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,001h,000h,000h,001h,000h,000h
-        db 000h,000h,000h,000h,000h,004h,001h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 001h,001h,001h,001h,001h,001h,001h,001h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,002h,002h,002h,002h,000h,000h
-        db 000h,000h,004h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 001h,001h,001h,001h,001h,001h,001h,001h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,001h,001h,001h,001h,000h,000h
-        db 000h,000h,004h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 001h,001h,001h,001h,001h,001h,001h,001h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 001h,001h,001h,001h,001h,001h,001h,001h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-        db 000h,000h,000h,000h,000h,000h,000h,000h
-
 keys_tab10:
         db 2,3,3,12,9
         db 2,2,3,14,8
@@ -1048,7 +998,7 @@ room13_name:
 ; room_tab: one row per room, read into room_state RAM struct
 ; via a single ldir at room_start. Field order/sizes MUST match
 ; the room_state RESB block in src/main.asm exactly.
-ROOMROWLEN equ 48
+ROOMROWLEN equ 50
 room_tab:
         db 2,3
         dw level1_map
@@ -1073,6 +1023,7 @@ room_tab:
         dw room1_name
         db 0
         dw 0
+        dw 0
         db 85,86
         dw level2_map
         dw keys_tab2
@@ -1095,6 +1046,7 @@ room_tab:
         db 255,0,0,0
         dw room2_name
         db 0
+        dw 0
         dw 0
         db 88,89
         dw level3_map
@@ -1119,6 +1071,7 @@ room_tab:
         dw room3_name
         db 0
         dw 0
+        dw 0
         db 91,92
         dw level4_map
         dw keys_tab4
@@ -1141,6 +1094,7 @@ room_tab:
         db 255,0,0,0
         dw room4_name
         db 0
+        dw 0
         dw 0
         db 93,94
         dw level5_map
@@ -1165,6 +1119,7 @@ room_tab:
         dw room5_name
         db 0
         dw 0
+        dw 0
         db 95,96
         dw level6_map
         dw keys_tab6
@@ -1187,6 +1142,7 @@ room_tab:
         db 255,0,0,0
         dw room6_name
         db 0
+        dw 0
         dw 0
         db 97,98
         dw level7_map
@@ -1211,6 +1167,7 @@ room_tab:
         dw room7_name
         db 0
         dw 0
+        dw 0
         db 100,101
         dw level8_map
         dw keys_tab8
@@ -1233,6 +1190,7 @@ room_tab:
         db 72,56,8,72
         dw room8_name
         db 0
+        dw 0
         dw 0
         db 102,103
         dw level9_map
@@ -1257,8 +1215,9 @@ room_tab:
         dw room9_name
         db 1
         dw 0
+        dw 0
         db 106,107
-        dw level10_map
+        dw level_map10
         dw keys_tab10
         db 3
         dw keys_gfx10
@@ -1279,6 +1238,7 @@ room_tab:
         db 255,0,0,0
         dw room10_name
         db 0
+        dw 0
         dw 0
         db 108,109
         dw level11_map
@@ -1303,6 +1263,7 @@ room_tab:
         dw room11_name
         db 0
         dw 0
+        dw 0
         db 110,111
         dw level_map12
         dw keys_tab12
@@ -1326,6 +1287,7 @@ room_tab:
         dw room12_name
         db 0
         dw lever_tab12
+        dw 0
         db 112,113
         dw level_map13
         dw keys_tab13
@@ -1349,4 +1311,5 @@ room_tab:
         dw room13_name
         db 0
         dw 0
+        dw enemy2_tab13
 

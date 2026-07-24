@@ -745,6 +745,10 @@ def render_room(spec):
     # enemy sprite (2 frames, 16x16 silhouette)
     enemy_bytes = pack_sprite_frames(spec['enemy_frames'])
 
+    # 2nd enemy (optional, mirrored-pair only - see room_enemy2_ptr in
+    # main.asm): its own 2-frame sprite, packed the same way.
+    enemy2_bytes = pack_sprite_frames(spec['enemy2_frames']) if spec.get('enemy2_frames') else None
+
     # lever: a switch cell that INSTANTLY removes one specific slab
     # (typically one covering the exit) when Sam touches it, gated on
     # exit_check separately from the key count. Deliberately NOT built
@@ -821,6 +825,10 @@ def render_room(spec):
         exit_gfx=exit_gfx, EXC0=EXC0, EXR0=EXR0, EXNROW=EXNROW, EXW=EXW,
         cover=cover, enemy_bytes=enemy_bytes, base_img=base_img,
         lever_data=lever_data,
+        enemy2_bytes=enemy2_bytes,
+        en2xmin=spec.get('en2xmin', 0), en2xmax=spec.get('en2xmax', 0),
+        en2z=spec.get('en2z', 0), en2surf=spec.get('en2surf', 0),
+        en2_centerx=spec.get('en2_centerx', 0), enemy2_color=spec.get('enemy2_color', 0),
         exit_bx=EXIT_BX, exit_bz=EXIT_BZ, exit_y=EXIT_Y,
         name=spec['name'], enxmin=spec['enxmin'], enxmax=spec['enxmax'],
         enz=spec['enz'], ensurf=spec['ensurf'], enemy_color=spec['enemy_color'],
@@ -1966,6 +1974,12 @@ ROOM10 = dict(
     # difficulty without stacking a 3rd hazard on the same tier.
     enxmin=32, enxmax=88, enz=40, ensurf=24, enemy_color=7,
     name="THE ENDORIAN FOREST",
+    # bank1 overflow again ("Negative BLOCK?") - Room13's 2nd-enemy
+    # pointer field grew ROOMROWLEN by 2 bytes x 13 rooms, enough to
+    # tip bank1 over again. Same fix, applied to this room this time
+    # (arbitrary choice - any one room's relocation covers it):
+    # relocate its map out to its own bg_pattern bank tail.
+    map_label='level_map10',
 )
 
 def _wtop_wires(u):
@@ -2417,6 +2431,14 @@ ROOM13 = dict(
     # it back over budget, same as Room12. Same fix: relocate the
     # 384-byte map out to this room's own bg_pattern bank tail.
     map_label='level_map13',
+    # 2nd pair of roaming carts, per Fausto's follow-up request for
+    # more enemies - same back wall row (bz=0/world z=8) as the first
+    # pair (still fully hazarded, safe path never crosses it), just a
+    # smaller gap so the two pairs overlap/interleave rather than
+    # simply doubling up in lockstep. Different color (11, light
+    # yellow) so all 4 carts stay visually distinguishable as 2 pairs.
+    enemy2_frames=[CART_A, CART_B],
+    en2xmin=8, en2xmax=32, en2z=8, en2surf=8, en2_centerx=64, enemy2_color=11,
 )
 
 R1 = render_room(ROOM1)
@@ -2474,6 +2496,20 @@ def _write_room_bg(lab, R):
             f"        dw lever_gfx{suffix}",
         ]
         open(os.path.join(ROOT,'src',f'lever_tab{suffix}.asm'),'w').write("\n".join(lt)+"\n")
+    # 2nd enemy (optional, mirrored-pair only): same "own bank tail +
+    # single room_state pointer" trick as lever, since only one room
+    # uses this so far and a flat per-room field set would cost every
+    # room. Table is dw gfx_ptr + 6 config bytes (xmin,xmax,z,surf,
+    # centerx,color) - room_start copies those 6 into fixed RAM fields
+    # once per room load (see room_en2xmin etc. in main.asm).
+    if R.get('enemy2_bytes'):
+        open(os.path.join(ROOT,'src',f'enemy2_gfx{suffix}.bin'),'wb').write(bytes(R['enemy2_bytes']))
+        e2t = [
+            f"enemy2_tab{suffix}:",
+            f"        dw enemy2_gfx{suffix}",
+            f"        db {R['en2xmin']},{R['en2xmax']},{R['en2z']},{R['en2surf']},{R['en2_centerx']},{R['enemy2_color']}",
+        ]
+        open(os.path.join(ROOT,'src',f'enemy2_tab{suffix}.asm'),'w').write("\n".join(e2t)+"\n")
 
 _write_room_bg(R1['label'], R1)
 _write_room_bg(R2['label'], R2)
@@ -2687,7 +2723,7 @@ emit_room(R8, lines)
 emit_crumb_tab(R8, lines, bank_map={'a': CRUMBBANK4})
 emit_room(R9, lines)
 emit_crumb_tab(R9, lines, bank_map={'a': CRUMBBANK9, 'b': CRUMBBANK9B})
-emit_room(R10, lines)
+emit_room(R10, lines, map_out=os.path.join(ROOT,'src','level_map10.bin'))
 emit_crumb_tab(R10, lines, bank_map={'a': CRUMBBANK})
 emit_room(R11, lines)
 emit_crumb_tab(R11, lines, bank_map={'a': CRUMBBANK})
@@ -2770,6 +2806,11 @@ def room_row(R, bgbank, bgcolbank, crumbbank):
     # add their own lever.
     lever = R.get('lever_data')
     lever_fields = [f"lever_tab{R['label']}" if lever else 0]
+    # 2nd enemy (optional, mirrored-pair only): same single-pointer-
+    # into-the-room's-own-bank-tail trick as lever, for the same reason
+    # (only Room13 uses this so far - a flat per-room field set would
+    # cost every other room too).
+    enemy2_fields = [f"enemy2_tab{R['label']}" if R.get('enemy2_bytes') else 0]
     return [
         bgbank, bgcolbank,
         R.get('map_label') or f"level{R['label'] or 1}_map", f"keys_tab{R['label']}", len(R['keys']),
@@ -2787,12 +2828,12 @@ def room_row(R, bgbank, bgcolbank, crumbbank):
         R.get('lift_ymin', 0), R.get('lift_ymax', 0),
         ROOM_NAME_LABEL[R['label']],
         R.get('crumb_continuous', 0),
-    ] + lever_fields
+    ] + lever_fields + enemy2_fields
 
 lines.append("; room_tab: one row per room, read into room_state RAM struct")
 lines.append("; via a single ldir at room_start. Field order/sizes MUST match")
 lines.append("; the room_state RESB block in src/main.asm exactly.")
-lines.append("ROOMROWLEN equ 48")
+lines.append("ROOMROWLEN equ 50")
 lines.append("room_tab:")
 for R, bgbank, bgcolbank, crumbbank in (
         (R1, ROOM1_BGBANK, ROOM1_BGCOLBANK, CRUMBBANK),
@@ -2832,6 +2873,7 @@ for R, bgbank, bgcolbank, crumbbank in (
     lines.append(f"        dw {f[34]}")
     lines.append(f"        db {f[35]}")
     lines.append(f"        dw {f[36]}")
+    lines.append(f"        dw {f[37]}")
 lines.append("")
 
 # gfx_sprites lives in bank0's own spare space (INCBIN'd directly in

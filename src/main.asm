@@ -206,6 +206,26 @@ slabdis:    RESB 12     ; per-slab mask disable flags
 en_x:       RESB 1      ; enemy world x
 en_dir:     RESB 1      ; 0=+x 1=-x
 en_anim:    RESB 1
+; ---- 2nd enemy (optional, mirrored-pair only - Fausto asked for more
+; roaming enemies in Room13, reusing the en_axis=2 mechanic a 2nd time
+; rather than adding a general N-enemy engine). room_enemy2_ptr (in
+; room_state) is 0 for every room without one; when non-zero it points
+; at a small enemy2_tab{N} record (dw gfx_ptr, db xmin,xmax,z,surf,
+; centerx,color - 8 bytes) living in that room's OWN bg_pattern bank
+; tail, same relocation reasoning as lever_tab/level_map. room_start
+; copies its 6 scalar bytes into the fixed RAM fields below once per
+; room load (gated on the pointer), so enemy2_update/sam_draw read
+; plain fixed addresses exactly like the first enemy's room_en* fields
+; - no per-frame ROM indirection needed. ----
+en2_x:      RESB 1
+en2_dir:    RESB 1
+en2_anim:   RESB 1
+room_en2xmin:      RESB 1
+room_en2xmax:      RESB 1
+room_en2z:         RESB 1
+room_en2surf:      RESB 1
+room_en2_centerx:  RESB 1
+room_enemy2_color: RESB 1
 lift_h:     RESB 1      ; current lift surface height (bounces between
                         ; room_lift_ymin/ymax)
 lift_dir:   RESB 1      ; 0=rising(+) 1=falling(-)
@@ -352,6 +372,9 @@ room_lever_ptr:       RESB 2  ; 0 = no lever in this room, else points
                         ; switch_bx,switch_bz,map_bx,map_bz,map_y,
                         ; slabidx,c0,r0,c1,r1,dw data_ptr - see
                         ; lever_check/lever_pull for how it's read.
+room_enemy2_ptr:      RESB 2  ; 0 = no 2nd enemy in this room, else
+                        ; points at enemy2_tab{N} (see en2_x above) in
+                        ; this room's own bg_pattern bank spare tail.
 room_state_end:
 NROOMS equ 13
 ram_end:
@@ -599,6 +622,21 @@ room_start:
         ld  (BANK2R),a
         ld  a,(room_bgcol_bank)
         ld  (BANK3R),a
+        ; 2nd enemy (optional): copy enemy2_tab's 6 scalar bytes (skip
+        ; its leading dw gfx_ptr, read separately by load_room) into
+        ; the fixed RAM fields enemy2_update/sam_draw actually use -
+        ; safe to dereference now since BANK2R above already points at
+        ; this room's own bg_pattern bank, where the table lives.
+        ld  hl,(room_enemy2_ptr)
+        ld  a,h
+        or  l
+        jr  z,.noenemy2setup
+        inc hl
+        inc hl
+        ld  de,room_en2xmin
+        ld  bc,6
+        ldir
+.noenemy2setup:
         ld  a,(room_enxmin)
         ld  (en_x),a
         ld  a,(room_lift_ymin)
@@ -814,6 +852,7 @@ main_loop:
         call lift_update
         call sam_update
         call enemy_update
+        call enemy2_update
         call hazard_check
         call lever_check
         call exit_check
@@ -890,6 +929,23 @@ load_room:
         ld  de,VR_SPRP+8*8
         ld  bc,64
         call LDIRVM
+
+        ; 2nd enemy (optional): 2 frames at sprite patterns 16/20 - its
+        ; gfx pointer is the enemy2_tab record's own leading dw (see
+        ; room_enemy2_ptr above), read directly here since BANK2R is
+        ; already this room's own bg_pattern bank.
+        ld  hl,(room_enemy2_ptr)
+        ld  a,h
+        or  l
+        jr  z,.noenemy2gfx
+        ld  e,(hl)
+        inc hl
+        ld  d,(hl)
+        ex  de,hl
+        ld  de,VR_SPRP+16*8
+        ld  bc,64
+        call LDIRVM
+.noenemy2gfx:
 
         ; map ROM -> RAM
         ld  hl,(room_map_ptr)
@@ -2790,6 +2846,107 @@ enemy_update:
         jp  sam_die
 
 ; ------------------------------------------------------------
+; enemy2_update: 2nd roaming enemy, mirrored-pair only (see
+; room_enemy2_ptr) - a straight copy of enemy_update's .mirror/.mcheck
+; above, reading the room_en2*/en2_* fields instead. Duplicated rather
+; than parametrized, matching how .vertical/.mirror already duplicate
+; the base patrol logic in enemy_update itself.
+; ------------------------------------------------------------
+enemy2_update:
+        ld  hl,(room_enemy2_ptr)
+        ld  a,h
+        or  l
+        ret z               ; no 2nd enemy in this room
+        ld  a,(frame)
+        and 1
+        jr  nz,.e2anim
+        ld  a,(en2_dir)
+        or  a
+        ld  a,(en2_x)
+        jr  nz,.e2shrink
+        inc a
+        ld  b,a
+        ld  a,(room_en2xmax)
+        ld  c,a
+        ld  a,b
+        cp  c
+        jr  c,.e2st
+        ld  a,1
+        ld  (en2_dir),a
+        ld  a,(room_en2xmax)
+        jr  .e2st
+.e2shrink:
+        dec a
+        ld  b,a
+        ld  a,(room_en2xmin)
+        ld  c,a
+        ld  a,b
+        cp  c
+        jr  nc,.e2st
+        xor a
+        ld  (en2_dir),a
+        ld  a,(room_en2xmin)
+.e2st:  ld  (en2_x),a
+.e2anim:
+        ld  a,(en2_anim)
+        inc a
+        ld  (en2_anim),a
+
+        ld  a,(room_en2_centerx)
+        ld  b,a
+        ld  a,(en2_x)
+        ld  c,a
+        ld  a,b
+        sub c
+        call .m2check           ; pos1 = centerx - en2_x
+        ld  a,(room_en2_centerx)
+        ld  b,a
+        ld  a,(en2_x)
+        add a,b                 ; pos2 = centerx + en2_x
+        call .m2check
+        ret
+
+.m2check:
+        ld  d,a
+        ld  a,(sam_wx)
+        ld  b,a
+        ld  a,d
+        sub b
+        jr  nc,.m2dx
+        neg
+.m2dx:  cp  10
+        ret nc
+        ld  a,(sam_wz)
+        ld  b,a
+        ld  a,(room_en2z)
+        ld  c,a
+        ld  a,b
+        sub c
+        jr  nc,.m2dz
+        neg
+.m2dz:  cp  10
+        ret nc
+        ld  a,(room_en2surf)
+        ld  c,a
+        ld  a,(sam_h+1)
+        ld  b,a
+        ld  a,c
+        add a,16
+        ld  e,a
+        ld  a,b
+        cp  e
+        ret nc              ; Sam wholly above
+        ld  a,c
+        inc a
+        ld  e,a
+        ld  a,b
+        add a,16
+        cp  e
+        ret c               ; Sam wholly below
+        pop hl              ; discard this call's own return address
+        jp  sam_die
+
+; ------------------------------------------------------------
 ; sam_draw: sprites at sx=PX0-8+wx-wz  sy=PY0+(wx+wz)/2-h-16
 ; ------------------------------------------------------------
 sam_draw:
@@ -3059,10 +3216,90 @@ sam_draw:
         inc hl
         ret
 
+; .mk2pos/.spr4b: same as .mkpos/.spr4 above but for the 2nd enemy
+; (room_en2z/room_en2surf/en2_anim/room_enemy2_color, pattern base 16
+; instead of 0).
+.mk2pos:
+        push af
+        ld  l,a
+        ld  h,0
+        ld  de,PX0-8
+        add hl,de
+        ld  a,(room_en2z)
+        ld  e,a
+        ld  d,0
+        or  a
+        sbc hl,de
+        ld  a,l
+        ld  c,a
+        pop af
+        ld  hl,room_en2z
+        add a,(hl)
+        srl a
+        add a,PY0
+        push af
+        ld  hl,room_en2surf
+        ld  a,(hl)
+        add a,16
+        ld  e,a
+        pop af
+        sub e
+        dec a
+        ld  b,a
+        ret
+
+.spr4b:
+        ld  a,b
+        call WRTVRM
+        inc hl
+        ld  a,c
+        call WRTVRM
+        inc hl
+        ld  a,(en2_anim)
+        and 16
+        srl a
+        srl a
+        add a,16
+        call WRTVRM
+        inc hl
+        ld  a,(room_enemy2_color)
+        call WRTVRM
+        inc hl
+        ret
+
 .enemy_sprites_done:
         pop bc
         push hl
         pop hl
+
+        ; 2nd enemy (optional, mirrored-pair only - see room_enemy2_ptr):
+        ; 2 more sprites, patterns 16/20, drawn before Sam like the 1st
+        ; enemy above so it keeps priority over him too.
+        ld  a,(room_enemy2_ptr)
+        ld  b,a
+        ld  a,(room_enemy2_ptr+1)
+        or  b
+        jr  z,.noenemy2draw
+        ld  a,(room_en2_centerx)
+        ld  b,a
+        ld  a,(en2_x)
+        ld  c,a
+        ld  a,b
+        sub c
+        push hl
+        call .mk2pos
+        pop hl
+        call .spr4b
+        ld  a,(room_en2_centerx)
+        ld  b,a
+        ld  a,(en2_x)
+        add a,b
+        push hl
+        call .mk2pos
+        pop hl
+        call .spr4b
+.noenemy2draw:
+
         ; 4 overlapped Sam sprites (dynamic masked patterns 48/52/56/60)
         ld  a,b
         call WRTVRM
@@ -4999,6 +5236,10 @@ ROOM10_BGCOLBANK equ 107
         INCBIN "src/bg_pattern10.bin"
 wisp_gfx:
         INCBIN "src/enemy_gfx10.bin"
+        ; level_map10: bank1 overflow fix (see the Room13/2nd-enemy
+        ; comment in tools/gen_iso.py) - same relocation as level_map12/13.
+level_map10:
+        INCBIN "src/level_map10.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color10.bin"
@@ -5086,6 +5327,12 @@ cart_gfx:
         ; bank1 back over budget on its own.
 level_map13:
         INCBIN "src/level_map13.bin"
+        ; 2nd enemy (mirrored pair, per Fausto's follow-up request for
+        ; more roaming enemies) - gfx + its enemy2_tab13 record, same
+        ; own-bank-tail placement as the lever data above.
+enemy2_gfx13:
+        INCBIN "src/enemy2_gfx13.bin"
+        INCLUDE "src/enemy2_tab13.asm"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color13.bin"
