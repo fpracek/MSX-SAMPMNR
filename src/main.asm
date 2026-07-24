@@ -329,7 +329,7 @@ room_crumb_continuous: RESB 1  ; 0=touch-based degrade (original,
                         ; CRUMB_DWELL frames until destroyed - see
                         ; cr_dwell_t.
 room_state_end:
-NROOMS equ 9
+NROOMS equ 10
 ram_end:
 
 ram_map     equ 0C100h  ; 6*8*8 = 384 bytes  (index = z*64+y*8+x)
@@ -4840,11 +4840,34 @@ CRUMBBANK9 equ 104
 CRUMBBANK9B equ 105
         INCBIN "src/crumb9b.bin"
 
+; ============================================================
+;  BANKS 106-107: room 10 (The Endorian Forest) pre-rendered
+;  background. Bank numbers must match ROOM10_BGBANK/ROOM10_BGCOLBANK
+;  in tools/gen_iso.py. Room 10 has no crumbling platforms, so there
+;  is no dedicated crumb bank for it (room_tab reuses CRUMBBANK).
+; ============================================================
+ROOM10_BGBANK    equ 106
+ROOM10_BGCOLBANK equ 107
+        ORG 08000h
+        INCBIN "src/bg_pattern10.bin"
+wisp_gfx:
+        INCBIN "src/enemy_gfx10.bin"
+        BLOCK 0A000h-$,0FFh
+        ORG 0A000h
+        INCBIN "src/bg_color10.bin"
+keys_gfx10:
+        INCBIN "src/keys_gfx10.bin"
+exit_gfx10_0:
+        INCBIN "src/exit_gfx10_0.bin"
+exit_gfx10_1:
+        INCBIN "src/exit_gfx10_1.bin"
+        BLOCK 0C000h-$,0FFh
+
         ; pad the ROM back out to a full 1MB (128 x 8KB banks) - openMSX's
         ; ascii8 mapper expects a power-of-two file size; a short file
         ; (as left by just rounding up to the next bank) fails to boot
         ; at all (falls through to plain MSX BASIC). Measured then
         ; computed exactly (1048576 - actual size before this BLOCK),
-        ; not guessed by hand. 106 banks now used (0-105), so 22 banks
-        ; (106-127) remain: 22*8192 = 180224.
-        BLOCK 180224,0FFh
+        ; not guessed by hand. 108 banks now used (0-107), so 20 banks
+        ; (108-127) remain: 20*8192 = 163840.
+        BLOCK 163840,0FFh

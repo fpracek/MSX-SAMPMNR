@@ -1209,6 +1209,17 @@ def _wtop_vat(u):
     """mostly-flat industrial tank rim, minimal variation - The Vat"""
     return 34 + (6 if (int(u) % 10) < 2 else 0)
 
+def _wtop_forest(u):
+    """dense leafy canopy with individual tree crowns poking up through
+    it - The Endorian Forest. Deliberately distinct from Kong Beast's
+    smoother, rounder vine-mound crest (_wtop_kong): a sharper, more
+    frequent base jag (small leaf clusters) plus periodic TALL narrow
+    crown spikes (individual treetops breaking through the canopy, one
+    every 24px) rather than one continuous rolling silhouette."""
+    canopy = 34 + 6*abs(_m.sin(u/4.1)) + 3*abs(_m.sin(u/1.7 + 0.4))
+    crown = 18 if (int(u) % 24) < 5 else 0
+    return int(canopy + crown)
+
 # spark hazard: a bold 8-pointed star/burst - chunky segments (not thin
 # lines) so it survives draw_hazard's 1px dilation pass without
 # merging into a blob, same lesson as every other hazard in this
@@ -1374,6 +1385,26 @@ def _dagger_art():
         _art_row(16),
     ]
 DAGGER_ART = _dagger_art()
+
+# thorn bramble hazard - a knotted brown thicket core ('6', rust-brown)
+# with sharp red-orange ('8') thorns poking out at several points, not
+# just at the top - a spiky, irregular silhouette distinct from every
+# other hazard shape in the game (the amoeba's round blob, the
+# uranium bar's straight glow, the dagger's single diagonal edge).
+def _thorn_art():
+    return [
+        _art_row(16, (7,9,'8')),
+        _art_row(16, (3,5,'8'), (11,13,'8')),
+        _art_row(16, (6,10,'6')),
+        _art_row(16, (2,4,'8'), (5,11,'6'), (12,14,'8')),
+        _art_row(16, (4,12,'6')),
+        _art_row(16, (1,3,'8'), (5,11,'6'), (13,15,'8')),
+        _art_row(16, (4,12,'6')),
+        _art_row(16, (5,11,'6')),
+        _art_row(16, (6,10,'6')),
+        _art_row(16),
+    ]
+THORN_ART = _thorn_art()
 
 # lift platform sprite: 2 side-by-side 16x16 halves forming a 32px-wide
 # plank, with a couple of thin gap-rows for a wood-grain/grate look -
@@ -1715,6 +1746,143 @@ ROOM5 = dict(
     name="EUGENE'S LAIR",
 )
 
+# forest wisp: a floating will-o'-the-wisp spirit - a glowing round
+# head/orb over a tapering wispy tail, monochrome silhouette (same
+# engine constraint as every other enemy - one flat room_enemy_color).
+# The tail sways from curling right (frame A) to curling left (frame
+# B) - a clear side-to-side drift, not just a 1-2px wobble, matching
+# the established "needs a real shape change to read as animated"
+# lesson from the bear/chicken/rat.
+WISP_A = [
+    _bar(16, (7,9)),
+    _bar(16, (6,10)),
+    _bar(16, (5,11)),
+    _bar(16, (5,11)),
+    _bar(16, (6,10)),
+    _bar(16, (5,11)),
+    _bar(16, (4,12)),
+    _bar(16, (4,12)),
+    _bar(16, (5,11)),
+    _bar(16, (5,10)),
+    _bar(16, (6,10)),
+    _bar(16, (7,11)),
+    _bar(16, (8,12)),
+    _bar(16, (9,13)),
+    _bar(16, (10,13)),
+    _bar(16),
+]
+WISP_B = [
+    _bar(16, (7,9)),
+    _bar(16, (6,10)),
+    _bar(16, (5,11)),
+    _bar(16, (5,11)),
+    _bar(16, (6,10)),
+    _bar(16, (5,11)),
+    _bar(16, (4,12)),
+    _bar(16, (4,12)),
+    _bar(16, (5,11)),
+    _bar(16, (6,11)),
+    _bar(16, (6,10)),
+    _bar(16, (5,9)),
+    _bar(16, (4,8)),
+    _bar(16, (3,7)),
+    _bar(16, (3,6)),
+    _bar(16),
+]
+
+# Fausto: reference image "THE ENDORIAN FOREST" - tree-trunk-bordered
+# screens, vine/foliage draped over platform edges, ghostly wandering
+# figures. First pass was 3 uniform T_STONE tiers - Fausto: "non voglio
+# la stessa impostazione del livello precedente [Room9]... un po' piu'
+# vario... come nel livello 1: alcune col rullo, sparse qui e la per
+# lo schermo, ostacoli disseminati". Redesign adds a T_CONV (conveyor/
+# "rullo") tier and scatters 3 hazards (he specifically liked those)
+# across 2 different tiers plus a ground-level one, instead of just 2
+# ground-level ones.
+# All 3 climbing tiers still share the SAME bx=2-5 (4-wide) footprint
+# - this is deliberate, not laziness: Room9's redesign saga proved
+# that varying a tier's width relative to the one below/above it
+# creates positions where a straight jump misses entirely. "Variety"
+# here comes from platform TYPE (stone/conveyor), hazard placement,
+# and the enemy - not from gambling on mismatched jump geometry with
+# no way to live-test it this session.
+room10_slabs_def = [
+    (2,3,2,T_STONE), (3,3,2,T_STONE), (4,3,2,T_STONE), (5,3,2,T_STONE),      # tier A
+    (2,2,2,T_CONV), (3,2,2,T_CONV), (4,2,2,T_CONV), (5,2,2,T_CONV),          # tier B: the "rullo" - SAME height as A (a sideways scatter, not a climb), drags +x
+    # tier C: Fausto circled the middle 2 cells on a screenshot and
+    # asked to remove them ("vediamo se diventa piu' difficile") - was
+    # a solid 4-wide row matching tier B's width; now just the 2 end
+    # cells survive, split by a 2-cell (32px) gap. This makes the
+    # climb-up jump from tier B require AIMING at bx=2 or bx=5
+    # specifically (bx=3/4 now fall straight through), instead of
+    # landing anywhere along the row - real added precision, not just
+    # a wider gap. The hazard cell (bx=2) is no longer on the
+    # mandatory path either: aiming the climb at bx=5 reaches the key
+    # and exit directly, skipping bx=2 and the horizontal gap
+    # entirely - bx=2/its hazard become an optional side-visit, not
+    # something every run has to cross.
+    (2,1,4,T_STONE), (5,1,4,T_STONE),
+    (6,1,5,T_STONE),   # exit platform, short hop east from tier C
+]
+
+ROOM10 = dict(
+    label='10',
+    # rock=2 (medium green) is the DOMINANT wall colour (draw_walls
+    # uses 'rock' for the whole wall body, 'lit' only for a thin top
+    # strip) - a first attempt at this palette accidentally reused
+    # rock=6/lit=11, nearly IDENTICAL to Room9's post-reskin amber
+    # wallcol (lit=10,rock=6) since 6 is the same reddish-brown either
+    # way - caught from the preview render looking like a copy of
+    # Room9. This version is green-dominant instead, distinct from
+    # both Room9 (red/amber-dominant) and Room8's Kong Beast jungle
+    # (lit=3,rock=12 - a lighter, more saturated green pairing).
+    wallcol=dict(lit=11, rock=2, joint=1),
+    crest_fn=_wtop_forest,
+    floor_base=1, floor_speckle=10,
+    slabs_def=room10_slabs_def,
+    style={
+        # Fausto: "le piattaforme falle contornate da vegetazione sui
+        # bordi" - top_edge=3 (bright green) rings every platform's
+        # border, distinct from the brown wood-plank top_fill.
+        T_STONE: dict(top_fill=6, top_edge=3, face_l=12, face_r=8, rocky=True),
+        # conveyor: same wood/vine palette as T_STONE, arrows=True
+        # draws the classic Manic-Miner-style directional chevrons
+        # (always cyan, per draw_slab - not room-colour-dependent) -
+        # matches the room's look instead of introducing a clashing
+        # new colour just for the mechanic.
+        T_CONV: dict(top_fill=6, top_edge=3, face_l=12, face_r=8, arrows=True, rocky=True),
+    },
+    # one key per tier - y+1 per the pickup-layer quirk (key field =
+    # platform y+1). Placed at bx=2 (tier A/B) or bx=5 (tier C),
+    # deliberately opposite ends from that tier's own hazard so
+    # reaching the key never requires touching the hazard cell too.
+    keys=[(2,3,3,14), (2,2,3,14), (5,1,5,14)],
+    exit_bx=6, exit_bz=1, exit_y=5,
+    # 3 thorn brambles scattered across 2 tiers + the ground (Fausto:
+    # "gli ostacoli... mi piacciono molto... disseminati"), not just 2
+    # ground-level ones like the first version. Platform-top ones use
+    # an explicit floor==surf (see hazard_check's floor/ceiling fix -
+    # sampr-miner-project memory - a platform-top hazard without this
+    # is ALSO lethal on the open ground far below it, a real bug hit
+    # in Room9). tier A's hazard sits at bx=5 (key is at bx=2, so
+    # reaching it never requires crossing the hazard cell); tier C's
+    # at bx=2 (key at bx=5, same reasoning, mirrored). The conveyor
+    # tier (B) deliberately carries NO hazard of its own - the belt +
+    # the patrolling wisp already make it a 2-threat tier, matching
+    # the established "don't stack 3 threats on one platform" lesson
+    # from Room9's redesign saga.
+    hazards=[(5, 3, 24, 24), (2, 1, 40, 40), (6, 4, 8)],
+    hazard_art=THORN_ART,
+    crumb_units=[],
+    enemy_frames=[WISP_A, WISP_B],
+    # patrol along tier B's own row (bz=2, z-center=40) at tier B's
+    # own height (surf=24) - walking the conveyor means simultaneously
+    # fighting the belt's drag AND timing the wisp's patrol, real
+    # difficulty without stacking a 3rd hazard on the same tier.
+    enxmin=32, enxmax=88, enz=40, ensurf=24, enemy_color=7,
+    name="THE ENDORIAN FOREST",
+)
+
 R1 = render_room(ROOM1)
 R2 = render_room(ROOM2)
 R3 = render_room(ROOM3)
@@ -1724,6 +1892,7 @@ R6 = render_room(ROOM6)
 R7 = render_room(ROOM7)
 R8 = render_room(ROOM8)
 R9 = render_room(ROOM9)
+R10 = render_room(ROOM10)
 
 # Each room's 2-frame enemy sprite table (64B) rides along in the spare
 # tail of its own bg_pattern bank (6144 of 8192 bytes used, ~2KB free)
@@ -1755,6 +1924,7 @@ _write_room_bg(R6['label'], R6)
 _write_room_bg(R7['label'], R7)
 _write_room_bg(R8['label'], R8)
 _write_room_bg(R9['label'], R9)
+_write_room_bg(R10['label'], R10)
 
 # keys_gfx/exit_gfx (per-room graphics blobs, like enemy_gfx) ride in
 # the spare tail of that room's own bg_COLOR bank - same rationale as
@@ -1780,6 +1950,7 @@ _write_room_extra_gfx(R6['label'], R6)
 _write_room_extra_gfx(R7['label'], R7)
 _write_room_extra_gfx(R8['label'], R8)
 _write_room_extra_gfx(R9['label'], R9)
+_write_room_extra_gfx(R10['label'], R10)
 
 # lift_gfx.bin: the rising/falling lift platform's sprite art (2
 # halves, 64B) - a single fixed design shared by every room with a
@@ -1841,6 +2012,7 @@ ROOM7_BGBANK, ROOM7_BGCOLBANK = 97, 98
 CRUMBBANK4 = 99
 ROOM8_BGBANK, ROOM8_BGCOLBANK = 100, 101
 ROOM9_BGBANK, ROOM9_BGCOLBANK = 102, 103
+ROOM10_BGBANK, ROOM10_BGCOLBANK = 106, 107
 CRUMBBANK = 84
 CRUMBBANK2 = 87
 CRUMBBANK3 = 90
@@ -1934,6 +2106,8 @@ emit_room(R8, lines)
 emit_crumb_tab(R8, lines, bank_map={'a': CRUMBBANK4})
 emit_room(R9, lines)
 emit_crumb_tab(R9, lines, bank_map={'a': CRUMBBANK9, 'b': CRUMBBANK9B})
+emit_room(R10, lines)
+emit_crumb_tab(R10, lines, bank_map={'a': CRUMBBANK})
 
 lines.append("; redefined font, 76 chars from '0' (8 bytes each)")
 _f = open(os.path.join(ROOT,'tools','fonts.c')).read()
@@ -1981,10 +2155,12 @@ lines.append("room8_name:")
 lines.append("        db " + _ds_encode(R8['name']) + ",0")
 lines.append("room9_name:")
 lines.append("        db " + _ds_encode(R9['name']) + ",0")
+lines.append("room10_name:")
+lines.append("        db " + _ds_encode(R10['name']) + ",0")
 lines.append("")
 
-ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx'}
-ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name'}
+ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx'}
+ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name'}
 
 def room_row(R, bgbank, bgcolbank, crumbbank):
     exb16 = R['exit_bx']*16
@@ -2022,7 +2198,8 @@ for R, bgbank, bgcolbank, crumbbank in (
         (R6, ROOM6_BGBANK, ROOM6_BGCOLBANK, CRUMBBANK),
         (R7, ROOM7_BGBANK, ROOM7_BGCOLBANK, CRUMBBANK),
         (R8, ROOM8_BGBANK, ROOM8_BGCOLBANK, CRUMBBANK4),
-        (R9, ROOM9_BGBANK, ROOM9_BGCOLBANK, CRUMBBANK9)):
+        (R9, ROOM9_BGBANK, ROOM9_BGCOLBANK, CRUMBBANK9),
+        (R10, ROOM10_BGBANK, ROOM10_BGCOLBANK, CRUMBBANK)):
     f = room_row(R, bgbank, bgcolbank, crumbbank)
     lines.append(f"        db {f[0]},{f[1]}")
     lines.append(f"        dw {f[2]}")
@@ -2086,6 +2263,7 @@ save_preview(R6, os.path.join(ROOT,'build','preview7.png'), spawn_wx=24, spawn_w
 save_preview(R7, os.path.join(ROOT,'build','preview8.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R8, os.path.join(ROOT,'build','preview9.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R9, os.path.join(ROOT,'build','preview10.png'), spawn_wx=24, spawn_wz=72)
+save_preview(R10, os.path.join(ROOT,'build','preview11.png'), spawn_wx=24, spawn_wz=72)
 
 print(f"OK room1 color-fixes:{R1['fixes']} keys:{R1['key_rects']}")
 print(f"OK room2 color-fixes:{R2['fixes']} keys:{R2['key_rects']}")
@@ -2096,3 +2274,4 @@ print(f"OK room6 color-fixes:{R6['fixes']} keys:{R6['key_rects']}")
 print(f"OK room7 color-fixes:{R7['fixes']} keys:{R7['key_rects']}")
 print(f"OK room8 color-fixes:{R8['fixes']} keys:{R8['key_rects']}")
 print(f"OK room9 color-fixes:{R9['fixes']} keys:{R9['key_rects']}")
+print(f"OK room10 color-fixes:{R10['fixes']} keys:{R10['key_rects']}")
