@@ -412,7 +412,7 @@ room_debris_ptr:      RESB 2  ; 0 = no falling debris in this room,
                         ; above) in this room's own bg_pattern bank
                         ; spare tail.
 room_state_end:
-NROOMS equ 15
+NROOMS equ 16
 ram_end:
 
 ram_map     equ 0C100h  ; 6*8*8 = 384 bytes  (index = z*64+y*8+x)
@@ -5914,11 +5914,45 @@ CRUMBBANK15  equ 118
 CRUMBBANK15B equ 119
         INCBIN "src/crumb15b.bin"
 
+; ============================================================
+;  BANKS 120-121: room 16 (The Sixteenth Cavern) pre-rendered
+;  background. Bank numbers must match ROOM16_BGBANK/ROOM16_BGCOLBANK
+;  in tools/gen_iso.py.
+; ============================================================
+ROOM16_BGBANK    equ 120
+ROOM16_BGCOLBANK equ 121
+        ORG 08000h
+        INCBIN "src/bg_pattern16.bin"
+cart_gfx16:
+        INCBIN "src/enemy_gfx16.bin"
+        ; level_map16: bank1 overflow fix (this room's own data pushed
+        ; it over) - same relocation as every other room's own map.
+level_map16:
+        INCBIN "src/level_map16.bin"
+        BLOCK 0A000h-$,0FFh
+        ORG 0A000h
+        INCBIN "src/bg_color16.bin"
+keys_gfx16:
+        INCBIN "src/keys_gfx16.bin"
+exit_gfx16_0:
+        INCBIN "src/exit_gfx16_0.bin"
+exit_gfx16_1:
+        INCBIN "src/exit_gfx16_1.bin"
+        BLOCK 0C000h-$,0FFh
+
+; ============================================================
+;  BANK 122: room 16's 2 crumbling cells - both cheap 1-cell groups,
+;  share one bank (see the Room15 crumb-sizing lesson). Bank number
+;  must match CRUMBBANK16 in tools/gen_iso.py.
+; ============================================================
+CRUMBBANK16 equ 122
+        INCBIN "src/crumb16.bin"
+
         ; pad the ROM back out to a full 1MB (128 x 8KB banks) - openMSX's
         ; ascii8 mapper expects a power-of-two file size; a short file
         ; (as left by just rounding up to the next bank) fails to boot
         ; at all (falls through to plain MSX BASIC). Measured then
         ; computed exactly (1048576 - actual size before this BLOCK),
-        ; not guessed by hand. 120 banks now used (0-119), so 8 banks
-        ; (120-127) remain: 8*8192 = 65536.
-        BLOCK 65536,0FFh
+        ; not guessed by hand. 123 banks now used (0-122), so 5 banks
+        ; (123-127) remain: 5*8192 = 40960.
+        BLOCK 40960,0FFh

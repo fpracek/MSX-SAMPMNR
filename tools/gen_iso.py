@@ -2714,6 +2714,65 @@ ROOM15 = dict(
     map_label='level_map15',
 )
 
+# Fausto: "passiamo alla caverna 16 'THE SIXTEENTH CAVERN'... crea una
+# stanza con piattaforme 1x1 sparse un po' ovunque e alcune che si
+# disintegrano (2 o 3)" - first room where every platform is a single
+# isolated cell (every prior room used 2-wide clusters) rather than a
+# genuinely new mechanic: the SAME proven jump primitives (climb:
+# same bx, adjacent bz, +2y; sideways: same bz, 1-cell bx gap, same
+# y) still apply unchanged, since their physics only ever cared about
+# the (bx,bz,y) landing cell, never platform width - a 2-wide cluster
+# was always just "somewhere safe to land inside," and a 1-cell
+# target is exactly the landing point those same jumps already
+# proved out. A deliberate callback to Room1's own cave theme
+# (crest_fn/floor reused directly) for "the sixteenth cavern".
+# 2 of the 8 platforms use T_CRUMB (Room1's own crumbling tile type,
+# a distinct top colour) instead of T_STONE - gives players a visual
+# cue for which ones will break, on top of the usual touch-crumble
+# behaviour.
+room16_slabs_def = [
+    (1,3,2,T_STONE),   # Entry - climb from spawn's floor
+    (3,3,2,T_CRUMB),   # sideways +2 from Entry (gap bx=2) - crumbles
+    (3,2,4,T_STONE),   # climb from the crumbling cell
+    (1,2,4,T_STONE),   # sideways -2 (gap bx=2)
+    (1,1,6,T_CRUMB),   # climb - crumbles
+    (3,1,6,T_STONE),   # sideways +2 (gap bx=2)
+    (3,0,7,T_STONE),   # climb, +1y only (final tier)
+    # exit auto-appended at (5,0,7) - sideways +2 from the final tier (gap bx=4)
+]
+
+ROOM16 = dict(
+    label='16',
+    wallcol=dict(lit=6, rock=8, joint=1),
+    crest_fn=_wtop_cave,
+    floor_base=None, floor_speckle=6,
+    slabs_def=room16_slabs_def,
+    style={
+        T_STONE: dict(top_fill=11, top_edge=15, face_l=1, face_r=4, rocky=True),
+        T_CRUMB: dict(top_fill=6, top_edge=15, face_l=1, face_r=4, rocky=True),
+    },
+    # key1 on Entry (fixed); key2/key3 on the 2 stable mid-path cells -
+    # none on either crumbling cell, kept simple.
+    keys=[(1,3,3,14), (1,2,5,14), (3,1,7,14)],
+    exit_bx=5, exit_bz=0, exit_y=7,
+    hazards=[],
+    hazard_art=None,
+    crumb_units=[
+        [(3,3,2)],
+        [(1,1,6)],
+    ],
+    crumb_unit_banks=['a','a'],
+    # required fields, but this room's only danger is the 1-cell
+    # platform precision + the 2 crumbling cells - same inert
+    # placeholder patrol as Room14/15.
+    enemy_frames=[CART_A, CART_B],
+    enxmin=0, enxmax=0, enz=0, ensurf=200, en_axis=0, enemy_color=1,
+    name="THE SIXTEENTH CAVERN",
+    # bank1 overflow ("Negative BLOCK?") from this room's own data -
+    # same fix as every recent room, relocate the map.
+    map_label='level_map16',
+)
+
 R1 = render_room(ROOM1)
 R2 = render_room(ROOM2)
 R3 = render_room(ROOM3)
@@ -2729,6 +2788,7 @@ R12 = render_room(ROOM12)
 R13 = render_room(ROOM13)
 R14 = render_room(ROOM14)
 R15 = render_room(ROOM15)
+R16 = render_room(ROOM16)
 
 # Each room's 2-frame enemy sprite table (64B) rides along in the spare
 # tail of its own bg_pattern bank (6144 of 8192 bytes used, ~2KB free)
@@ -2814,6 +2874,7 @@ _write_room_bg(R12['label'], R12)
 _write_room_bg(R13['label'], R13)
 _write_room_bg(R14['label'], R14)
 _write_room_bg(R15['label'], R15)
+_write_room_bg(R16['label'], R16)
 
 # keys_gfx/exit_gfx (per-room graphics blobs, like enemy_gfx) ride in
 # the spare tail of that room's own bg_COLOR bank - same rationale as
@@ -2845,6 +2906,7 @@ _write_room_extra_gfx(R12['label'], R12)
 _write_room_extra_gfx(R13['label'], R13)
 _write_room_extra_gfx(R14['label'], R14)
 _write_room_extra_gfx(R15['label'], R15)
+_write_room_extra_gfx(R16['label'], R16)
 
 # lift_gfx.bin: the rising/falling lift platform's sprite art (2
 # halves, 64B) - a single fixed design shared by every room with a
@@ -2907,6 +2969,13 @@ assert len(crumb_bin15b) <= 8192, len(crumb_bin15b)
 crumb_bin15b += bytes(8192 - len(crumb_bin15b))
 open(os.path.join(ROOT,'src','crumb15b.bin'),'wb').write(crumb_bin15b)
 
+# crumb16.bin: room 16's 2 crumbling cells (both 1-cell groups, cheap
+# enough to share one bank - see the Room15 crumb-sizing lesson).
+crumb_bin16 = bytearray(R16['crumb_bins'].get('a', bytearray()))
+assert len(crumb_bin16) <= 8192, len(crumb_bin16)
+crumb_bin16 += bytes(8192 - len(crumb_bin16))
+open(os.path.join(ROOT,'src','crumb16.bin'),'wb').write(crumb_bin16)
+
 # ------------------------------------------------------------------
 # ROM bank numbers (must match the equ's added in src/main.asm)
 # ------------------------------------------------------------------
@@ -2926,6 +2995,7 @@ ROOM12_BGBANK, ROOM12_BGCOLBANK = 110, 111
 ROOM13_BGBANK, ROOM13_BGCOLBANK = 112, 113
 ROOM14_BGBANK, ROOM14_BGCOLBANK = 114, 115
 ROOM15_BGBANK, ROOM15_BGCOLBANK = 116, 117
+ROOM16_BGBANK, ROOM16_BGCOLBANK = 120, 121
 CRUMBBANK = 84
 CRUMBBANK2 = 87
 CRUMBBANK3 = 90
@@ -2933,6 +3003,7 @@ CRUMBBANK9 = 104
 CRUMBBANK9B = 105
 CRUMBBANK15 = 118
 CRUMBBANK15B = 119
+CRUMBBANK16 = 122
 # Rooms 4, 5, 6 and 7 have no crumbling platforms (room_nunits=0, cell_at
 # returns "no match" immediately) so their crumb_bank field is never
 # actually read - reuse CRUMBBANK as a harmless placeholder instead of
@@ -3045,6 +3116,8 @@ emit_room(R14, lines, map_out=os.path.join(ROOT,'src','level_map14.bin'))
 emit_crumb_tab(R14, lines, bank_map={'a': CRUMBBANK})
 emit_room(R15, lines, map_out=os.path.join(ROOT,'src','level_map15.bin'))
 emit_crumb_tab(R15, lines, bank_map={'a': CRUMBBANK15, 'b': CRUMBBANK15B})
+emit_room(R16, lines, map_out=os.path.join(ROOT,'src','level_map16.bin'))
+emit_crumb_tab(R16, lines, bank_map={'a': CRUMBBANK16})
 
 lines.append("; redefined font, 76 chars from '0' (8 bytes each)")
 _f = open(os.path.join(ROOT,'tools','fonts.c')).read()
@@ -3104,10 +3177,12 @@ lines.append("room14_name:")
 lines.append("        db " + _ds_encode(R14['name']) + ",0")
 lines.append("room15_name:")
 lines.append("        db " + _ds_encode(R15['name']) + ",0")
+lines.append("room16_name:")
+lines.append("        db " + _ds_encode(R16['name']) + ",0")
 lines.append("")
 
-ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx', '11': 'phone_gfx', '12': 'alien_gfx', '13': 'cart_gfx', '14': 'cart_gfx14', '15': 'cart_gfx15'}
-ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name', '11': 'room11_name', '12': 'room12_name', '13': 'room13_name', '14': 'room14_name', '15': 'room15_name'}
+ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx', '11': 'phone_gfx', '12': 'alien_gfx', '13': 'cart_gfx', '14': 'cart_gfx14', '15': 'cart_gfx15', '16': 'cart_gfx16'}
+ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name', '11': 'room11_name', '12': 'room12_name', '13': 'room13_name', '14': 'room14_name', '15': 'room15_name', '16': 'room16_name'}
 
 def room_row(R, bgbank, bgcolbank, crumbbank):
     exb16 = R['exit_bx']*16
@@ -3171,7 +3246,8 @@ for R, bgbank, bgcolbank, crumbbank in (
         (R12, ROOM12_BGBANK, ROOM12_BGCOLBANK, CRUMBBANK),
         (R13, ROOM13_BGBANK, ROOM13_BGCOLBANK, CRUMBBANK),
         (R14, ROOM14_BGBANK, ROOM14_BGCOLBANK, CRUMBBANK),
-        (R15, ROOM15_BGBANK, ROOM15_BGCOLBANK, CRUMBBANK15)):
+        (R15, ROOM15_BGBANK, ROOM15_BGCOLBANK, CRUMBBANK15),
+        (R16, ROOM16_BGBANK, ROOM16_BGCOLBANK, CRUMBBANK16)):
     f = room_row(R, bgbank, bgcolbank, crumbbank)
     lines.append(f"        db {f[0]},{f[1]}")
     lines.append(f"        dw {f[2]}")
@@ -3244,6 +3320,7 @@ save_preview(R12, os.path.join(ROOT,'build','preview13.png'), spawn_wx=24, spawn
 save_preview(R13, os.path.join(ROOT,'build','preview14.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R14, os.path.join(ROOT,'build','preview15.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R15, os.path.join(ROOT,'build','preview16.png'), spawn_wx=24, spawn_wz=72)
+save_preview(R16, os.path.join(ROOT,'build','preview17.png'), spawn_wx=24, spawn_wz=72)
 
 print(f"OK room1 color-fixes:{R1['fixes']} keys:{R1['key_rects']}")
 print(f"OK room2 color-fixes:{R2['fixes']} keys:{R2['key_rects']}")
@@ -3260,3 +3337,4 @@ print(f"OK room12 color-fixes:{R12['fixes']} keys:{R12['key_rects']}")
 print(f"OK room13 color-fixes:{R13['fixes']} keys:{R13['key_rects']}")
 print(f"OK room14 color-fixes:{R14['fixes']} keys:{R14['key_rects']}")
 print(f"OK room15 color-fixes:{R15['fixes']} keys:{R15['key_rects']}")
+print(f"OK room16 color-fixes:{R16['fixes']} keys:{R16['key_rects']}")

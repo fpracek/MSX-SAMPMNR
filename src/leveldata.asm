@@ -854,6 +854,35 @@ crumb_tab15:
         db 4,255
         db 119
 
+keys_tab16:
+        db 1,3,3,10,8
+        db 1,2,5,12,5
+        db 3,1,7,18,4
+
+slab_tab16:
+        db 89,73,96,24,6
+        db 105,49,80,40,11
+        db 169,25,80,64,7
+        db 57,57,64,24,11
+        db 121,25,64,56,11
+        db 73,33,48,40,11
+        db 137,9,48,64,11
+        db 89,9,32,56,6
+
+hazards_tab16:
+
+; crumb_tab16 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
+;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2, bank
+crumb_tab16:
+        db 1,3,2,3,255,255,255,13,11,18,15
+        dw 320, 32768
+        db 0,255
+        db 122
+        db 1,1,6,1,255,255,255,13,3,18,11
+        dw 640, 33728
+        db 7,255
+        db 122
+
 ; redefined font, 76 chars from '0' (8 bytes each)
 fonts_tab:
         db 00Eh,019h,031h,031h,031h,033h,03Fh,01Eh,006h,00Eh,03Ch,00Ch,008h,018h,038h,038h
@@ -926,6 +955,8 @@ room14_name:
         db 83,75,89,76,65,66,32,76,65,78,68,73,78,71,32,66,65,89,0
 room15_name:
         db 84,72,69,32,66,65,78,75,0
+room16_name:
+        db 84,72,69,32,83,73,88,84,69,69,78,84,72,32,67,65,86,69,82,78,0
 
 ; room_tab: one row per room, read into room_state RAM struct
 ; via a single ldir at room_start. Field order/sizes MUST match
@@ -1307,4 +1338,29 @@ room_tab:
         dw 0
         dw 0
         dw debris_tab15
+        db 120,121
+        dw level_map16
+        dw keys_tab16
+        db 3
+        dw keys_gfx16
+        dw slab_tab16
+        db 8
+        db 2
+        dw crumb_tab16
+        db 122
+        dw hazards_tab16
+        db 0
+        db 80,0,64
+        db 23,5,2,40
+        dw exit_gfx16_0
+        dw exit_gfx16_1
+        dw cart_gfx16
+        db 1
+        db 0,0,0,200,0,0
+        db 255,0,0,0
+        dw room16_name
+        db 0
+        dw 0
+        dw 0
+        dw 0
 
