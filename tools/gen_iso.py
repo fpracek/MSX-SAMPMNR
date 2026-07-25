@@ -829,6 +829,7 @@ def render_room(spec):
     MASK_COLORS = {t: STYLE[t]['top_fill'] for t in STYLE if t != T_EXIT}
     MASK_COLORS[T_EXIT] = 7
     slab_lines = []
+    slab_bytes = []
     for bx,bz,y,t in _sorted_slabs:
         sxN = 120 + 16*(bx-bz)
         syN = 64 + 8*(bx+bz) - 8*(y+1)
@@ -837,11 +838,12 @@ def render_room(spec):
         base  = 16*(bx+bz)
         surf  = 8*(y+1)
         slab_lines.append(f"        db {winx0},{winy0},{base},{surf},{MASK_COLORS[t]}")
+        slab_bytes += [winx0, winy0, base, surf, MASK_COLORS[t]]
 
     return dict(
         label=label, pattern=pattern, color=color, fixes=fixes,
         grid=grid, keys=keys, key_rects=key_rects, keys_gfx=keys_gfx,
-        slabs_sorted=_sorted_slabs, slab_lines=slab_lines,
+        slabs_sorted=_sorted_slabs, slab_lines=slab_lines, slab_bytes=slab_bytes,
         crumb_meta=crumb_meta, crumb_bin=crumb_bins.get('a', bytearray()),
         crumb_bins=crumb_bins,
         exit_gfx=exit_gfx, EXC0=EXC0, EXR0=EXR0, EXNROW=EXNROW, EXW=EXW,
@@ -3605,7 +3607,7 @@ CRUMBBANK18 = 127
 # main.asm), so a room's groups can be spread across more than one
 # bank once they don't all fit in a single 8KB one.
 
-def emit_room(R, lines, map_out=None):
+def emit_room(R, lines, map_out=None, slab_out=None):
     lab = R['label']
     flat = []
     for z in range(MAPD):
@@ -3630,9 +3632,18 @@ def emit_room(R, lines, map_out=None):
     for bx,bz,y,c0,r0 in R['key_rects']:
         lines.append(f"        db {bx},{bz},{y},{c0},{r0}")
     lines.append("")
-    lines.append(f"slab_tab{lab}:")
-    lines.extend(R['slab_lines'])
-    lines.append("")
+    # slab_out: same bank1-overflow relocation as map_out above, applied
+    # to the 2nd-biggest per-room table when the map move alone isn't
+    # enough headroom (hit again once the lives-bonus/victory-dance/
+    # drain-air-fx code grew bank0 further) - slab_tabN is read via
+    # mask_update/cell_at with no bank switch in between either, so it's
+    # just as safe to move into that room's own bg-pattern bank tail.
+    if slab_out is not None:
+        open(slab_out, 'wb').write(bytes(R['slab_bytes']))
+    else:
+        lines.append(f"slab_tab{lab}:")
+        lines.extend(R['slab_lines'])
+        lines.append("")
     # keys_gfx/exit_gfx are NOT emitted here - both are pure per-room
     # graphics blobs (like enemy_gfx) that ride in the spare tail of
     # that room's own bg_COLOR bank instead (see _write_room_extra_gfx),
@@ -3692,7 +3703,7 @@ emit_room(R7, lines, map_out=os.path.join(ROOT,'src','level_map7.bin'))
 emit_crumb_tab(R7, lines, bank_map={'a': CRUMBBANK})
 emit_room(R8, lines, map_out=os.path.join(ROOT,'src','level_map8.bin'))
 emit_crumb_tab(R8, lines, bank_map={'a': CRUMBBANK4})
-emit_room(R9, lines, map_out=os.path.join(ROOT,'src','level_map9.bin'))
+emit_room(R9, lines, map_out=os.path.join(ROOT,'src','level_map9.bin'), slab_out=os.path.join(ROOT,'src','slab_tab9.bin'))
 emit_crumb_tab(R9, lines, bank_map={'a': CRUMBBANK9, 'b': CRUMBBANK9B})
 emit_room(R10, lines, map_out=os.path.join(ROOT,'src','level_map10.bin'))
 emit_crumb_tab(R10, lines, bank_map={'a': CRUMBBANK})
@@ -3710,7 +3721,7 @@ emit_room(R16, lines, map_out=os.path.join(ROOT,'src','level_map16.bin'))
 emit_crumb_tab(R16, lines, bank_map={'a': CRUMBBANK16})
 emit_room(R17, lines, map_out=os.path.join(ROOT,'src','level_map17.bin'))
 emit_crumb_tab(R17, lines, bank_map={'a': CRUMBBANK})
-emit_room(R18, lines, map_out=os.path.join(ROOT,'src','level_map18.bin'))
+emit_room(R18, lines, map_out=os.path.join(ROOT,'src','level_map18.bin'), slab_out=os.path.join(ROOT,'src','slab_tab18.bin'))
 emit_crumb_tab(R18, lines, bank_map={'a': CRUMBBANK18})
 emit_room(R19, lines, map_out=os.path.join(ROOT,'src','level_map19.bin'))
 emit_crumb_tab(R19, lines, bank_map={'a': CRUMBBANK})

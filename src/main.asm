@@ -363,6 +363,9 @@ victory_mode: RESB 1    ; 0/1 - set once main_loop's .won: handling
                         ; in that one terminal branch.
 air:        RESB 1      ; remaining air units (bar pixels)
 air_t:      RESB 1      ; frame counter for air depletion
+hbr_edge:   RESB 1      ; hud_bar_redraw scratch: edge tile's fill byte
+hbr_edgecol:RESB 1      ; hud_bar_redraw scratch: edge tile's column index
+hbr_col:    RESB 1      ; hud_bar_redraw scratch: loop column index
 ; --- title screen / music state ---
 mus_mel_ptr: RESB 2     ; melody sequencer read pointer
 mus_mel_t:   RESB 1     ; frames left on current melody note
@@ -1109,6 +1112,55 @@ game_over_screen:
         djnz .hold
         ret
 
+; ------------------------------------------------------------
+; game_won: the last room's one-shot ending, reached from main_loop's
+; .won: once current_room+1==NROOMS. Shows "LEVELS COMPLETED" on the
+; same box-card look as game_over_screen/room_intro while Sam keeps
+; dancing (victory_mode's pose override, already set by the time this
+; is reached), holds for 3s, then leaves for the title screen for good
+; - Fausto asked for a defined ending instead of blinking here forever.
+; ------------------------------------------------------------
+levels_completed_str: db "LEVELS COMPLETED",0
+
+game_won:
+        ld  a,1
+        ld  (victory_mode),a
+
+        ld  a,32
+        sub 16                  ; strlen("LEVELS COMPLETED")
+        srl a
+        ld  (ds_col),a
+        ld  a,11
+        ld  (ds_row),a
+
+        ld  a,(ds_col)
+        sub 2
+        ld  c,a
+        ld  b,20                 ; 16 + 4 cols padding
+        ld  a,10
+        call box_row
+        ld  a,11
+        call box_row
+        ld  a,12
+        call box_row
+
+        ld  hl,levels_completed_str
+        call draw_string
+
+        ld  b,150                ; ~3s
+.hold:  push bc
+        halt
+        ld  hl,frame
+        inc (hl)
+        call level_music_update
+        call sfx_update
+        call sam_draw
+        pop bc
+        djnz .hold
+
+        call title_setup
+        jp  title_loop
+
 main_loop:
         halt
         ld  hl,frame
@@ -1186,19 +1238,21 @@ main_loop:
         ld  (lives),a
         call hud_lives
 .checkroom:
+        ; Fausto: "quando finisce un livello fai calare velocemente il
+        ; livello del tempo con un rumore" - drain the AIR bar to 0
+        ; with a deflating-whoosh SFX before moving on, every room
+        ; (not just the last one) - every path into .checkroom (bonus
+        ; awarded or not) must hit this, so it lives at the label
+        ; itself rather than on just one of the branches into it.
+        call drain_air_fx
         ld  a,(current_room)
         inc a
         cp  NROOMS
         jr  c,.advance          ; more rooms remain - advance normally
-        ; last room, permanently won: dance instead of just sitting
-        ; there - see sam_draw's victory_mode pose override. Sam is
-        ; otherwise frozen (main_loop skips sam_update/sam_draw
-        ; entirely while level_done=1), so this is the only place
-        ; that ever draws him again from here on.
-        ld  a,1
-        ld  (victory_mode),a
-        call sam_draw
-        jp  main_loop
+        ; last room: one-shot ending sequence (card + dance for 3s,
+        ; then back to the title screen) instead of blinking here
+        ; forever - see game_won below.
+        jp  game_won
 .advance:
         ld  (current_room),a
         call room_enter
@@ -5262,6 +5316,103 @@ air_update:
         ret
 
 ; ------------------------------------------------------------
+; hud_bar_redraw: full, non-incremental redraw of every one of the
+; (32-BARCOL) air-bar tiles for the CURRENT (air) value. Unlike
+; air_update above (which only ever touches the single edge tile - correct
+; for its normal 1-unit-per-tick draining, but wrong if air changed by
+; more than 1 unit since the last draw), this recomputes every tile from
+; scratch, so it's safe to call after a big jump in (air) - used by the
+; end-of-level drain_air_fx animation below.
+; ------------------------------------------------------------
+hud_bar_redraw:
+        ld  a,(air)
+        ld  c,a
+        and 7
+        ld  l,a
+        ld  h,0
+        ld  de,air_masks
+        add hl,de
+        ld  a,(hl)
+        ld  (hbr_edge),a
+        ld  a,c
+        srl a
+        srl a
+        srl a
+        ld  (hbr_edgecol),a
+        xor a
+        ld  (hbr_col),a
+.cl:    ld  a,(hbr_col)
+        ld  hl,hbr_edgecol
+        cp  (hl)
+        jr  z,.isedge
+        jr  c,.isfull
+        xor a                   ; column past the edge -> empty
+        jr  .fillit
+.isfull:
+        ld  a,0FFh
+        jr  .fillit
+.isedge:
+        ld  a,(hbr_edge)
+.fillit:
+        ld  b,a                 ; b = fill byte for this column's 4 rows
+        ld  a,(hbr_col)
+        add a,BARCOL
+        ld  l,a
+        ld  h,0
+        add hl,hl
+        add hl,hl
+        add hl,hl
+        ld  de,HUDPAT+2
+        add hl,de
+        ld  c,4
+.wr:    push bc
+        push hl
+        ld  a,b
+        call WRTVRM
+        pop hl
+        inc hl
+        pop bc
+        dec c
+        jr  nz,.wr
+        ld  a,(hbr_col)
+        inc a
+        ld  (hbr_col),a
+        cp  32-BARCOL
+        jr  c,.cl
+        ret
+
+; ------------------------------------------------------------
+; drain_air_fx: rapidly empties the AIR bar (with a descending-pitch
+; "deflating" whoosh on the SFX channel) over 20 frames, right before a
+; completed level advances - Fausto: "fai calare velocemente il livello
+; del tempo con un rumore che indica...lo sgonfiamento della barra".
+; ------------------------------------------------------------
+drain_air_fx:
+        ld  a,20
+        ld  (sfx_t),a
+        ld  hl,0020h
+        ld  (sfx_freq),hl
+        ld  hl,48
+        ld  (sfx_step),hl
+        ld  b,20
+.dl:    push bc
+        halt
+        ld  hl,frame
+        inc (hl)
+        call sfx_update
+        call level_music_update
+        ld  a,(air)
+        sub 8
+        jr  nc,.setair
+        xor a
+.setair:
+        ld  (air),a
+        call hud_bar_redraw
+        pop bc
+        djnz .dl
+        ret
+
+; ------------------------------------------------------------
 psg_init:
         ld  a,7
         ld  e,GAME_MIX
@@ -6892,6 +7043,11 @@ urchin_gfx:
         ; above).
 level_map9:
         INCBIN "src/level_map9.bin"
+        ; slab_tab9: 2nd bank1-overflow fix (this room's 18-slab table,
+        ; 90 bytes, relocated the same way once map_out alone stopped
+        ; being enough headroom - see slab_out's comment in gen_iso.py).
+slab_tab9:
+        INCBIN "src/slab_tab9.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color9.bin"
@@ -7213,6 +7369,11 @@ urchin_gfx18:
         ; it over) - same relocation as every other room's own map.
 level_map18:
         INCBIN "src/level_map18.bin"
+        ; slab_tab18: 2nd bank1-overflow fix (this room's 29-slab table,
+        ; the biggest in the game at 145 bytes, relocated the same way
+        ; once map_out alone stopped being enough headroom).
+slab_tab18:
+        INCBIN "src/slab_tab18.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color18.bin"
