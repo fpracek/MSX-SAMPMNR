@@ -54,6 +54,18 @@ piattaforma a piattaforma...) e un nome mostrato all'ingresso.
   "demo" che mostra in sequenza il layout di tutti i 20 livelli.
   Premendo fire o spazio si torna subito al menu.
 
+## Codici speciali
+
+Digitando queste parole con la tastiera mentre sei nel menu (bastano i
+tasti lettera, funzionano sia con Caps Lock attivo che no) si attivano
+due scorciatoie:
+
+- **RENZO** — vite infinite: Sam.Pr non perde mai una vita, per il
+  resto della sessione. Un breve suono ascendente conferma l'attivazione.
+- **FORCE** seguito da una lettera — salta direttamente alla stanza
+  corrispondente (A = Central Cavern, B = The Cold Room, ... fino alla
+  T = The Final Barrier), bypassando le stanze precedenti.
+
 ## Come avviarlo
 
 - **openMSX**: `openmsx -machine <msx1> -carta sampr.rom -romtype ascii8`
