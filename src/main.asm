@@ -2852,7 +2852,20 @@ enemy_update:
         ld  (en_dir),a
         ld  a,(room_enxmax)
         jr  .st
-.left:  dec a
+        ; en_x is already 0 here would underflow to 255 on `dec` and
+        ; then read back as "still >= room_enxmin" (unsigned wrap),
+        ; drifting the sprite off across the whole screen instead of
+        ; bouncing - only ever bites the inert-placeholder pattern
+        ; (room_enxmin=room_enxmax=0), which is otherwise a dead
+        ; branch for every real patrol (enxmin>0 never reaches 0
+        ; here). Saturate at 0 instead of decrementing past it.
+.left:  or  a
+        jr  z,.leftsat
+        dec a
+        jr  .leftgo
+.leftsat:
+        xor a
+.leftgo:
         ld  b,a
         ld  a,(room_enxmin)
         ld  c,a

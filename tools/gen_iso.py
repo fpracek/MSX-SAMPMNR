@@ -2922,7 +2922,13 @@ ROOM17 = dict(
         T_STONE: dict(top_fill=14, top_edge=15, face_l=1, face_r=8, rocky=True),
         T_CONV:  dict(top_fill=11, top_edge=15, face_l=10, face_r=1, arrows=True, rocky=True),
     },
-    keys=[(1,3,2,14), (4,2,4,14), (2,1,6,14)],
+    # y is platform_y+1 (NOT the platform's own y) - a key tile is
+    # T_KEY in the physics grid, and floor_surface treats anything
+    # >T_CRUMB as non-solid, so writing a key at the platform's own
+    # (bx,bz,y) overwrites/replaces its solid tile, turning that exact
+    # cell into a walk-through "phantom" platform. Every other room
+    # places keys one grid layer above their platform for this reason.
+    keys=[(1,3,3,14), (4,2,5,14), (2,1,7,14)],
     exit_bx=7, exit_bz=0, exit_y=7,
     hazards=[],
     hazard_art=None,
