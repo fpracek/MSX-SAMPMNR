@@ -681,6 +681,27 @@ room_start:
         ex  af,af'
         ld  a,(current_room)
         push af
+        ; rnd_seed lives inside ram_start..ram_end, so the blanket
+        ; clear below zeroes it too - preserve the CURRENT value across
+        ; the wipe (in shadow B via exx, completely independent of the
+        ; af' swap used for lives above and the main BC/DE/HL the wipe
+        ; itself clobbers) instead of resetting it to a fixed
+        ; current_room+1 every time. Real bug this fixed: current_room
+        ; +1 is fully deterministic, so the FIRST rnd8-driven pick after
+        ; every single room entry (debris/hopper's first spawn column)
+        ; was always identical - Fausto: "il sole scende sempre dallo
+        ; stesso posto" (the sun always falls from the same spot),
+        ; reproducible every time because room_intro's 100-frame
+        ; name-card hold never ticks rnd8, so nothing perturbs the
+        ; state between the deterministic reseed and the first spawn.
+        ; Preserving the real, session-long accumulated seed (only
+        ; falling back to current_room+1 if it happens to land on 0)
+        ; keeps genuine per-attempt variation instead of restarting the
+        ; LFSR from the same fixed point on every room/death.
+        ld  a,(rnd_seed)
+        exx
+        ld  b,a
+        exx
         ld  hl,ram_start
         ld  de,ram_start+1
         ld  bc,ram_end-ram_start-1
@@ -694,17 +715,14 @@ room_start:
         ld  (cr_prev),a
         ld  a,AIRMAX
         ld  (air),a
-        ; rnd_seed lives inside ram_start..ram_end, so the blanket
-        ; clear above just zeroed it too - re-seed to a nonzero value
-        ; every room_start (death/respawn AND room transitions both
-        ; call this), not just once at cold boot, or rnd8 would get
-        ; stuck returning 0 forever after the first death. current_room
-        ; +1 is never 0 and varies the sequence's starting phase a bit
-        ; across rooms/respawns instead of always restarting at the
-        ; exact same point.
+        exx
+        ld  a,b
+        exx
+        or  a
+        jr  nz,.rndok
         ld  a,(current_room)
         inc a
-        ld  (rnd_seed),a
+.rndok: ld  (rnd_seed),a
         ; load this room's descriptor row: hl = room_tab + current_room*
         ; ROOMROWLEN, via repeated addition (current_room is always
         ; small) - deliberately NOT hand-tuned shifts: those silently
