@@ -893,6 +893,7 @@ for x in (1,2):
 
 ROOM1 = dict(
     label='',
+    map_label='level_map1',
     wallcol=dict(lit=8, rock=6, joint=1),
     crest_fn=_wtop_cave,
     floor_base=None, floor_speckle=6,
@@ -3675,7 +3676,7 @@ def emit_crumb_tab(R, lines, bank_map=None):
         lines.append(f"        db {(bank_map or {}).get(bank_label, 0)}")
     lines.append("")
 
-emit_room(R1, lines)
+emit_room(R1, lines, map_out=os.path.join(ROOT,'src','level_map1.bin'))
 emit_crumb_tab(R1, lines, bank_map={'a': CRUMBBANK})
 emit_room(R2, lines, map_out=os.path.join(ROOT,'src','level_map2.bin'))
 emit_crumb_tab(R2, lines, bank_map={'a': CRUMBBANK2})
@@ -3733,7 +3734,7 @@ lines.append("")
 
 _c = open(os.path.join(ROOT,'tools','sam_sprites.c')).read()
 sprites = [int(t,16) for t in re.findall(r'0x([0-9A-Fa-f]{2})', _c)]
-assert len(sprites) == 12*128, len(sprites)
+assert len(sprites) == 14*128, len(sprites)
 
 # draw_string-ready encoding: fonts_tab only covers ASCII 48-123
 # ('0'-relative, see title_putc in main.asm), so punctuation below '0'

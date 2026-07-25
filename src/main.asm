@@ -342,6 +342,25 @@ coyote_t:   RESB 1      ; frames since last grounded, capped at
 sfx_step:   RESB 2      ; frequency slide per frame
 ex_st:      RESB 1      ; exit blink state (0/16)
 lives:      RESB 1
+bonus_ctr:  RESB 1      ; rooms cleared since the last bonus-life award
+                        ; (0-4, wraps via explicit reset - not a running
+                        ; total). Preserved across room_start's blanket
+                        ; wipe the same way lives/current_room/rnd_seed
+                        ; are (stashed in shadow IY here - af' and
+                        ; shadow-BC are already taken), reset to 0 only
+                        ; at the same "new game" points LIVES0 resets
+                        ; lives (cold boot, game-over).
+won_awarded: RESB 1     ; 0/1 - guards the once-per-win bonus-life check
+                        ; in main_loop's .won: handling from re-firing
+                        ; every frame of the last room's infinite blink.
+                        ; Deliberately NOT preserved across room_start's
+                        ; wipe - it's meant to reset fresh every room.
+victory_mode: RESB 1    ; 0/1 - set once main_loop's .won: handling
+                        ; reaches the LAST room's permanent win state;
+                        ; makes sam_draw substitute the victory-dance
+                        ; poses (12/13) for the normal walk-cycle pose.
+                        ; Not preserved across the wipe - only ever set
+                        ; in that one terminal branch.
 air:        RESB 1      ; remaining air units (bar pixels)
 air_t:      RESB 1      ; frame counter for air depletion
 ; --- title screen / music state ---
@@ -546,6 +565,8 @@ init:
 
         ld  a,LIVES0
         ld  (lives),a
+        xor a
+        ld  (bonus_ctr),a       ; fresh game - restart the 5-room bonus count
         ld  a,1
         ld  (rnd_seed),a        ; must never be 0 - see rnd8
         call psg_init
@@ -702,6 +723,11 @@ room_start:
         exx
         ld  b,a
         exx
+        ; bonus_ctr (rooms-cleared-since-last-bonus-life counter) needs
+        ; the same rescue - af' and shadow-BC are already spoken for
+        ; above, so stash it in IY for the duration of the wipe.
+        ld  a,(bonus_ctr)
+        ld  iyl,a
         ld  hl,ram_start
         ld  de,ram_start+1
         ld  bc,ram_end-ram_start-1
@@ -715,6 +741,8 @@ room_start:
         ld  (cr_prev),a
         ld  a,AIRMAX
         ld  (air),a
+        ld  a,iyl
+        ld  (bonus_ctr),a
         exx
         ld  a,b
         exx
@@ -938,6 +966,8 @@ sam_die:
         ; main_loop's per-frame call chain for good.
         ld  a,LIVES0
         ld  (lives),a
+        xor a
+        ld  (bonus_ctr),a       ; fresh game - restart the 5-room bonus count
         pop hl
         call game_over_screen
         call title_setup
@@ -1048,10 +1078,46 @@ main_loop:
         ld  a,(hl)
         cp  120                 ; ~2.4s of blinking before advancing
         jr  c,main_loop
+        ; bonus life: Fausto - "ogni 5 livelli completati se ne aggiunge
+        ; una qualora quelle attuali siano inferiori a 5". won_awarded
+        ; guards this to run exactly once per win event - won_t keeps
+        ; incrementing (and wrapping, 1 byte) for as long as this room
+        ; stays in the blink, so without this guard the check below
+        ; would re-fire every time won_t wraps back past 120 (every
+        ; ~4.3s) during the LAST room's permanent blink.
+        ld  a,(won_awarded)
+        or  a
+        jr  nz,.checkroom
+        ld  a,1
+        ld  (won_awarded),a
+        ld  hl,bonus_ctr
+        inc (hl)
+        ld  a,(hl)
+        cp  5
+        jr  c,.checkroom
+        xor a
+        ld  (bonus_ctr),a
+        ld  a,(lives)
+        cp  LIVES0
+        jr  nc,.checkroom       ; already at (or above) the max - no award
+        inc a
+        ld  (lives),a
+        call hud_lives
+.checkroom:
         ld  a,(current_room)
         inc a
         cp  NROOMS
-        jr  nc,main_loop        ; already on the last room: keep blinking
+        jr  c,.advance          ; more rooms remain - advance normally
+        ; last room, permanently won: dance instead of just sitting
+        ; there - see sam_draw's victory_mode pose override. Sam is
+        ; otherwise frozen (main_loop skips sam_update/sam_draw
+        ; entirely while level_done=1), so this is the only place
+        ; that ever draws him again from here on.
+        ld  a,1
+        ld  (victory_mode),a
+        call sam_draw
+        jp  main_loop
+.advance:
         ld  (current_room),a
         call room_enter
         jp  main_loop
@@ -4113,6 +4179,26 @@ sam_draw:
         call mask_update
         pop bc
 
+        ; victory dance override (last room, permanently won - see
+        ; main_loop's .won: handling): forces pose 12/13 instead of the
+        ; normal directional walk-cycle, alternating every 32 frames
+        ; (~0.5s per pose) - a slower, deliberate dance beat rather
+        ; than the ~16-frame flicker debris/hopper/pkg use for a
+        ; shimmer effect.
+        ld  a,(victory_mode)
+        or  a
+        jr  z,.normalpose
+        ld  a,(frame)
+        and 32
+        srl a
+        srl a
+        srl a
+        srl a
+        srl a
+        add a,12            ; pose 12 (arms up) or 13 (hands on hips/hop)
+        ld  e,a
+        jr  .pok
+.normalpose:
         ; pose = dir*3 (+ 1 or 2 while walking)
         ld  a,(sam_dir)
         ld  e,a
@@ -4132,7 +4218,25 @@ sam_draw:
         inc a               ; 1 or 2
         add a,e
         ld  e,a
-.pok:   ; pattern base = pose*16 (4 layers x 4)
+.pok:
+        ; small hop for the "hands on hips" victory pose (13) - b
+        ; already holds sy-1 from the position calc at the top of this
+        ; routine, and the mask was already computed from the
+        ; ORIGINAL (un-hopped) position, so this is a pure sprite-
+        ; position nudge, not real physics - same trick title_sam_draw
+        ; uses for its own idle bob (SAM_Y vs SAM_Y-2). A no-op outside
+        ; victory_mode.
+        ld  a,(victory_mode)
+        or  a
+        jr  z,.nohop
+        ld  a,e
+        cp  13
+        jr  nz,.nohop
+        ld  a,b
+        sub 4
+        ld  b,a
+.nohop:
+        ; pattern base = pose*16 (4 layers x 4)
         ld  a,e
         add a,a
         add a,a
@@ -6427,6 +6531,10 @@ lift_gfx:
         ; safe (BANK2R is already this room's own bank when read).
 enemy_gfx:
         INCBIN "src/enemy_gfx.bin"
+        ; level_map1: bank1 overflow fix (sam_sprites growth pushed it
+        ; over) - same relocation as every other room's map.
+level_map1:
+        INCBIN "src/level_map1.bin"
         BLOCK 0A000h-$,0FFh
 
 ; ============================================================
