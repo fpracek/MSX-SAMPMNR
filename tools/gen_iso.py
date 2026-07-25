@@ -1020,6 +1020,10 @@ ROOM2 = dict(
     enemy_frames=[BEAR_A, BEAR_B],
     enxmin=92, enxmax=124, enz=56, ensurf=16, enemy_color=14,
     name="THE COLD ROOM",
+    # bank1 overflow ("Negative BLOCK?") from Room18's own data -
+    # relocate this room's map too, same routine fix as every recent
+    # room.
+    map_label='level_map2',
 )
 
 # chicken, running back and forth along the crumbling platform row -
@@ -1131,6 +1135,10 @@ ROOM3 = dict(
     enemy_frames=[CHICKEN_A, CHICKEN_B],
     enxmin=48, enxmax=96, enz=40, ensurf=32, enemy_color=15,
     name="THE MENAGERIE",
+    # bank1 overflow ("Negative BLOCK?") from Room18's own data -
+    # relocate this room's map too, same routine fix as every recent
+    # room.
+    map_label='level_map3',
 )
 
 # twin fixed platforms (bx=3 and bx=5, leaving bx=4 as an open gap to
@@ -2960,6 +2968,86 @@ ROOM17 = dict(
     map_label='level_map17',
 )
 
+# one big flat platform (6 wide x 3 deep, all y=2 - a single climb up
+# from spawn's floor, then fully walkable in every direction with no
+# further jumping needed) scattered with static amoeba hazards and
+# touch-crumbling cells, callback to Room9's "WACKY AMOEBATRONS".
+# Fausto: "una piattaforma grande appoggiata sul pavimento che e'
+# disseminata di ostacoli con sampr che deve aggirarsi per raccogliere
+# le chiavi senza toccarli, ma alcune piattaforme si sgretolano al suo
+# passaggio" - weave between static hazards to reach the keys, while
+# some of the cells crumble underfoot as he crosses them.
+room18_slabs_def = [
+    (1,1,2,T_STONE),   # key1
+    (2,1,2,T_CRUMB),
+    (3,1,2,T_STONE),   # hazard
+    (4,1,2,T_CRUMB),
+    (5,1,2,T_STONE),   # hazard
+    (6,1,2,T_STONE),   # key2
+    (1,2,2,T_CRUMB),
+    (2,2,2,T_STONE),   # hazard
+    (3,2,2,T_CRUMB),
+    (4,2,2,T_CRUMB),
+    (5,2,2,T_STONE),   # hazard
+    (6,2,2,T_CRUMB),
+    (1,3,2,T_STONE),   # Entry - climb from spawn's floor
+    (2,3,2,T_CRUMB),
+    (3,3,2,T_STONE),   # key3
+    (4,3,2,T_STONE),   # hazard
+    (5,3,2,T_CRUMB),
+    (6,3,2,T_CRUMB),
+    # exit auto-appended at (7,1,2) - a plain adjacent walk off the
+    # platform's own NE corner, no jump needed
+]
+
+ROOM18 = dict(
+    label='18',
+    wallcol=dict(lit=10, rock=6, joint=1),
+    crest_fn=_wtop_amoeba,
+    floor_base=6, floor_speckle=8,
+    slabs_def=room18_slabs_def,
+    style={
+        T_STONE: dict(top_fill=10, top_edge=11, face_l=6, face_r=8, rocky=True),
+        T_CRUMB: dict(top_fill=13, top_edge=11, face_l=6, face_r=8, rocky=True),
+    },
+    # y is platform_y+1 (NOT the platform's own y=2) - see Room17's
+    # phantom-platform bug: a key tile overwrites the physics grid's
+    # solid tile, so it must sit one layer above the platform, never
+    # on it.
+    keys=[(1,1,3,14), (6,1,3,14), (3,3,3,14)],
+    exit_bx=7, exit_bz=1, exit_y=2,
+    # 5 static amoeba hazards scattered through the platform, none
+    # adjacent to the entry/key/exit cells - surf=floor=24 (8*(y+1)
+    # for y=2) restricts the kill zone to just this platform's own
+    # standing height, same explicit-floor fix Room9 needed.
+    hazards=[(3,1,24,24), (5,1,24,24), (2,2,24,24), (5,2,24,24), (4,3,24,24)],
+    hazard_art=AMOEBA_ART,
+    # 9 single-cell touch-crumble groups (default crumb_continuous=0 -
+    # Fausto said "si sgretolano al suo passaggio", a fresh touch
+    # advances one stage, same as every room except Room9's dwell
+    # variant) - entry/keys/hazards stay fixed landmarks, matching the
+    # established practice of never crumbling a cell with a special role.
+    crumb_units=[
+        [(2,1,2)], [(4,1,2)],
+        [(1,2,2)], [(3,2,2)], [(4,2,2)], [(6,2,2)],
+        [(2,3,2)], [(5,3,2)], [(6,3,2)],
+    ],
+    crumb_unit_banks=['a']*9,
+    # required field, but this room's danger is the hazard field +
+    # crumbling, not a patrolling enemy - same inert placeholder as
+    # Rooms 14/15/16/17 (now safe: see the enemy_update enxmin=0
+    # underflow fix). Reuses the amoeba's own urchin sprite for
+    # thematic consistency with the "revenge" callback, even though
+    # it never actually appears.
+    enemy_frames=[URCHIN_A, URCHIN_B],
+    enxmin=0, enxmax=0, enz=0, ensurf=200, en_axis=0, enemy_color=1,
+    name="AMOEBATRONS' REVENGE",
+    # bank1 overflow ("Negative BLOCK?") expected from this room's own
+    # data (19 slabs + 9 crumb groups + 5 hazards) - relocate the map,
+    # same routine fix as every recent room.
+    map_label='level_map18',
+)
+
 R1 = render_room(ROOM1)
 R2 = render_room(ROOM2)
 R3 = render_room(ROOM3)
@@ -2977,6 +3065,7 @@ R14 = render_room(ROOM14)
 R15 = render_room(ROOM15)
 R16 = render_room(ROOM16)
 R17 = render_room(ROOM17)
+R18 = render_room(ROOM18)
 
 # Each room's 2-frame enemy sprite table (64B) rides along in the spare
 # tail of its own bg_pattern bank (6144 of 8192 bytes used, ~2KB free)
@@ -3099,6 +3188,7 @@ _write_room_bg(R14['label'], R14)
 _write_room_bg(R15['label'], R15)
 _write_room_bg(R16['label'], R16)
 _write_room_bg(R17['label'], R17)
+_write_room_bg(R18['label'], R18)
 
 # keys_gfx/exit_gfx (per-room graphics blobs, like enemy_gfx) ride in
 # the spare tail of that room's own bg_COLOR bank - same rationale as
@@ -3132,6 +3222,7 @@ _write_room_extra_gfx(R14['label'], R14)
 _write_room_extra_gfx(R15['label'], R15)
 _write_room_extra_gfx(R16['label'], R16)
 _write_room_extra_gfx(R17['label'], R17)
+_write_room_extra_gfx(R18['label'], R18)
 
 # lift_gfx.bin: the rising/falling lift platform's sprite art (2
 # halves, 64B) - a single fixed design shared by every room with a
@@ -3201,6 +3292,15 @@ assert len(crumb_bin16) <= 8192, len(crumb_bin16)
 crumb_bin16 += bytes(8192 - len(crumb_bin16))
 open(os.path.join(ROOT,'src','crumb16.bin'),'wb').write(crumb_bin16)
 
+# crumb18.bin: room 18's 9 touch-crumbling cells (all solo 1-cell
+# groups, same cheap-per-cell shape as Room9's floor1+step 8 cells,
+# which already fit one 8KB bank - this is only 1 more).
+crumb_bin18 = bytearray(R18['crumb_bins'].get('a', bytearray()))
+print(f"room18 crumb bin 'a' size: {len(crumb_bin18)}")
+assert len(crumb_bin18) <= 8192, len(crumb_bin18)
+crumb_bin18 += bytes(8192 - len(crumb_bin18))
+open(os.path.join(ROOT,'src','crumb18.bin'),'wb').write(crumb_bin18)
+
 # ------------------------------------------------------------------
 # ROM bank numbers (must match the equ's added in src/main.asm)
 # ------------------------------------------------------------------
@@ -3222,6 +3322,7 @@ ROOM14_BGBANK, ROOM14_BGCOLBANK = 114, 115
 ROOM15_BGBANK, ROOM15_BGCOLBANK = 116, 117
 ROOM16_BGBANK, ROOM16_BGCOLBANK = 120, 121
 ROOM17_BGBANK, ROOM17_BGCOLBANK = 123, 124
+ROOM18_BGBANK, ROOM18_BGCOLBANK = 125, 126
 CRUMBBANK = 84
 CRUMBBANK2 = 87
 CRUMBBANK3 = 90
@@ -3230,6 +3331,7 @@ CRUMBBANK9B = 105
 CRUMBBANK15 = 118
 CRUMBBANK15B = 119
 CRUMBBANK16 = 122
+CRUMBBANK18 = 127
 # Rooms 4, 5, 6 and 7 have no crumbling platforms (room_nunits=0, cell_at
 # returns "no match" immediately) so their crumb_bank field is never
 # actually read - reuse CRUMBBANK as a harmless placeholder instead of
@@ -3314,9 +3416,9 @@ def emit_crumb_tab(R, lines, bank_map=None):
 
 emit_room(R1, lines)
 emit_crumb_tab(R1, lines, bank_map={'a': CRUMBBANK})
-emit_room(R2, lines)
+emit_room(R2, lines, map_out=os.path.join(ROOT,'src','level_map2.bin'))
 emit_crumb_tab(R2, lines, bank_map={'a': CRUMBBANK2})
-emit_room(R3, lines)
+emit_room(R3, lines, map_out=os.path.join(ROOT,'src','level_map3.bin'))
 emit_crumb_tab(R3, lines, bank_map={'a': CRUMBBANK3})
 emit_room(R4, lines, map_out=os.path.join(ROOT,'src','level_map4.bin'))
 emit_crumb_tab(R4, lines, bank_map={'a': CRUMBBANK})
@@ -3346,6 +3448,8 @@ emit_room(R16, lines, map_out=os.path.join(ROOT,'src','level_map16.bin'))
 emit_crumb_tab(R16, lines, bank_map={'a': CRUMBBANK16})
 emit_room(R17, lines, map_out=os.path.join(ROOT,'src','level_map17.bin'))
 emit_crumb_tab(R17, lines, bank_map={'a': CRUMBBANK})
+emit_room(R18, lines, map_out=os.path.join(ROOT,'src','level_map18.bin'))
+emit_crumb_tab(R18, lines, bank_map={'a': CRUMBBANK18})
 
 lines.append("; redefined font, 76 chars from '0' (8 bytes each)")
 _f = open(os.path.join(ROOT,'tools','fonts.c')).read()
@@ -3409,10 +3513,12 @@ lines.append("room16_name:")
 lines.append("        db " + _ds_encode(R16['name']) + ",0")
 lines.append("room17_name:")
 lines.append("        db " + _ds_encode(R17['name']) + ",0")
+lines.append("room18_name:")
+lines.append("        db " + _ds_encode(R18['name']) + ",0")
 lines.append("")
 
-ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx', '11': 'phone_gfx', '12': 'alien_gfx', '13': 'cart_gfx', '14': 'cart_gfx14', '15': 'cart_gfx15', '16': 'cart_gfx16', '17': 'cart_gfx17'}
-ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name', '11': 'room11_name', '12': 'room12_name', '13': 'room13_name', '14': 'room14_name', '15': 'room15_name', '16': 'room16_name', '17': 'room17_name'}
+ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx', '11': 'phone_gfx', '12': 'alien_gfx', '13': 'cart_gfx', '14': 'cart_gfx14', '15': 'cart_gfx15', '16': 'cart_gfx16', '17': 'cart_gfx17', '18': 'urchin_gfx18'}
+ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name', '11': 'room11_name', '12': 'room12_name', '13': 'room13_name', '14': 'room14_name', '15': 'room15_name', '16': 'room16_name', '17': 'room17_name', '18': 'room18_name'}
 
 def room_row(R, bgbank, bgcolbank, crumbbank):
     exb16 = R['exit_bx']*16
@@ -3486,7 +3592,8 @@ for R, bgbank, bgcolbank, crumbbank in (
         (R14, ROOM14_BGBANK, ROOM14_BGCOLBANK, CRUMBBANK),
         (R15, ROOM15_BGBANK, ROOM15_BGCOLBANK, CRUMBBANK15),
         (R16, ROOM16_BGBANK, ROOM16_BGCOLBANK, CRUMBBANK16),
-        (R17, ROOM17_BGBANK, ROOM17_BGCOLBANK, CRUMBBANK)):
+        (R17, ROOM17_BGBANK, ROOM17_BGCOLBANK, CRUMBBANK),
+        (R18, ROOM18_BGBANK, ROOM18_BGCOLBANK, CRUMBBANK18)):
     f = room_row(R, bgbank, bgcolbank, crumbbank)
     lines.append(f"        db {f[0]},{f[1]}")
     lines.append(f"        dw {f[2]}")
@@ -3564,6 +3671,7 @@ save_preview(R14, os.path.join(ROOT,'build','preview15.png'), spawn_wx=24, spawn
 save_preview(R15, os.path.join(ROOT,'build','preview16.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R16, os.path.join(ROOT,'build','preview17.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R17, os.path.join(ROOT,'build','preview18.png'), spawn_wx=24, spawn_wz=72)
+save_preview(R18, os.path.join(ROOT,'build','preview19.png'), spawn_wx=24, spawn_wz=72)
 
 print(f"OK room1 color-fixes:{R1['fixes']} keys:{R1['key_rects']}")
 print(f"OK room2 color-fixes:{R2['fixes']} keys:{R2['key_rects']}")
@@ -3582,3 +3690,4 @@ print(f"OK room14 color-fixes:{R14['fixes']} keys:{R14['key_rects']}")
 print(f"OK room15 color-fixes:{R15['fixes']} keys:{R15['key_rects']}")
 print(f"OK room16 color-fixes:{R16['fixes']} keys:{R16['key_rects']}")
 print(f"OK room17 color-fixes:{R17['fixes']} keys:{R17['key_rects']}")
+print(f"OK room18 color-fixes:{R18['fixes']} keys:{R18['key_rects']}")

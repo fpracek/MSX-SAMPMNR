@@ -472,7 +472,7 @@ room_pkg_ptr:         RESB 2  ; 0 = no roller package in this slot,
                         ; tail.
 room_pkg2_ptr:        RESB 2  ; same, 2nd independent roller package.
 room_state_end:
-NROOMS equ 17
+NROOMS equ 18
 ram_end:
 
 ram_map     equ 0C100h  ; 6*8*8 = 384 bytes  (index = z*64+y*8+x)
@@ -6438,6 +6438,10 @@ ROOM2_BGCOLBANK equ 86
         INCBIN "src/bg_pattern2.bin"
 bear_gfx:
         INCBIN "src/enemy_gfx2.bin"
+        ; level_map2: bank1 overflow fix (Room18's own data pushed it
+        ; over) - same relocation as every other room's map.
+level_map2:
+        INCBIN "src/level_map2.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color2.bin"
@@ -6467,6 +6471,10 @@ ROOM3_BGCOLBANK equ 89
         INCBIN "src/bg_pattern3.bin"
 chicken_gfx:
         INCBIN "src/enemy_gfx3.bin"
+        ; level_map3: bank1 overflow fix (Room18's own data pushed it
+        ; over) - same relocation as every other room's map.
+level_map3:
+        INCBIN "src/level_map3.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color3.bin"
@@ -6947,11 +6955,42 @@ exit_gfx17_1:
         INCBIN "src/exit_gfx17_1.bin"
         BLOCK 0C000h-$,0FFh
 
-        ; pad the ROM back out to a full 1MB (128 x 8KB banks) - openMSX's
-        ; ascii8 mapper expects a power-of-two file size; a short file
-        ; (as left by just rounding up to the next bank) fails to boot
-        ; at all (falls through to plain MSX BASIC). Measured then
-        ; computed exactly (1048576 - actual size before this BLOCK),
-        ; not guessed by hand. 125 banks now used (0-124), so 3 banks
-        ; (125-127) remain: 3*8192 = 24576.
-        BLOCK 24576,0FFh
+; ============================================================
+;  BANKS 125-126: room 18 (Amoebatrons' Revenge) pre-rendered
+;  background. Bank numbers must match ROOM18_BGBANK/ROOM18_BGCOLBANK
+;  in tools/gen_iso.py.
+; ============================================================
+ROOM18_BGBANK    equ 125
+ROOM18_BGCOLBANK equ 126
+        ORG 08000h
+        INCBIN "src/bg_pattern18.bin"
+urchin_gfx18:
+        INCBIN "src/enemy_gfx18.bin"
+        ; level_map18: bank1 overflow fix (this room's own data pushed
+        ; it over) - same relocation as every other room's own map.
+level_map18:
+        INCBIN "src/level_map18.bin"
+        BLOCK 0A000h-$,0FFh
+        ORG 0A000h
+        INCBIN "src/bg_color18.bin"
+keys_gfx18:
+        INCBIN "src/keys_gfx18.bin"
+exit_gfx18_0:
+        INCBIN "src/exit_gfx18_0.bin"
+exit_gfx18_1:
+        INCBIN "src/exit_gfx18_1.bin"
+        BLOCK 0C000h-$,0FFh
+
+; ============================================================
+;  BANK 127 (the LAST bank in this 1MB ROM): room 18's 9 touch-
+;  crumbling cells, all cheap solo 1-cell groups (5184 of 8192 bytes
+;  used, measured - comfortably fits, no 2nd crumb bank needed). Bank
+;  number must match CRUMBBANK18 in tools/gen_iso.py.
+;  No padding BLOCK follows - banks 0-127 are now all spoken for
+;  (128 * 8192 = 1048576 bytes exactly), so this INCBIN IS the end of
+;  the file. Any future room needs a scope trim or reused-bank trick
+;  (see the enemy_gfx/keys_gfx spare-tail pattern) - there is no more
+;  free ROM space to simply allocate new banks into.
+; ============================================================
+CRUMBBANK18 equ 127
+        INCBIN "src/crumb18.bin"
