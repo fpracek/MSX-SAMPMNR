@@ -2986,36 +2986,53 @@ ROOM17 = dict(
 # skipping the whole puzzle. Extended to bx=0-6, bz=0-3 so the
 # platform butts directly against both walls with zero gap - there is
 # no more floor route around it, only through it.
+# Raised again, per Fausto's 2nd follow-up: "alza tutta la piattaforma
+# di un livello e mettine una bassa che permetta di salirci, cosi' se
+# si frantuma un pezzo della piattaforma sampr cadra' di sotto e dovra'
+# tornare sopra la piattaforma" - the whole platform moves from y=2 to
+# y=4 (world surf 24->40), so falling through a crumbled cell now
+# drops Sam all the way down to the y=0 ground floor (nothing else
+# solid in between, no floor_gaps in this room) instead of the
+# barely-there 24px drop the old y=2 platform gave - a real, punishing
+# fall that forces a full re-climb, not a shrug-and-continue. A single
+# jump can't cover the full 32px climb from ground to y=4 in one go
+# (established jump-height limit, ~21px max without a stepping stone),
+# so (1,3) - the room's existing Entry cell - stays at the LOW y=2
+# ("mettine una bassa che permetta di salirci") as a fixed 2-step
+# staircase landing, and (1,2) - the very next cell on the climb path
+# - was promoted from crumbling to fixed too (T_CRUMB->T_STONE): it's
+# now the sole gateway onto the raised platform, so it must never be
+# the thing that strands Sam mid-climb.
 room18_slabs_def = [
-    (0,0,2,T_CRUMB),
-    (1,0,2,T_CRUMB),
-    (2,0,2,T_STONE),   # hazard
-    (3,0,2,T_CRUMB),
-    (4,0,2,T_STONE),   # hazard
-    (5,0,2,T_CRUMB),
-    (6,0,2,T_STONE),   # fixed safe corner (NE)
-    (0,1,2,T_STONE),   # fixed safe corner (NW, next to entry's column)
-    (1,1,2,T_STONE),   # key1
-    (2,1,2,T_CRUMB),
-    (3,1,2,T_STONE),   # hazard
-    (4,1,2,T_CRUMB),
-    (5,1,2,T_STONE),   # hazard
-    (6,1,2,T_STONE),   # key2
-    (0,2,2,T_CRUMB),
-    (1,2,2,T_CRUMB),
-    (2,2,2,T_STONE),   # hazard
-    (3,2,2,T_CRUMB),
-    (4,2,2,T_CRUMB),
-    (5,2,2,T_STONE),   # hazard
-    (6,2,2,T_CRUMB),
-    (0,3,2,T_STONE),   # hazard
-    (1,3,2,T_STONE),   # Entry - climb from spawn's floor
-    (2,3,2,T_CRUMB),
-    (3,3,2,T_STONE),   # key3
-    (4,3,2,T_STONE),   # hazard
-    (5,3,2,T_CRUMB),
-    (6,3,2,T_CRUMB),
-    # exit auto-appended at (7,1,2) - a plain adjacent walk off the
+    (0,0,4,T_STONE),
+    (1,0,4,T_CRUMB),
+    (2,0,4,T_STONE),   # hazard
+    (3,0,4,T_STONE),
+    (4,0,4,T_STONE),   # hazard
+    (5,0,4,T_CRUMB),
+    (6,0,4,T_STONE),   # fixed safe corner (NE)
+    (0,1,4,T_STONE),   # fixed safe corner (NW, next to entry's column)
+    (1,1,4,T_STONE),   # key1
+    (2,1,4,T_CRUMB),
+    (3,1,4,T_STONE),   # hazard
+    (4,1,4,T_CRUMB),
+    (5,1,4,T_STONE),   # hazard
+    (6,1,4,T_STONE),   # key2
+    (0,2,4,T_STONE),
+    (1,2,4,T_STONE),   # 2nd staircase step - fixed, sole gateway onto the platform
+    (2,2,4,T_STONE),   # hazard
+    (3,2,4,T_CRUMB),
+    (4,2,4,T_STONE),
+    (5,2,4,T_STONE),   # hazard
+    (6,2,4,T_CRUMB),
+    (0,3,4,T_STONE),   # hazard
+    (1,3,2,T_STONE),   # Entry (LOW staircase step) - climb from spawn's floor
+    (2,3,4,T_STONE),
+    (3,3,4,T_STONE),   # key3
+    (4,3,4,T_STONE),   # hazard
+    (5,3,4,T_CRUMB),
+    (6,3,4,T_STONE),
+    # exit auto-appended at (7,1,4) - a plain adjacent walk off the
     # platform's own NE corner, no jump needed
 ]
 
@@ -3029,32 +3046,38 @@ ROOM18 = dict(
         T_STONE: dict(top_fill=10, top_edge=11, face_l=6, face_r=8, rocky=True),
         T_CRUMB: dict(top_fill=13, top_edge=11, face_l=6, face_r=8, rocky=True),
     },
-    # y is platform_y+1 (NOT the platform's own y=2) - see Room17's
+    # y is platform_y+1 (NOT the platform's own y=4) - see Room17's
     # phantom-platform bug: a key tile overwrites the physics grid's
     # solid tile, so it must sit one layer above the platform, never
     # on it.
-    keys=[(1,1,3,14), (6,1,3,14), (3,3,3,14)],
-    exit_bx=7, exit_bz=1, exit_y=2,
+    keys=[(1,1,5,14), (6,1,5,14), (3,3,5,14)],
+    exit_bx=7, exit_bz=1, exit_y=4,
     # 8 static amoeba hazards scattered through the widened platform,
-    # none adjacent to the entry/key/exit cells - surf=floor=24
-    # (8*(y+1) for y=2) restricts the kill zone to just this
-    # platform's own standing height, same explicit-floor fix Room9
-    # needed.
-    hazards=[(2,0,24,24), (4,0,24,24), (3,1,24,24), (5,1,24,24),
-             (2,2,24,24), (5,2,24,24), (0,3,24,24), (4,3,24,24)],
+    # none adjacent to the entry/key/exit cells - surf=floor=40
+    # (8*(y+1) for the now-raised y=4) restricts the kill zone to just
+    # this platform's own standing height, same explicit-floor fix
+    # Room9 needed.
+    hazards=[(2,0,40,40), (4,0,40,40), (3,1,40,40), (5,1,40,40),
+             (2,2,40,40), (5,2,40,40), (0,3,40,40), (4,3,40,40)],
     hazard_art=AMOEBA_ART,
-    # 14 single-cell touch-crumble groups (default crumb_continuous=0 -
+    # 7 single-cell touch-crumble groups (default crumb_continuous=0 -
     # Fausto said "si sgretolano al suo passaggio", a fresh touch
     # advances one stage, same as every room except Room9's dwell
-    # variant) - entry/keys/hazards stay fixed landmarks, matching the
-    # established practice of never crumbling a cell with a special role.
+    # variant) - entry/2nd step/keys/hazards stay fixed landmarks,
+    # matching the established practice of never crumbling a cell with
+    # a special role. Trimmed down from the pre-raise count (14 at
+    # y=2): the SAME cells cost noticeably more per crumble variant at
+    # y=4 (measured ~820B/cell here vs ~510B/cell at y=2 - the raised
+    # position changes the affected screen rectangle), and this room's
+    # crumb bank is the ROM's last bank (127) with zero fallback if it
+    # overflows - had to cut count to fit, not just to taste.
     crumb_units=[
-        [(0,0,2)], [(1,0,2)], [(3,0,2)], [(5,0,2)],
-        [(2,1,2)], [(4,1,2)],
-        [(0,2,2)], [(1,2,2)], [(3,2,2)], [(4,2,2)], [(6,2,2)],
-        [(2,3,2)], [(5,3,2)], [(6,3,2)],
+        [(1,0,4)], [(5,0,4)],
+        [(2,1,4)], [(4,1,4)],
+        [(3,2,4)], [(6,2,4)],
+        [(5,3,4)],
     ],
-    crumb_unit_banks=['a']*14,
+    crumb_unit_banks=['a']*7,
     # Fausto, after seeing the room: "fai anche girare un nemico sulla
     # piattaforma per rendere piu' difficile il completamento" - the
     # urchin sprite (already reused for the room's theme) now actually
@@ -3065,15 +3088,15 @@ ROOM18 = dict(
     # the enemy walks all 4 sides of a box), tracing the exact outer
     # footprint of the (now-widened) platform itself (world x 8..104 =
     # bx 0..6, world z 8..56 = bz 0..3) at the platform's own standing
-    # height (ensurf=24, y=2) - so it's always somewhere on the
-    # perimeter, forcing Sam to time crossings on top of dodging the
-    # static hazards and outrunning the crumbling cells, never all
-    # three threats trivially separable. Color 5 (light blue) - the
-    # amoeba hazards are already green(2), and every existing surface
-    # here is tan/magenta/dark-red, so light blue is the one hue with
-    # nothing to camouflage against.
+    # height (ensurf=40, the now-raised y=4) - so it's always somewhere
+    # on the perimeter, forcing Sam to time crossings on top of
+    # dodging the static hazards and outrunning the crumbling cells,
+    # never all three threats trivially separable. Color 5 (light
+    # blue) - the amoeba hazards are already green(2), and every
+    # existing surface here is tan/magenta/dark-red, so light blue is
+    # the one hue with nothing to camouflage against.
     enemy_frames=[URCHIN_A, URCHIN_B],
-    enxmin=8, enxmax=104, enz=8, en_centerx=56, ensurf=24, en_axis=3, enemy_color=5,
+    enxmin=8, enxmax=104, enz=8, en_centerx=56, ensurf=40, en_axis=3, enemy_color=5,
     name="AMOEBATRONS' REVENGE",
     # bank1 overflow ("Negative BLOCK?") expected from this room's own
     # data (19 slabs + 9 crumb groups + 5 hazards) - relocate the map,
