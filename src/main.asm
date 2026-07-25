@@ -472,7 +472,7 @@ room_pkg_ptr:         RESB 2  ; 0 = no roller package in this slot,
                         ; tail.
 room_pkg2_ptr:        RESB 2  ; same, 2nd independent roller package.
 room_state_end:
-NROOMS equ 19
+NROOMS equ 20
 ram_end:
 
 ram_map     equ 0C100h  ; 6*8*8 = 384 bytes  (index = z*64+y*8+x)
@@ -7069,11 +7069,40 @@ exit_gfx19_1:
         INCBIN "src/exit_gfx19_1.bin"
         BLOCK 0C000h-$,0FFh
 
+; ============================================================
+;  BANKS 130-131: room 20 (THE FINAL BARRIER, last room) pre-rendered
+;  background. No own crumb bank - crumb_units=[] so room_nunits=0 and
+;  cell_at returns "no match" immediately without ever reading
+;  room_crumb_bank (same reasoning as Rooms 4-7/17/19), reusing
+;  CRUMBBANK(84) as a harmless placeholder. Bank numbers must match
+;  ROOM20_BGBANK/ROOM20_BGCOLBANK in tools/gen_iso.py.
+; ============================================================
+ROOM20_BGBANK    equ 130
+ROOM20_BGCOLBANK equ 131
+        ORG 08000h
+        INCBIN "src/bg_pattern20.bin"
+wisp_gfx20:
+        INCBIN "src/enemy_gfx20.bin"
+        ; level_map20: bank1 overflow fix (this room's own data pushed
+        ; it over) - same relocation as every other room's own map.
+level_map20:
+        INCBIN "src/level_map20.bin"
+        BLOCK 0A000h-$,0FFh
+        ORG 0A000h
+        INCBIN "src/bg_color20.bin"
+keys_gfx20:
+        INCBIN "src/keys_gfx20.bin"
+exit_gfx20_0:
+        INCBIN "src/exit_gfx20_0.bin"
+exit_gfx20_1:
+        INCBIN "src/exit_gfx20_1.bin"
+        BLOCK 0C000h-$,0FFh
+
         ; pad the ROM back out to a full 2MB (256 x 8KB banks) -
         ; openMSX's ascii8 mapper expects a power-of-two file size; a
         ; short file fails to boot at all (falls through to plain MSX
         ; BASIC). Measured then computed exactly (2097152 - actual
-        ; size before this BLOCK), not guessed by hand. 130 banks now
-        ; used (0-129), so 126 banks (130-255) remain: 126*8192 =
-        ; 1032192.
-        BLOCK 1032192,0FFh
+        ; size before this BLOCK), not guessed by hand. 132 banks now
+        ; used (0-131), so 124 banks (132-255) remain: 124*8192 =
+        ; 1015808.
+        BLOCK 1015808,0FFh

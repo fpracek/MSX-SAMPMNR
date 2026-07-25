@@ -566,6 +566,8 @@ def render_room(spec):
         if spec.get('lever_switch'):
             _sw_bx, _sw_bz = spec['lever_switch']
             draw_hazard(_sw_bx, _sw_bz, spec['lever_switch_surf'], LEVER_ART)
+        for _dbx, _dbz, _dsurf, _dart in spec.get('deco_props', []):
+            draw_hazard(_dbx, _dbz, _dsurf, _dart)
         return img
 
     img = [[1]*W for _ in range(H)]
@@ -596,6 +598,15 @@ def render_room(spec):
     if spec.get('lever_switch'):
         _sw_bx, _sw_bz = spec['lever_switch']
         draw_hazard(_sw_bx, _sw_bz, spec['lever_switch_surf'], LEVER_ART)
+    # deco_props: purely decorative background art (bx,bz,surf,art) -
+    # same "drawn via draw_hazard directly, not through spec['hazards']/
+    # hazard_art" trick as lever_switch above, for the same reason: it
+    # must never be lethal and may use its own distinct art rather than
+    # whatever hazard_art the room's REAL hazards use. Introduced for
+    # Room20's decorative sun (placed at an unreachable height, so
+    # there's no kill-zone at all, not even an inert one).
+    for _dbx, _dbz, _dsurf, _dart in spec.get('deco_props', []):
+        draw_hazard(_dbx, _dbz, _dsurf, _dart)
 
     cover = [[0]*MAPW for _ in range(MAPD)]
     for bz in range(MAPD):
@@ -3204,6 +3215,89 @@ ROOM19 = dict(
     map_label='level_map19',
 )
 
+# THE FINAL BARRIER (last room). Fausto: "essendo l'ultimo fai qualche
+# cosa che faccia capire che si esce verso l'alto fuori dalle caverne.
+# nello schema classico si vede un sole" - a callback to the classic
+# Manic Miner reference he shared (sky, sun, exiting upward out of the
+# caves), NOT a literal reproduction of that copyrighted scene - just
+# the same idea reinterpreted in this engine's own isometric style:
+# sky-blue walls (still the jagged _wtop_cave silhouette - a rocky
+# cave MOUTH opening onto daylight, not a different crest shape) and a
+# decorative sun baked into the background high in the "sky", well
+# above any reachable height (a hazard entry whose kill-band sits at
+# surf=103 - unreachable, the tallest jump in this game peaks well
+# under that - so it's pure scenery, reusing the existing hazard_art
+# bake pipeline instead of inventing a new one).
+SUN_HAZARD_ART = [
+    _art_row(24, (10,14,'Y')),
+    _art_row(24, (2,4,'Y'), (9,15,'Y'), (20,22,'Y')),
+    _art_row(24, (8,16,'Y')),
+    _art_row(24, (0,2,'Y'), (6,18,'Y'), (22,24,'Y')),
+    _art_row(24, (5,19,'Y')),
+    _art_row(24, (4,20,'Y')),
+    _art_row(24, (0,2,'Y'), (3,21,'Y'), (22,24,'Y')),
+    _art_row(24, (3,21,'Y')),
+    _art_row(24, (0,2,'Y'), (3,21,'Y'), (22,24,'Y')),
+    _art_row(24, (4,20,'Y')),
+    _art_row(24, (5,19,'Y')),
+    _art_row(24, (0,2,'Y'), (6,18,'Y'), (22,24,'Y')),
+    _art_row(24, (8,16,'Y')),
+    _art_row(24, (2,4,'Y'), (9,15,'Y'), (20,22,'Y')),
+    _art_row(24, (10,14,'Y')),
+]
+
+room20_slabs_def = [
+    (1,3,2,T_STONE),   # Entry - climb from spawn's floor
+    (3,3,2,T_STONE),   # sideways +2 from Entry (gap bx=2)
+    (3,2,4,T_STONE),   # climb
+    (1,2,4,T_STONE),   # sideways -2 (gap bx=2)
+    (1,1,6,T_STONE),   # climb
+    (3,1,6,T_STONE),   # sideways +2 (gap bx=2)
+    (3,0,7,T_STONE),   # climb, +1y only (final tier)
+    # exit auto-appended at (5,0,7) - sideways +2 from the final tier (gap bx=4)
+]
+
+ROOM20 = dict(
+    label='20',
+    wallcol=dict(lit=5, rock=4, joint=1),
+    crest_fn=_wtop_cave,
+    floor_base=2, floor_speckle=12,
+    slabs_def=room20_slabs_def,
+    style={
+        T_STONE: dict(top_fill=14, top_edge=15, face_l=5, face_r=4, rocky=True),
+    },
+    # y is platform_y+1, same proven skeleton/deltas as Room16/19 - the
+    # new part here is the theme/hazards/enemy, not the jump physics.
+    keys=[(1,3,3,14), (1,2,5,14), (3,1,7,14)],
+    exit_bx=5, exit_bz=0, exit_y=7,
+    # 2 real ground-level thorn hazards positioned clear of spawn,
+    # entry, every platform column, and the exit - purely obstacles to
+    # step around while still on the ground, not blocking the climb.
+    hazards=[(5,4,8), (0,2,8)],
+    hazard_art=THORN_ART,
+    # the decorative sun (SUN_HAZARD_ART above) is NOT a real hazard -
+    # hazard_art is shared by every entry in `hazards`, so it can't
+    # have its own distinct art that way. deco_props draws it directly
+    # via draw_hazard with no kill-zone at all (see the lever_switch
+    # precedent this pattern was modeled on).
+    deco_props=[(4, 3, 103, SUN_HAZARD_ART)],
+    crumb_units=[],
+    # Fausto: "qualche ostacolo con un nemico" - reuses the wisp
+    # (Room10's floating spirit, already proven as a horizontal
+    # patrol) as a "guardian of the light" patrolling the approach to
+    # the tier-2 platform (bz=2,y=4, world z=40/surf=40) between
+    # (1,2,4) and (3,2,4) - the same "watch it, then dash" fairness
+    # shape already validated for Room9's amoeba (patrol range roughly
+    # matching the gap it guards, not an arbitrarily wide sweep).
+    enemy_frames=[WISP_A, WISP_B],
+    enxmin=24, enxmax=56, enz=40, ensurf=40, en_axis=0, enemy_color=15,
+    name="THE FINAL BARRIER",
+    # bank1 overflow ("Negative BLOCK?") possible from this room's own
+    # data - relocate this room's own map too, same routine fix as
+    # every recent room.
+    map_label='level_map20',
+)
+
 R1 = render_room(ROOM1)
 R2 = render_room(ROOM2)
 R3 = render_room(ROOM3)
@@ -3223,6 +3317,7 @@ R16 = render_room(ROOM16)
 R17 = render_room(ROOM17)
 R18 = render_room(ROOM18)
 R19 = render_room(ROOM19)
+R20 = render_room(ROOM20)
 
 # Each room's 2-frame enemy sprite table (64B) rides along in the spare
 # tail of its own bg_pattern bank (6144 of 8192 bytes used, ~2KB free)
@@ -3346,6 +3441,7 @@ _write_room_bg(R16['label'], R16)
 _write_room_bg(R17['label'], R17)
 _write_room_bg(R18['label'], R18)
 _write_room_bg(R19['label'], R19)
+_write_room_bg(R20['label'], R20)
 
 # keys_gfx/exit_gfx (per-room graphics blobs, like enemy_gfx) ride in
 # the spare tail of that room's own bg_COLOR bank - same rationale as
@@ -3381,6 +3477,7 @@ _write_room_extra_gfx(R16['label'], R16)
 _write_room_extra_gfx(R17['label'], R17)
 _write_room_extra_gfx(R18['label'], R18)
 _write_room_extra_gfx(R19['label'], R19)
+_write_room_extra_gfx(R20['label'], R20)
 
 # lift_gfx.bin: the rising/falling lift platform's sprite art (2
 # halves, 64B) - a single fixed design shared by every room with a
@@ -3486,6 +3583,7 @@ ROOM18_BGBANK, ROOM18_BGCOLBANK = 125, 126
 # the "ROM IS NOW FULL" memory entry from Room18. Room19 is the first
 # room to draw from that expanded space.
 ROOM19_BGBANK, ROOM19_BGCOLBANK = 128, 129
+ROOM20_BGBANK, ROOM20_BGCOLBANK = 130, 131
 CRUMBBANK = 84
 CRUMBBANK2 = 87
 CRUMBBANK3 = 90
@@ -3615,6 +3713,8 @@ emit_room(R18, lines, map_out=os.path.join(ROOT,'src','level_map18.bin'))
 emit_crumb_tab(R18, lines, bank_map={'a': CRUMBBANK18})
 emit_room(R19, lines, map_out=os.path.join(ROOT,'src','level_map19.bin'))
 emit_crumb_tab(R19, lines, bank_map={'a': CRUMBBANK})
+emit_room(R20, lines, map_out=os.path.join(ROOT,'src','level_map20.bin'))
+emit_crumb_tab(R20, lines, bank_map={'a': CRUMBBANK})
 
 lines.append("; redefined font, 76 chars from '0' (8 bytes each)")
 _f = open(os.path.join(ROOT,'tools','fonts.c')).read()
@@ -3682,10 +3782,12 @@ lines.append("room18_name:")
 lines.append("        db " + _ds_encode(R18['name']) + ",0")
 lines.append("room19_name:")
 lines.append("        db " + _ds_encode(R19['name']) + ",0")
+lines.append("room20_name:")
+lines.append("        db " + _ds_encode(R20['name']) + ",0")
 lines.append("")
 
-ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx', '11': 'phone_gfx', '12': 'alien_gfx', '13': 'cart_gfx', '14': 'cart_gfx14', '15': 'cart_gfx15', '16': 'cart_gfx16', '17': 'cart_gfx17', '18': 'urchin_gfx18', '19': 'cart_gfx19'}
-ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name', '11': 'room11_name', '12': 'room12_name', '13': 'room13_name', '14': 'room14_name', '15': 'room15_name', '16': 'room16_name', '17': 'room17_name', '18': 'room18_name', '19': 'room19_name'}
+ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx', '11': 'phone_gfx', '12': 'alien_gfx', '13': 'cart_gfx', '14': 'cart_gfx14', '15': 'cart_gfx15', '16': 'cart_gfx16', '17': 'cart_gfx17', '18': 'urchin_gfx18', '19': 'cart_gfx19', '20': 'wisp_gfx20'}
+ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name', '11': 'room11_name', '12': 'room12_name', '13': 'room13_name', '14': 'room14_name', '15': 'room15_name', '16': 'room16_name', '17': 'room17_name', '18': 'room18_name', '19': 'room19_name', '20': 'room20_name'}
 
 def room_row(R, bgbank, bgcolbank, crumbbank):
     exb16 = R['exit_bx']*16
@@ -3761,7 +3863,8 @@ for R, bgbank, bgcolbank, crumbbank in (
         (R16, ROOM16_BGBANK, ROOM16_BGCOLBANK, CRUMBBANK16),
         (R17, ROOM17_BGBANK, ROOM17_BGCOLBANK, CRUMBBANK),
         (R18, ROOM18_BGBANK, ROOM18_BGCOLBANK, CRUMBBANK18),
-        (R19, ROOM19_BGBANK, ROOM19_BGCOLBANK, CRUMBBANK)):
+        (R19, ROOM19_BGBANK, ROOM19_BGCOLBANK, CRUMBBANK),
+        (R20, ROOM20_BGBANK, ROOM20_BGCOLBANK, CRUMBBANK)):
     f = room_row(R, bgbank, bgcolbank, crumbbank)
     lines.append(f"        db {f[0]},{f[1]}")
     lines.append(f"        dw {f[2]}")
@@ -3841,6 +3944,7 @@ save_preview(R16, os.path.join(ROOT,'build','preview17.png'), spawn_wx=24, spawn
 save_preview(R17, os.path.join(ROOT,'build','preview18.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R18, os.path.join(ROOT,'build','preview19.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R19, os.path.join(ROOT,'build','preview20.png'), spawn_wx=24, spawn_wz=72)
+save_preview(R20, os.path.join(ROOT,'build','preview21.png'), spawn_wx=24, spawn_wz=72)
 
 print(f"OK room1 color-fixes:{R1['fixes']} keys:{R1['key_rects']}")
 print(f"OK room2 color-fixes:{R2['fixes']} keys:{R2['key_rects']}")
@@ -3861,3 +3965,4 @@ print(f"OK room16 color-fixes:{R16['fixes']} keys:{R16['key_rects']}")
 print(f"OK room17 color-fixes:{R17['fixes']} keys:{R17['key_rects']}")
 print(f"OK room18 color-fixes:{R18['fixes']} keys:{R18['key_rects']}")
 print(f"OK room19 color-fixes:{R19['fixes']} keys:{R19['key_rects']}")
+print(f"OK room20 color-fixes:{R20['fixes']} keys:{R20['key_rects']}")

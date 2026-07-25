@@ -705,6 +705,29 @@ hazards_tab19:
 ;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2, bank
 crumb_tab19:
 
+keys_tab20:
+        db 1,3,3,10,8
+        db 1,2,5,12,5
+        db 3,1,7,18,4
+
+slab_tab20:
+        db 89,73,96,24,14
+        db 105,49,80,40,14
+        db 169,25,80,64,7
+        db 57,57,64,24,14
+        db 121,25,64,56,14
+        db 73,33,48,40,14
+        db 137,9,48,64,14
+        db 89,9,32,56,14
+
+hazards_tab20:
+        db 5,4,0,18
+        db 0,2,0,18
+
+; crumb_tab20 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
+;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2, bank
+crumb_tab20:
+
 ; redefined font, 76 chars from '0' (8 bytes each)
 fonts_tab:
         db 00Eh,019h,031h,031h,031h,033h,03Fh,01Eh,006h,00Eh,03Ch,00Ch,008h,018h,038h,038h
@@ -785,6 +808,8 @@ room18_name:
         db 65,77,79,69,66,65,84,82,79,78,83,2,32,82,69,86,69,78,71,69,0
 room19_name:
         db 83,79,76,65,82,32,80,79,87,69,82,32,71,69,78,69,82,65,84,79,82,0
+room20_name:
+        db 84,72,69,32,70,73,78,65,76,32,66,65,82,82,73,69,82,0
 
 ; room_tab: one row per room, read into room_state RAM struct
 ; via a single ldir at room_start. Field order/sizes MUST match
@@ -1320,6 +1345,34 @@ room_tab:
         dw 0
         dw 0
         dw debris_tab19
+        dw 0
+        dw 0
+        dw 0
+        db 130,131
+        dw level_map20
+        dw keys_tab20
+        db 3
+        dw keys_gfx20
+        dw slab_tab20
+        db 8
+        db 0
+        dw crumb_tab20
+        db 84
+        dw hazards_tab20
+        db 2
+        db 80,0,64
+        db 23,5,2,40
+        dw exit_gfx20_0
+        dw exit_gfx20_1
+        dw wisp_gfx20
+        db 15
+        db 24,56,40,40,0,0
+        db 255,0,0,0
+        dw room20_name
+        db 0
+        dw 0
+        dw 0
+        dw 0
         dw 0
         dw 0
         dw 0
