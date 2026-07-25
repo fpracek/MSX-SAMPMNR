@@ -393,7 +393,21 @@ scr_dst:    RESB 2      ; scrolling banner: generic dst cursor
 scr_rowidx: RESB 1      ; scrolling banner: which of the 8 pixel-rows
 scb_cnt:    RESB 1      ; scrolling banner: blit tile-column counter
 won_t:      RESB 1      ; frames spent in the post-exit victory blink
-dbg_bit:    RESB 1      ; debug_room_key scratch
+dbg_bit:    RESB 1      ; title_key_scan scratch
+kbd_prev:   RESB 4      ; title_key_scan: previous frame's pressed-bit
+                        ; snapshot per row (2-5), for edge detection so a
+                        ; held key doesn't spam the typed_buf repeatedly
+typed_buf:  RESB 5      ; title_key_scan: rolling buffer of the last 5
+                        ; typed letters (0-25 index), checked against
+                        ; RENZO/FORCE
+force_mode: RESB 1      ; 1 once "FORCE" has been typed - the NEXT letter
+                        ; force-selects a room (replaces the old bare-
+                        ; letter debug shortcut, so it can't collide with
+                        ; typing RENZO)
+room_selected: RESB 1   ; scratch: title_letter sets this when FORCE+
+                        ; letter completes a room selection
+infinite_lives: RESB 1  ; 1 once "RENZO" has been typed - sam_die never
+                        ; decrements lives again this session
 current_room: RESB 1    ; 0=Central Cavern, 1=The Cold Room, ...
 lever_pulled: RESB 1    ; 0=not yet, 1=switch touched this room-load -
                         ; zeroed by room_start's bulk RAM clear, same
@@ -576,7 +590,7 @@ init:
         ld  (rnd_seed),a        ; must never be 0 - see rnd8
         call psg_init
         call title_setup
-        jr  title_loop          ; skip over the two routines below -
+        jp  title_loop          ; skip over the two routines below -
                                  ; they're subroutines, not fall-through
 
 ; ------------------------------------------------------------
@@ -622,55 +636,142 @@ read_trig_any:
         ret
 
 ; ------------------------------------------------------------
-; debug_room_key: scans keyboard matrix rows 2-5 (the letter keys) for
-; a pressed letter. A=room0/Central Cavern, B=room1/The Cold Room, etc,
-; clamped to the rooms that actually exist. Returns A=0FFh
-; (current_room set) if one was found, else 0. Not documented anywhere
-; on purpose - debug/dev shortcut only.
+; title_key_scan: edge-triggered keyboard-letter typing detector for the
+; title screen. Scans matrix rows 2-5 (the letter keys) each frame for
+; NEWLY-pressed keys (vs kbd_prev, so a held key doesn't spam) and feeds
+; each one to title_letter as a 0-25 (A-Z) index. Two typed words are
+; recognised: "FORCE" arms force_mode (the NEXT letter typed then
+; force-selects a room, replacing the old bare-letter debug shortcut -
+; gated behind FORCE specifically so it can't collide with typing
+; RENZO's own leading letters), and "RENZO" sets infinite_lives (Fausto:
+; "se nel menu viene digitato RENZO le vite siano infinite"). Neither is
+; documented anywhere on purpose - debug/dev shortcuts only.
 ; Real MSX matrix (confirmed against https://map.grauw.nl/articles/
 ; keymatrix.php - the row2=@ABCDEFG layout an earlier pass assumed was
 ; wrong, which is why this silently didn't respond to real key presses):
 ;   row2: bit7=B bit6=A bit5..0=symbols (only 2 letters in this row)
 ;   row3: bit0=C bit1=D bit2=E bit3=F bit4=G bit5=H bit6=I bit7=J
 ;   row4: bit0=K ... bit7=R          row5: bit0=S ... bit7=Z
+; Returns A=0FFh (current_room just set via FORCE+letter) or A=0.
 ; ------------------------------------------------------------
-row_bases: db 0FAh, 2, 10, 18   ; room index = row_bases[row-2] + bitpos
-                                 ; (0FAh=-6, so row2 bit6/7 -> 0/1='A'/'B';
-                                 ; bit0-5 wrap past NROOMS and are ignored)
+row_bases: db 0FAh, 2, 10, 18   ; letter index = row_bases[row-2] + bitpos
+                                 ; (0FAh=-6, so row2 bit6/7 -> 0/1='A'/'B')
+FORCE_IDX: db 5,14,17,2,4        ; F O R C E
+RENZO_IDX: db 17,4,13,25,14      ; R E N Z O
 
-debug_room_key:
+title_key_scan:
+        xor a
+        ld  (room_selected),a
         ld  e,0
 .rowlp: ld  a,e
         add a,2
         call SNSMAT
         cpl
+        ld  d,a                  ; d = this frame's pressed bits, row e
+        ld  hl,kbd_prev
+        ld  a,e
+        add a,l
+        ld  l,a
+        jr  nc,.pnoc
+        inc h
+.pnoc:  ld  a,(hl)                ; a = last frame's pressed bits
+        ld  (hl),d                ; store this frame's for next time
+        cpl
+        and d                     ; a = newly-pressed bits this frame
         ld  d,a
+        or  a
+        jr  z,.next
         xor a
         ld  (dbg_bit),a
         ld  b,8
 .bitlp: srl d
-        jr  nc,.next
+        jr  nc,.nextbit
         ld  hl,row_bases
         ld  a,e
         add a,l
         ld  l,a
-        jr  nc,.noc
+        jr  nc,.rnoc
         inc h
-.noc:   ld  a,(hl)
+.rnoc:  ld  a,(hl)
         ld  hl,dbg_bit
         add a,(hl)
-        cp  NROOMS
-        jr  nc,.next
-        ld  (current_room),a
-        ld  a,0FFh
-        ret
-.next:  ld  hl,dbg_bit
+        cp  26
+        jr  nc,.nextbit           ; out of A-Z range (a symbol key etc)
+        push bc
+        push de
+        call title_letter
+        pop de
+        pop bc
+        jr  .next                 ; only handle the first new key/row/frame
+.nextbit:
+        ld  hl,dbg_bit
         inc (hl)
         djnz .bitlp
-        inc e
+.next:  inc e
         ld  a,e
         cp  4
         jr  nz,.rowlp
+        ld  a,(room_selected)
+        or  a
+        ret  z
+        xor a
+        ld  (room_selected),a
+        ld  a,0FFh
+        ret
+
+; title_letter: A=letter index (0-25). If force_mode is set, this letter
+; force-selects a room (current_room=A, clamped to NROOMS) and sets
+; room_selected; otherwise appends to typed_buf and checks it against
+; RENZO/FORCE.
+title_letter:
+        ld  hl,force_mode
+        ld  b,(hl)
+        ld  (hl),0
+        ld  c,a
+        ld  a,b
+        or  a
+        jr  z,.notforce
+        ld  a,c
+        cp  NROOMS
+        ret nc
+        ld  (current_room),a
+        ld  a,0FFh
+        ld  (room_selected),a
+        ret
+.notforce:
+        ld  hl,typed_buf+1
+        ld  de,typed_buf
+        ld  b,4
+.shift: ld  a,(hl)
+        ld  (de),a
+        inc hl
+        inc de
+        djnz .shift
+        ld  a,c
+        ld  (typed_buf+4),a
+        ld  hl,typed_buf
+        ld  de,RENZO_IDX
+        ld  b,5
+        call .cmp5
+        jr  nz,.notrenzo
+        ld  a,1
+        ld  (infinite_lives),a
+        ret
+.notrenzo:
+        ld  hl,typed_buf
+        ld  de,FORCE_IDX
+        ld  b,5
+        call .cmp5
+        ret nz
+        ld  a,1
+        ld  (force_mode),a
+        ret
+.cmp5:  ld  a,(de)
+        cp  (hl)
+        ret nz
+        inc hl
+        inc de
+        djnz .cmp5
         xor a
         ret
 
@@ -686,9 +787,9 @@ title_loop:
         call z,scroll_update    ; 1 in 4 frames - still reads as a
                                  ; smooth scroll, just costs a lot
                                  ; less than doing it every frame
-        call debug_room_key
+        call title_key_scan
         or  a
-        jr  nz,.go              ; letter pressed - current_room already set
+        jr  nz,.go              ; FORCE+letter completed - current_room set
         call read_trig_any
         or  a
         jr  nz,.firepressed
@@ -738,6 +839,11 @@ room_start:
         ; above, so stash it in IY for the duration of the wipe.
         ld  a,(bonus_ctr)
         ld  iyl,a
+        ; infinite_lives (RENZO cheat) needs the same rescue too - af',
+        ; shadow-BC and IY are all spoken for now, so use IX (only ever
+        ; used by scroll_update, which never runs during gameplay/respawn).
+        ld  a,(infinite_lives)
+        ld  ixl,a
         ld  hl,ram_start
         ld  de,ram_start+1
         ld  bc,ram_end-ram_start-1
@@ -753,6 +859,8 @@ room_start:
         ld  (air),a
         ld  a,iyl
         ld  (bonus_ctr),a
+        ld  a,ixl
+        ld  (infinite_lives),a
         exx
         ld  a,b
         exx
@@ -1040,6 +1148,21 @@ box_row:
 ; sam_die: lose a life, restart the room (0 lives -> fresh game)
 ; ------------------------------------------------------------
 sam_die:
+        ld  a,(infinite_lives)
+        or  a
+        jr  z,.normal
+        ; RENZO cheat active: respawn without ever touching (lives) -
+        ; same respawn+jingle as the normal .ok: path below, just no
+        ; decrement and no possible game-over branch.
+        call room_start
+        ld  a,30
+        ld  (sfx_t),a
+        ld  hl,0040h
+        ld  (sfx_freq),hl
+        ld  hl,12
+        ld  (sfx_step),hl
+        ret
+.normal:
         ld  a,(lives)
         dec a
         jr  nz,.ok
@@ -5481,6 +5604,18 @@ music_init:
         ld  (ttl_pose),a
         xor a
         ld  (ttl_loops),a
+        ; fresh typing state every time the title screen (re)appears -
+        ; not infinite_lives, which is a session-wide toggle once typed
+        ld  (kbd_prev),a
+        ld  (kbd_prev+1),a
+        ld  (kbd_prev+2),a
+        ld  (kbd_prev+3),a
+        ld  (typed_buf),a
+        ld  (typed_buf+1),a
+        ld  (typed_buf+2),a
+        ld  (typed_buf+3),a
+        ld  (typed_buf+4),a
+        ld  (force_mode),a
         ret
 
 music_stop:
@@ -7120,6 +7255,10 @@ phone_gfx:
         ; level_map10/12/13.
 level_map11:
         INCBIN "src/level_map11.bin"
+        ; slab_tab11: 2nd bank1-overflow fix (see slab_out's comment in
+        ; gen_iso.py) - relocated once map_out alone stopped being enough.
+slab_tab11:
+        INCBIN "src/slab_tab11.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color11.bin"
@@ -7156,6 +7295,8 @@ lever_gfx12:
         ; needs to live in this same already-mapped page-2 window.
 level_map12:
         INCBIN "src/level_map12.bin"
+slab_tab12:
+        INCBIN "src/slab_tab12.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color12.bin"
@@ -7222,6 +7363,8 @@ debris_gfx14:
         ; was added.
 level_map14:
         INCBIN "src/level_map14.bin"
+slab_tab14:
+        INCBIN "src/slab_tab14.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color14.bin"
