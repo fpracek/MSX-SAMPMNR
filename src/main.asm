@@ -309,6 +309,26 @@ pkg2_z:      RESB 1
 pkg2_h:      RESB 1
 pkg2_timer:  RESB 1
 pkg2_anim:   RESB 1
+; ---- sun-ray screen divider (optional - room_ray_ptr in room_state
+; is 0 for every room without one; when non-zero it points at a small
+; ray_tab{N} record: dw gfx_ptr, db period,width,color,ncols, then
+; ncols*1 bytes of candidate SCREEN-x column choices) in that room's
+; own bg_pattern bank tail - same relocation trick as the other
+; optional mechanics. Unlike every other mechanic so far, this one
+; operates entirely in SCREEN space, not world space: Fausto's own
+; description was "un raggio che divide lo SCHERMO" (divides the
+; SCREEN), not the 3D room - a fixed world x/z would project as a
+; diagonal line in this isometric engine, not a vertical "wall", so
+; the ray's position and Sam's own collision check both use the same
+; sx=PX0-8+wx-wz screen-space formula .mkpos/.mkdpos/etc. already use
+; for sprite placement, just compared against a fixed screen column
+; instead of drawn at a moving one. Picks a random column (rnd8, same
+; technique as debris/hopper) every `period` frames and holds it -
+; unlike debris/hopper there's no separate "active" flag, the ray is
+; always up, only its column changes. ----
+ray_x:      RESB 1      ; current active screen-x column
+ray_timer:  RESB 1      ; frames left before picking a new column
+ray_anim:   RESB 1
 lift_h:     RESB 1      ; current lift surface height (bounces between
                         ; room_lift_ymin/ymax)
 lift_dir:   RESB 1      ; 0=rising(+) 1=falling(-)
@@ -471,8 +491,12 @@ room_pkg_ptr:         RESB 2  ; 0 = no roller package in this slot,
                         ; in this room's own bg_pattern bank spare
                         ; tail.
 room_pkg2_ptr:        RESB 2  ; same, 2nd independent roller package.
+room_ray_ptr:         RESB 2  ; 0 = no sun-ray divider in this room,
+                        ; else points at ray_tab{N} (see ray_x above)
+                        ; in this room's own bg_pattern bank spare
+                        ; tail.
 room_state_end:
-NROOMS equ 18
+NROOMS equ 19
 ram_end:
 
 ram_map     equ 0C100h  ; 6*8*8 = 384 bytes  (index = z*64+y*8+x)
@@ -1002,6 +1026,7 @@ main_loop:
         call hopper_update
         call pkg_update
         call pkg2_update
+        call ray_update
         call hazard_check
         call lever_check
         call exit_check
@@ -1142,10 +1167,18 @@ load_room:
 .nopkggfx:
 
         ; roller package 2 (optional): 2 frames at sprite patterns
-        ; 52/56 - kept clear of Sam's own composed sprite (patterns
-        ; 48-51) rather than slotting in right after hopper (32-39),
-        ; since only ONE more 8-pattern slot (40-47) was free before
-        ; Sam's range.
+        ; 64/68 - REAL BUG fixed here: this used to target 52/56, which
+        ; is INSIDE Sam's own composed-sprite range. Sam's masked
+        ; sprite build (see "build masked Sam patterns" in sam_draw)
+        ; copies a full 128 bytes to VR_SPRP+48*8 = patterns 48-63,
+        ; UNCONDITIONALLY, every single frame - so anything placed in
+        ; 48-63 gets silently clobbered by Sam's own sprite the very
+        ; next frame after load_room copies it in. Never caught by
+        ; this session's build/byte-presence verification (the bytes
+        ; genuinely ARE in the ROM, correctly copied to VRAM once at
+        ; room load - the corruption only happens live, frame 2
+        ; onward), only found while allocating the next mechanic's own
+        ; patterns and re-deriving the full pattern map from scratch.
         ld  hl,(room_pkg2_ptr)
         ld  a,h
         or  l
@@ -1154,10 +1187,27 @@ load_room:
         inc hl
         ld  d,(hl)
         ex  de,hl
-        ld  de,VR_SPRP+52*8
+        ld  de,VR_SPRP+64*8
         ld  bc,64
         call LDIRVM
 .nopkg2gfx:
+
+        ; sun-ray screen divider (optional): 2 frames at sprite
+        ; patterns 72/76 - kept clear of both Sam's own composed range
+        ; (48-63) and pkg2's now-corrected 64-71, same "gfx pointer is
+        ; the table's own leading dw" trick.
+        ld  hl,(room_ray_ptr)
+        ld  a,h
+        or  l
+        jr  z,.norayggfx
+        ld  e,(hl)
+        inc hl
+        ld  d,(hl)
+        ex  de,hl
+        ld  de,VR_SPRP+72*8
+        ld  bc,64
+        call LDIRVM
+.norayggfx:
 
         ; map ROM -> RAM
         ld  hl,(room_map_ptr)
@@ -4039,6 +4089,88 @@ pkg2_update:
         jp  sam_die
 
 ; ------------------------------------------------------------
+; ray_update: sun-ray SCREEN divider (Solar Power Generator) - see
+; room_ray_ptr. Read directly off its ROM table each time (like
+; debris/hopper/pkg), not RAM-mirrored. Picks a random screen-x column
+; (rnd8, same technique as debris_update's column pick) every `period`
+; frames and holds it there - unlike every other optional mechanic
+; there is no "active" flag, the ray is always up, only its column
+; changes. Collision is SCREEN-space, not world-space: a fixed world
+; x/z would project as a diagonal line in this isometric engine, not a
+; vertical "wall" dividing the screen the way Fausto asked for, so
+; both the ray's own position and Sam's side of the check use the
+; same sx=PX0-8+wx-wz formula sam_draw's sprite placement already
+; uses - just compared against a fixed screen column instead of drawn
+; at a moving one. Record layout (ray_tab{N}, see tools/gen_iso.py):
+; +0 dw gfx_ptr, +2 period, +3 width, +4 color, +5 ncols, then
+; ncols*1 bytes of candidate screen-x columns.
+; ------------------------------------------------------------
+ray_update:
+        ld  hl,(room_ray_ptr)
+        ld  a,h
+        or  l
+        ret z               ; no ray in this room
+        ld  a,(ray_timer)
+        or  a
+        jp  nz,.raydec
+        call rnd8
+        ld  hl,(room_ray_ptr)
+        ld  de,5
+        add hl,de           ; +5 = ncols
+        ld  b,(hl)
+.raymod:
+        cp  b
+        jr  c,.raymodok
+        sub b
+        jr  .raymod
+.raymodok:
+        ld  e,a
+        ld  d,0
+        ld  hl,(room_ray_ptr)
+        ld  bc,6
+        add hl,bc
+        add hl,de           ; hl -> +6+idx = chosen screen-x column
+        ld  a,(hl)
+        ld  (ray_x),a
+        ld  hl,(room_ray_ptr)
+        ld  de,2
+        add hl,de           ; +2 = period
+        ld  a,(hl)
+        ld  (ray_timer),a
+        jp  .raycheck
+.raydec:
+        dec a
+        ld  (ray_timer),a
+.raycheck:
+        ld  a,(ray_anim)
+        inc a
+        ld  (ray_anim),a
+        ; sx = PX0-8+sam_wx-sam_wz (same formula as .mkpos)
+        ld  a,(sam_wx)
+        ld  l,a
+        ld  h,0
+        ld  de,PX0-8
+        add hl,de
+        ld  a,(sam_wz)
+        ld  e,a
+        ld  d,0
+        or  a
+        sbc hl,de
+        ld  a,l
+        ld  b,a             ; b = Sam's current screen x
+        ld  hl,(room_ray_ptr)
+        ld  de,3
+        add hl,de           ; +3 = width (half-band threshold)
+        ld  c,(hl)
+        ld  a,(ray_x)
+        sub b
+        jr  nc,.raydx
+        neg
+.raydx: cp  c
+        ret nc              ; outside the ray's band - safe
+        jp  sam_die
+
+; ------------------------------------------------------------
 ; sam_draw: sprites at sx=PX0-8+wx-wz  sy=PY0+(wx+wz)/2-h-16
 ; ------------------------------------------------------------
 sam_draw:
@@ -4606,7 +4738,7 @@ sam_draw:
         and 16
         srl a
         srl a
-        add a,52
+        add a,64
         call WRTVRM
         inc hl
         push hl
@@ -4617,6 +4749,47 @@ sam_draw:
         pop hl
         call WRTVRM
         inc hl
+        ret
+
+; .drawray: unlike every other optional mechanic (one position, one
+; sprite), the sun-ray divider is drawn as a whole STACK of segments
+; at a fixed screen x (ray_x) - a vertical "wall" of light spanning
+; most of the visible play height, top to bottom, since Fausto's own
+; description is a beam that "divides the screen" regardless of where
+; Sam or any platform is. b=segment count, c=starting screen y (both
+; hardcoded here, not table-driven - the screen height this spans
+; doesn't vary per room the way a room's own layout does).
+.drawray:
+        ld  b,11
+        ld  c,8
+.rsegloop:
+        push bc
+        ld  a,c
+        call WRTVRM
+        inc hl
+        ld  a,(ray_x)
+        call WRTVRM
+        inc hl
+        ld  a,(ray_anim)
+        and 16
+        srl a
+        srl a
+        add a,72
+        call WRTVRM
+        inc hl
+        push hl
+        ld  hl,(room_ray_ptr)
+        ld  de,4
+        add hl,de
+        ld  a,(hl)
+        pop hl
+        call WRTVRM
+        inc hl
+        pop bc
+        ld  a,c
+        add a,16
+        ld  c,a
+        djnz .rsegloop
         ret
 
 .enemy_sprites_done:
@@ -4719,6 +4892,23 @@ sam_draw:
         pop hl
         call .spr4p2
 .nopkg2draw:
+        pop bc
+
+        ; sun-ray screen divider (optional - see room_ray_ptr) - always
+        ; visible while the room has one, no "active" flag, drawn as a
+        ; whole stack of segments via .drawray (not the usual single
+        ; mkXpos/spr4X pair). Own push/pop bc, same reasoning as every
+        ; other optional block above.
+        push bc
+        ld  a,(room_ray_ptr)
+        ld  b,a
+        ld  a,(room_ray_ptr+1)
+        or  b
+        jr  z,.norayfxdraw
+        push hl
+        call .drawray
+        pop hl
+.norayfxdraw:
         pop bc
 
         ; 4 overlapped Sam sprites (dynamic masked patterns 48/52/56/60)
@@ -6982,15 +7172,66 @@ exit_gfx18_1:
         BLOCK 0C000h-$,0FFh
 
 ; ============================================================
-;  BANK 127 (the LAST bank in this 1MB ROM): room 18's 9 touch-
-;  crumbling cells, all cheap solo 1-cell groups (5184 of 8192 bytes
-;  used, measured - comfortably fits, no 2nd crumb bank needed). Bank
-;  number must match CRUMBBANK18 in tools/gen_iso.py.
-;  No padding BLOCK follows - banks 0-127 are now all spoken for
-;  (128 * 8192 = 1048576 bytes exactly), so this INCBIN IS the end of
-;  the file. Any future room needs a scope trim or reused-bank trick
-;  (see the enemy_gfx/keys_gfx spare-tail pattern) - there is no more
-;  free ROM space to simply allocate new banks into.
+;  BANK 127 (the last bank of the ORIGINAL 1MB ROM): room 18's 7
+;  touch-crumbling cells, all cheap solo 1-cell groups (5760 of 8192
+;  bytes used, measured, after 2 later size trims - see the
+;  sampr-miner-project memory for why this shrank from the original
+;  9/14 cells). Bank number must match CRUMBBANK18 in tools/gen_iso.py.
 ; ============================================================
 CRUMBBANK18 equ 127
         INCBIN "src/crumb18.bin"
+
+; ============================================================
+;  ROM EXPANDED 1MB -> 2MB (128 -> 256 banks), per Fausto's explicit
+;  choice: banks 0-127 became completely full at Room18 (every bank
+;  spoken for, zero padding left - see the "ROM IS NOW FULL" memory
+;  entry), and Room19 needed a genuinely new pre-rendered background
+;  (2 more banks, minimum, like every room). The ASCII8 mapper's bank
+;  registers (BANK0R-BANK3R) already take a full 8-bit value, so this
+;  needed NO changes to the bank-switching code itself - only a bigger
+;  file. This comment marks where the newly available 128-255 range
+;  begins; the trailing padding BLOCK at the very end of this file
+;  targets 2097152 bytes (256*8192) instead of 1048576.
+; ============================================================
+;  BANKS 128-129: room 19 (Solar Power Generator) pre-rendered
+;  background. No own crumb bank - crumb_units=[] so room_nunits=0 and
+;  cell_at returns "no match" immediately without ever reading
+;  room_crumb_bank (same reasoning as Rooms 4-7/17), reusing
+;  CRUMBBANK(84) as a harmless placeholder. Bank numbers must match
+;  ROOM19_BGBANK/ROOM19_BGCOLBANK in tools/gen_iso.py.
+; ============================================================
+ROOM19_BGBANK    equ 128
+ROOM19_BGCOLBANK equ 129
+        ORG 08000h
+        INCBIN "src/bg_pattern19.bin"
+cart_gfx19:
+        INCBIN "src/enemy_gfx19.bin"
+        ; level_map19: bank1 overflow fix (this room's own data pushed
+        ; it over) - same relocation as every other room's own map.
+level_map19:
+        INCBIN "src/level_map19.bin"
+        ; sun-ray screen divider (Fausto's "SOLAR POWER GENERATOR"
+        ; request) - gfx + its ray_tab19 record, same own-bank-tail
+        ; placement as every other optional mechanic.
+ray_gfx19:
+        INCBIN "src/ray_gfx19.bin"
+        INCLUDE "src/ray_tab19.asm"
+        BLOCK 0A000h-$,0FFh
+        ORG 0A000h
+        INCBIN "src/bg_color19.bin"
+keys_gfx19:
+        INCBIN "src/keys_gfx19.bin"
+exit_gfx19_0:
+        INCBIN "src/exit_gfx19_0.bin"
+exit_gfx19_1:
+        INCBIN "src/exit_gfx19_1.bin"
+        BLOCK 0C000h-$,0FFh
+
+        ; pad the ROM back out to a full 2MB (256 x 8KB banks) -
+        ; openMSX's ascii8 mapper expects a power-of-two file size; a
+        ; short file fails to boot at all (falls through to plain MSX
+        ; BASIC). Measured then computed exactly (2097152 - actual
+        ; size before this BLOCK), not guessed by hand. 130 banks now
+        ; used (0-129), so 126 banks (130-255) remain: 126*8192 =
+        ; 1032192.
+        BLOCK 1032192,0FFh

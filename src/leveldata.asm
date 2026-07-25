@@ -684,6 +684,27 @@ crumb_tab18:
         db 2,255
         db 127
 
+keys_tab19:
+        db 1,3,3,10,8
+        db 1,2,5,12,5
+        db 3,1,7,18,4
+
+slab_tab19:
+        db 89,73,96,24,14
+        db 105,49,80,40,14
+        db 169,25,80,64,7
+        db 57,57,64,24,14
+        db 121,25,64,56,14
+        db 73,33,48,40,14
+        db 137,9,48,64,14
+        db 89,9,32,56,14
+
+hazards_tab19:
+
+; crumb_tab19 (18B): ncells, (bx,y,bz)x2 FF-pad, c0,r0,c1,r1,
+;   dw rectsize, dw dataaddr(8000h-based), per-cell slab idx x2, bank
+crumb_tab19:
+
 ; redefined font, 76 chars from '0' (8 bytes each)
 fonts_tab:
         db 00Eh,019h,031h,031h,031h,033h,03Fh,01Eh,006h,00Eh,03Ch,00Ch,008h,018h,038h,038h
@@ -762,11 +783,13 @@ room17_name:
         db 84,72,69,32,87,65,82,69,72,79,85,83,69,0
 room18_name:
         db 65,77,79,69,66,65,84,82,79,78,83,2,32,82,69,86,69,78,71,69,0
+room19_name:
+        db 83,79,76,65,82,32,80,79,87,69,82,32,71,69,78,69,82,65,84,79,82,0
 
 ; room_tab: one row per room, read into room_state RAM struct
 ; via a single ldir at room_start. Field order/sizes MUST match
 ; the room_state RESB block in src/main.asm exactly.
-ROOMROWLEN equ 58
+ROOMROWLEN equ 60
 room_tab:
         db 2,3
         dw level1_map
@@ -790,6 +813,7 @@ room_tab:
         db 255,0,0,0
         dw room1_name
         db 0
+        dw 0
         dw 0
         dw 0
         dw 0
@@ -824,6 +848,7 @@ room_tab:
         dw 0
         dw 0
         dw 0
+        dw 0
         db 88,89
         dw level_map3
         dw keys_tab3
@@ -846,6 +871,7 @@ room_tab:
         db 255,0,0,0
         dw room3_name
         db 0
+        dw 0
         dw 0
         dw 0
         dw 0
@@ -880,6 +906,7 @@ room_tab:
         dw 0
         dw 0
         dw 0
+        dw 0
         db 93,94
         dw level_map5
         dw keys_tab5
@@ -902,6 +929,7 @@ room_tab:
         db 255,0,0,0
         dw room5_name
         db 0
+        dw 0
         dw 0
         dw 0
         dw 0
@@ -936,6 +964,7 @@ room_tab:
         dw 0
         dw 0
         dw 0
+        dw 0
         db 97,98
         dw level_map7
         dw keys_tab7
@@ -958,6 +987,7 @@ room_tab:
         db 255,0,0,0
         dw room7_name
         db 0
+        dw 0
         dw 0
         dw 0
         dw 0
@@ -992,6 +1022,7 @@ room_tab:
         dw 0
         dw 0
         dw 0
+        dw 0
         db 102,103
         dw level_map9
         dw keys_tab9
@@ -1014,6 +1045,7 @@ room_tab:
         db 255,0,0,0
         dw room9_name
         db 1
+        dw 0
         dw 0
         dw 0
         dw 0
@@ -1048,6 +1080,7 @@ room_tab:
         dw 0
         dw 0
         dw 0
+        dw 0
         db 108,109
         dw level_map11
         dw keys_tab11
@@ -1070,6 +1103,7 @@ room_tab:
         db 255,0,0,0
         dw room11_name
         db 0
+        dw 0
         dw 0
         dw 0
         dw 0
@@ -1104,6 +1138,7 @@ room_tab:
         dw 0
         dw 0
         dw 0
+        dw 0
         db 112,113
         dw level_map13
         dw keys_tab13
@@ -1128,6 +1163,7 @@ room_tab:
         db 0
         dw 0
         dw enemy2_tab13
+        dw 0
         dw 0
         dw 0
         dw 0
@@ -1160,6 +1196,7 @@ room_tab:
         dw 0
         dw 0
         dw 0
+        dw 0
         db 116,117
         dw level_map15
         dw keys_tab15
@@ -1185,6 +1222,7 @@ room_tab:
         dw 0
         dw 0
         dw debris_tab15
+        dw 0
         dw 0
         dw 0
         dw 0
@@ -1216,6 +1254,7 @@ room_tab:
         dw hop_tab16
         dw 0
         dw 0
+        dw 0
         db 123,124
         dw level_map17
         dw keys_tab17
@@ -1244,6 +1283,7 @@ room_tab:
         dw 0
         dw pkg_tab17
         dw pkg2_tab17
+        dw 0
         db 125,126
         dw level_map18
         dw keys_tab18
@@ -1272,4 +1312,34 @@ room_tab:
         dw 0
         dw 0
         dw 0
+        dw 0
+        db 128,129
+        dw level_map19
+        dw keys_tab19
+        db 3
+        dw keys_gfx19
+        dw slab_tab19
+        db 8
+        db 0
+        dw crumb_tab19
+        db 84
+        dw hazards_tab19
+        db 0
+        db 80,0,64
+        db 23,5,2,40
+        dw exit_gfx19_0
+        dw exit_gfx19_1
+        dw cart_gfx19
+        db 1
+        db 0,0,0,200,0,0
+        db 255,0,0,0
+        dw room19_name
+        db 0
+        dw 0
+        dw 0
+        dw 0
+        dw 0
+        dw 0
+        dw 0
+        dw ray_tab19
 

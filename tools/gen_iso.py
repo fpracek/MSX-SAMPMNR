@@ -760,6 +760,9 @@ def render_room(spec):
     pkg_bytes = pack_sprite_frames(spec['pkg_frames']) if spec.get('pkg_frames') else None
     pkg2_bytes = pack_sprite_frames(spec['pkg2_frames']) if spec.get('pkg2_frames') else None
 
+    # sun-ray screen divider (optional - see room_ray_ptr)
+    ray_bytes = pack_sprite_frames(spec['ray_frames']) if spec.get('ray_frames') else None
+
     # lever: a switch cell that INSTANTLY removes one specific slab
     # (typically one covering the exit) when Sam touches it, gated on
     # exit_check separately from the key count. Deliberately NOT built
@@ -856,6 +859,9 @@ def render_room(spec):
         pkg2_speed=spec.get('pkg2_speed', 0), pkg2_pause=spec.get('pkg2_pause', 0),
         pkg2_color=spec.get('pkg2_color', 0), pkg2_start=spec.get('pkg2_start'),
         pkg2_slide=spec.get('pkg2_slide', 0), pkg2_fend=spec.get('pkg2_fend', 0),
+        ray_bytes=ray_bytes,
+        ray_period=spec.get('ray_period', 0), ray_width=spec.get('ray_width', 0),
+        ray_color=spec.get('ray_color', 0), ray_cols=spec.get('ray_cols', []),
         exit_bx=EXIT_BX, exit_bz=EXIT_BZ, exit_y=EXIT_Y,
         name=spec['name'], enxmin=spec['enxmin'], enxmax=spec['enxmax'],
         enz=spec['enz'], ensurf=spec['ensurf'], enemy_color=spec['enemy_color'],
@@ -3104,6 +3110,76 @@ ROOM18 = dict(
     map_label='level_map18',
 )
 
+# sun-ray screen divider (Solar Power Generator) - a solid vertical
+# segment, repeated in a stack by ray_update/.drawray in main.asm (not
+# a single moving sprite like every other mechanic). 2 frames: fully
+# solid, then a diagonal 1px "glint" gap sweeping across the row
+# range - a shimmer, not a real gap (the collision check never cares
+# about this, it's purely decorative).
+RAY_A = [_bar(16, (0,16)) for _ in range(16)]
+RAY_B = [_bar(16, (0,i), (i+1,16)) for i in range(16)]
+
+room19_slabs_def = [
+    (1,3,2,T_STONE),   # Entry - climb from spawn's floor
+    (3,3,2,T_STONE),   # sideways +2 from Entry (gap bx=2)
+    (3,2,4,T_STONE),   # climb
+    (1,2,4,T_STONE),   # sideways -2 (gap bx=2)
+    (1,1,6,T_STONE),   # climb
+    (3,1,6,T_STONE),   # sideways +2 (gap bx=2)
+    (3,0,7,T_STONE),   # climb, +1y only (final tier)
+    # exit auto-appended at (5,0,7) - sideways +2 from the final tier (gap bx=4)
+]
+
+ROOM19 = dict(
+    label='19',
+    wallcol=dict(lit=5, rock=4, joint=1),
+    crest_fn=_wtop_plant,
+    floor_style='grid',
+    floor_base=1, floor_speckle=11,
+    slabs_def=room19_slabs_def,
+    style={
+        T_STONE: dict(top_fill=14, top_edge=15, face_l=4, face_r=5, rocky=True),
+    },
+    # y is platform_y+1, same skeleton/deltas as Room16 (proven jump
+    # physics, reused verbatim - a "typical" scattered 1x1 room per
+    # Fausto's own wording, the new part is the ray, not the layout).
+    keys=[(1,3,3,14), (1,2,5,14), (3,1,7,14)],
+    exit_bx=5, exit_bz=0, exit_y=7,
+    hazards=[],
+    hazard_art=None,
+    crumb_units=[],
+    # required field, but this room's danger is the sun ray, not a
+    # patrolling enemy - same inert placeholder pattern as Rooms
+    # 14-18 (safe since the enemy_update enxmin=0 underflow fix).
+    enemy_frames=[CART_A, CART_B],
+    enxmin=0, enxmax=0, enz=0, ensurf=200, en_axis=0, enemy_color=1,
+    name="SOLAR POWER GENERATOR",
+    # Fausto: "c'e' un raggio del sole che a caso dividera' lo schermo
+    # (come un muro) per qualche secondo impedendo di procedere oltre.
+    # il raggio dura un secondo nella posizione e poi la cambia" - a
+    # NEW mechanic (ray_update/.drawray in main.asm), and a genuinely
+    # different kind of mechanic from everything else in the game: it
+    # operates in SCREEN space, not world/room space. A fixed world
+    # x or z would project as a DIAGONAL line in this isometric engine
+    # (sx=X0+wx-wz depends on both axes), not a vertical wall "dividing
+    # the screen" the way Fausto described - so both the ray's drawn
+    # position and Sam's collision check use the same sx=PX0-8+wx-wz
+    # formula every sprite-placement helper already uses, just
+    # compared against a fixed screen column instead of a moving one.
+    # 4 candidate columns spread across the room's actual screen-x
+    # footprint (computed from this room's own platform positions,
+    # not guessed) - picks one at random (rnd8) every `ray_period`
+    # frames (60 = ~1s, matching "dura un secondo") and holds it;
+    # width=10 gives a real, punishing kill band (not a graze).
+    ray_frames=[RAY_A, RAY_B],
+    ray_period=60, ray_width=10, ray_color=11,
+    ray_cols=[70, 110, 150, 190],
+    # bank1 overflow ("Negative BLOCK?") expected from ROOMROWLEN
+    # growing again (58->60) - relocate this room's own map too, same
+    # routine fix as every recent room.
+    map_label='level_map19',
+)
+
 R1 = render_room(ROOM1)
 R2 = render_room(ROOM2)
 R3 = render_room(ROOM3)
@@ -3122,6 +3198,7 @@ R15 = render_room(ROOM15)
 R16 = render_room(ROOM16)
 R17 = render_room(ROOM17)
 R18 = render_room(ROOM18)
+R19 = render_room(ROOM19)
 
 # Each room's 2-frame enemy sprite table (64B) rides along in the spare
 # tail of its own bg_pattern bank (6144 of 8192 bytes used, ~2KB free)
@@ -3226,6 +3303,20 @@ def _write_room_bg(lab, R):
             f"        db {R['pkg2_speed']},{R['pkg2_pause']},{R['pkg2_color']},{pbx},{pbz},{py},{R['pkg2_slide']},{R['pkg2_fend']}",
         ]
         open(os.path.join(ROOT,'src',f'pkg2_tab{suffix}.asm'),'w').write("\n".join(pt)+"\n")
+    # sun-ray screen divider (optional): same own-bank-tail
+    # single-pointer trick. Table is dw gfx_ptr + period,width,color,
+    # ncols + ncols*1 bytes of candidate SCREEN-x columns (not map
+    # cells - this mechanic operates entirely in screen space, see
+    # ray_update in main.asm).
+    if R.get('ray_bytes'):
+        open(os.path.join(ROOT,'src',f'ray_gfx{suffix}.bin'),'wb').write(bytes(R['ray_bytes']))
+        rcols = R['ray_cols']
+        rt = [
+            f"ray_tab{suffix}:",
+            f"        dw ray_gfx{suffix}",
+            f"        db {R['ray_period']},{R['ray_width']},{R['ray_color']},{len(rcols)}",
+        ] + [f"        db {x}" for x in rcols]
+        open(os.path.join(ROOT,'src',f'ray_tab{suffix}.asm'),'w').write("\n".join(rt)+"\n")
 
 _write_room_bg(R1['label'], R1)
 _write_room_bg(R2['label'], R2)
@@ -3245,6 +3336,7 @@ _write_room_bg(R15['label'], R15)
 _write_room_bg(R16['label'], R16)
 _write_room_bg(R17['label'], R17)
 _write_room_bg(R18['label'], R18)
+_write_room_bg(R19['label'], R19)
 
 # keys_gfx/exit_gfx (per-room graphics blobs, like enemy_gfx) ride in
 # the spare tail of that room's own bg_COLOR bank - same rationale as
@@ -3279,6 +3371,7 @@ _write_room_extra_gfx(R15['label'], R15)
 _write_room_extra_gfx(R16['label'], R16)
 _write_room_extra_gfx(R17['label'], R17)
 _write_room_extra_gfx(R18['label'], R18)
+_write_room_extra_gfx(R19['label'], R19)
 
 # lift_gfx.bin: the rising/falling lift platform's sprite art (2
 # halves, 64B) - a single fixed design shared by every room with a
@@ -3379,6 +3472,11 @@ ROOM15_BGBANK, ROOM15_BGCOLBANK = 116, 117
 ROOM16_BGBANK, ROOM16_BGCOLBANK = 120, 121
 ROOM17_BGBANK, ROOM17_BGCOLBANK = 123, 124
 ROOM18_BGBANK, ROOM18_BGCOLBANK = 125, 126
+# banks 128+ are only available because the ROM was expanded from 1MB
+# (128 banks) to 2MB (256 banks) specifically to fit this room - see
+# the "ROM IS NOW FULL" memory entry from Room18. Room19 is the first
+# room to draw from that expanded space.
+ROOM19_BGBANK, ROOM19_BGCOLBANK = 128, 129
 CRUMBBANK = 84
 CRUMBBANK2 = 87
 CRUMBBANK3 = 90
@@ -3506,6 +3604,8 @@ emit_room(R17, lines, map_out=os.path.join(ROOT,'src','level_map17.bin'))
 emit_crumb_tab(R17, lines, bank_map={'a': CRUMBBANK})
 emit_room(R18, lines, map_out=os.path.join(ROOT,'src','level_map18.bin'))
 emit_crumb_tab(R18, lines, bank_map={'a': CRUMBBANK18})
+emit_room(R19, lines, map_out=os.path.join(ROOT,'src','level_map19.bin'))
+emit_crumb_tab(R19, lines, bank_map={'a': CRUMBBANK})
 
 lines.append("; redefined font, 76 chars from '0' (8 bytes each)")
 _f = open(os.path.join(ROOT,'tools','fonts.c')).read()
@@ -3571,10 +3671,12 @@ lines.append("room17_name:")
 lines.append("        db " + _ds_encode(R17['name']) + ",0")
 lines.append("room18_name:")
 lines.append("        db " + _ds_encode(R18['name']) + ",0")
+lines.append("room19_name:")
+lines.append("        db " + _ds_encode(R19['name']) + ",0")
 lines.append("")
 
-ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx', '11': 'phone_gfx', '12': 'alien_gfx', '13': 'cart_gfx', '14': 'cart_gfx14', '15': 'cart_gfx15', '16': 'cart_gfx16', '17': 'cart_gfx17', '18': 'urchin_gfx18'}
-ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name', '11': 'room11_name', '12': 'room12_name', '13': 'room13_name', '14': 'room14_name', '15': 'room15_name', '16': 'room16_name', '17': 'room17_name', '18': 'room18_name'}
+ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx', '11': 'phone_gfx', '12': 'alien_gfx', '13': 'cart_gfx', '14': 'cart_gfx14', '15': 'cart_gfx15', '16': 'cart_gfx16', '17': 'cart_gfx17', '18': 'urchin_gfx18', '19': 'cart_gfx19'}
+ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name', '11': 'room11_name', '12': 'room12_name', '13': 'room13_name', '14': 'room14_name', '15': 'room15_name', '16': 'room16_name', '17': 'room17_name', '18': 'room18_name', '19': 'room19_name'}
 
 def room_row(R, bgbank, bgcolbank, crumbbank):
     exb16 = R['exit_bx']*16
@@ -3607,6 +3709,9 @@ def room_row(R, bgbank, bgcolbank, crumbbank):
     # this so far).
     pkg_fields = [f"pkg_tab{R['label']}" if R.get('pkg_bytes') else 0]
     pkg2_fields = [f"pkg2_tab{R['label']}" if R.get('pkg2_bytes') else 0]
+    # sun-ray screen divider (optional): same single-pointer trick,
+    # for the same reason (only Room19 uses this so far).
+    ray_fields = [f"ray_tab{R['label']}" if R.get('ray_bytes') else 0]
     return [
         bgbank, bgcolbank,
         R.get('map_label') or f"level{R['label'] or 1}_map", f"keys_tab{R['label']}", len(R['keys']),
@@ -3624,12 +3729,12 @@ def room_row(R, bgbank, bgcolbank, crumbbank):
         R.get('lift_ymin', 0), R.get('lift_ymax', 0),
         ROOM_NAME_LABEL[R['label']],
         R.get('crumb_continuous', 0),
-    ] + lever_fields + enemy2_fields + debris_fields + hopper_fields + pkg_fields + pkg2_fields
+    ] + lever_fields + enemy2_fields + debris_fields + hopper_fields + pkg_fields + pkg2_fields + ray_fields
 
 lines.append("; room_tab: one row per room, read into room_state RAM struct")
 lines.append("; via a single ldir at room_start. Field order/sizes MUST match")
 lines.append("; the room_state RESB block in src/main.asm exactly.")
-lines.append("ROOMROWLEN equ 58")
+lines.append("ROOMROWLEN equ 60")
 lines.append("room_tab:")
 for R, bgbank, bgcolbank, crumbbank in (
         (R1, ROOM1_BGBANK, ROOM1_BGCOLBANK, CRUMBBANK),
@@ -3649,7 +3754,8 @@ for R, bgbank, bgcolbank, crumbbank in (
         (R15, ROOM15_BGBANK, ROOM15_BGCOLBANK, CRUMBBANK15),
         (R16, ROOM16_BGBANK, ROOM16_BGCOLBANK, CRUMBBANK16),
         (R17, ROOM17_BGBANK, ROOM17_BGCOLBANK, CRUMBBANK),
-        (R18, ROOM18_BGBANK, ROOM18_BGCOLBANK, CRUMBBANK18)):
+        (R18, ROOM18_BGBANK, ROOM18_BGCOLBANK, CRUMBBANK18),
+        (R19, ROOM19_BGBANK, ROOM19_BGCOLBANK, CRUMBBANK)):
     f = room_row(R, bgbank, bgcolbank, crumbbank)
     lines.append(f"        db {f[0]},{f[1]}")
     lines.append(f"        dw {f[2]}")
@@ -3679,6 +3785,7 @@ for R, bgbank, bgcolbank, crumbbank in (
     lines.append(f"        dw {f[39]}")
     lines.append(f"        dw {f[40]}")
     lines.append(f"        dw {f[41]}")
+    lines.append(f"        dw {f[42]}")
 lines.append("")
 
 # gfx_sprites lives in bank0's own spare space (INCBIN'd directly in
@@ -3728,6 +3835,7 @@ save_preview(R15, os.path.join(ROOT,'build','preview16.png'), spawn_wx=24, spawn
 save_preview(R16, os.path.join(ROOT,'build','preview17.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R17, os.path.join(ROOT,'build','preview18.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R18, os.path.join(ROOT,'build','preview19.png'), spawn_wx=24, spawn_wz=72)
+save_preview(R19, os.path.join(ROOT,'build','preview20.png'), spawn_wx=24, spawn_wz=72)
 
 print(f"OK room1 color-fixes:{R1['fixes']} keys:{R1['key_rects']}")
 print(f"OK room2 color-fixes:{R2['fixes']} keys:{R2['key_rects']}")
@@ -3747,3 +3855,4 @@ print(f"OK room15 color-fixes:{R15['fixes']} keys:{R15['key_rects']}")
 print(f"OK room16 color-fixes:{R16['fixes']} keys:{R16['key_rects']}")
 print(f"OK room17 color-fixes:{R17['fixes']} keys:{R17['key_rects']}")
 print(f"OK room18 color-fixes:{R18['fixes']} keys:{R18['key_rects']}")
+print(f"OK room19 color-fixes:{R19['fixes']} keys:{R19['key_rects']}")
