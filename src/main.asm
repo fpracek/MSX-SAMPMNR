@@ -98,7 +98,7 @@ TITLE_MIX equ 10111100b ; mixer: ch A+B tone on, ch C off, noise off
 GAME_MIX  equ 10111000b ; mixer: ch A+B+C tone on (level music + SFX)
 HOPFRAMES equ 8         ; frames per key-hop (one eighth note)
 SAM_X   equ 120         ; Sam's fixed dance spot, centred over the keyboard
-SAM_Y   equ 107         ; 20px higher than the keyboard-top spot
+SAM_Y   equ 118         ; nudged down 11px to clear the mine-cart deco
 
 ; PSG tone periods (AY-3-8910, MSX clock 3579545Hz/16), D-major scale
 CLK     equ 3579545
@@ -6223,6 +6223,19 @@ title_setup:
         ld  hl,title_str2
         call draw_string
 
+        ld  a,TDECO_BGBANK
+        ld  (BANK2R),a
+        ld  a,TDECO_BGCOLBANK
+        ld  (BANK3R),a
+        ld  hl,08000h
+        ld  de,VR_PAT+TDECO_ROW0*256
+        ld  bc,TDECO_ROWS*256
+        call LDIRVM
+        ld  hl,0A000h
+        ld  de,VR_COL+TDECO_ROW0*256
+        ld  bc,TDECO_ROWS*256
+        call LDIRVM
+
         call title_kbd
         call title_kbd_top
         call title_kbd_sep
@@ -6513,6 +6526,16 @@ gfx_sprites:
 ; space alongside gfx_sprites rather than in the tight bank1 window.
 lift_gfx:
         INCBIN "src/lift_gfx.bin"
+
+; title_deco: mine-cart-full-of-gems graphic for the title screen, full
+; 32-col width x TDECO_ROWS tall, blitted once by title_setup right under
+; "PRESS FIRE TO START". Lives in its OWN switched bank pair (like a
+; room's background) rather than bank0/1's already-tight fixed 16KB -
+; title_setup temporarily points BANK2R/BANK3R at it just long enough to
+; blit, then room_enter overwrites both registers anyway once the player
+; presses fire, so there's no lingering side effect to worry about.
+TDECO_ROW0 equ 7
+TDECO_ROWS equ 6
 
 ; ============================================================
 ;  BANK 1: level data (fixed at 6000, but see gfx_sprites above -
@@ -7206,11 +7229,28 @@ exit_gfx20_1:
         INCBIN "src/exit_gfx20_1.bin"
         BLOCK 0C000h-$,0FFh
 
+; ============================================================
+;  BANKS 132-133: title screen mine-cart decoration (title_setup
+;  switches BANK2R/BANK3R here just long enough to blit it, then
+;  room_enter overwrites both once the player presses fire - see the
+;  title_deco comment above gfx_sprites/lift_gfx). Bank numbers must
+;  match TDECO_BGBANK/TDECO_BGCOLBANK in tools/gen_title_deco.py's
+;  caller (main.asm only, no per-room spec involved).
+; ============================================================
+TDECO_BGBANK    equ 132
+TDECO_BGCOLBANK equ 133
+        ORG 08000h
+        INCBIN "src/title_deco_pat.bin"
+        BLOCK 0A000h-$,0FFh
+        ORG 0A000h
+        INCBIN "src/title_deco_col.bin"
+        BLOCK 0C000h-$,0FFh
+
         ; pad the ROM back out to a full 2MB (256 x 8KB banks) -
         ; openMSX's ascii8 mapper expects a power-of-two file size; a
         ; short file fails to boot at all (falls through to plain MSX
         ; BASIC). Measured then computed exactly (2097152 - actual
-        ; size before this BLOCK), not guessed by hand. 132 banks now
-        ; used (0-131), so 124 banks (132-255) remain: 124*8192 =
-        ; 1015808.
-        BLOCK 1015808,0FFh
+        ; size before this BLOCK), not guessed by hand. 134 banks now
+        ; used (0-133), so 122 banks (134-255) remain: 122*8192 =
+        ; 999424.
+        BLOCK 999424,0FFh
