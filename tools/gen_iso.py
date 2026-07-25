@@ -752,6 +752,9 @@ def render_room(spec):
     # falling debris (optional - see room_debris_ptr in main.asm)
     debris_bytes = pack_sprite_frames(spec['debris_frames']) if spec.get('debris_frames') else None
 
+    # random platform-hopping enemy (optional - see room_hopper_ptr)
+    hopper_bytes = pack_sprite_frames(spec['hopper_frames']) if spec.get('hopper_frames') else None
+
     # lever: a switch cell that INSTANTLY removes one specific slab
     # (typically one covering the exit) when Sam touches it, gated on
     # exit_check separately from the key count. Deliberately NOT built
@@ -836,6 +839,10 @@ def render_room(spec):
         debris_hstart=spec.get('debris_hstart', 0), debris_hend=spec.get('debris_hend', 0),
         debris_speed=spec.get('debris_speed', 0), debris_pause=spec.get('debris_pause', 0),
         debris_color=spec.get('debris_color', 0), debris_cols=spec.get('debris_cols', []),
+        hopper_bytes=hopper_bytes,
+        hop_speed=spec.get('hop_speed', 0), hop_pause=spec.get('hop_pause', 0),
+        hop_bump=spec.get('hop_bump', 0), hop_color=spec.get('hop_color', 0),
+        hop_cols=spec.get('hop_cols', []),
         exit_bx=EXIT_BX, exit_bz=EXIT_BZ, exit_y=EXIT_Y,
         name=spec['name'], enxmin=spec['enxmin'], enxmax=spec['enxmax'],
         enz=spec['enz'], ensurf=spec['ensurf'], enemy_color=spec['enemy_color'],
@@ -1303,6 +1310,8 @@ ROOM6 = dict(
     enxmin=16, enxmax=52, enz=40, ensurf=32, en_axis=2, en_centerx=56,
     enemy_color=10,
     name="PROCESSING PLANT",
+    # bank1 overflow fix (see Room7's own comment) - relocated again.
+    map_label='level_map6',
 )
 
 def _wtop_vat(u):
@@ -1426,6 +1435,9 @@ ROOM7 = dict(
     enemy_frames=[GUARDIAN_A, GUARDIAN_B],
     enxmin=64, enxmax=112, enz=56, ensurf=8, enemy_color=13,
     name="THE VAT",
+    # bank1 overflow ("Negative BLOCK?") from Room16's new hopper
+    # enemy - relocated this room's map too (arbitrary choice).
+    map_label='level_map7',
 )
 
 # Kong Beast: a big ape silhouette, broad shoulders and short bent
@@ -2741,6 +2753,47 @@ room16_slabs_def = [
     # exit auto-appended at (5,0,7) - sideways +2 from the final tier (gap bx=4)
 ]
 
+# random platform-hopping enemy (Fausto, after seeing the room: "un
+# nemico che salta da piattaforma a piattaforma a caso" - a frog-like
+# hopper, legs tucked vs splayed wide, matching the rise/glide/descend
+# animation in hopper_update).
+HOP_A = [
+    _bar(16, (6,10)),
+    _bar(16, (5,11)),
+    _bar(16, (4,12)),
+    _bar(16, (3,13)),
+    _bar(16, (3,13)),
+    _bar(16, (4,7), (9,12)),
+    _bar(16, (3,6), (10,13)),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+]
+HOP_B = [
+    _bar(16, (6,10)),
+    _bar(16, (5,11)),
+    _bar(16, (4,12)),
+    _bar(16, (3,13)),
+    _bar(16, (3,13)),
+    _bar(16, (1,5), (11,15)),
+    _bar(16, (0,4), (12,16)),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16),
+]
+
 ROOM16 = dict(
     label='16',
     wallcol=dict(lit=6, rock=8, joint=1),
@@ -2768,6 +2821,16 @@ ROOM16 = dict(
     enemy_frames=[CART_A, CART_B],
     enxmin=0, enxmax=0, enz=0, ensurf=200, en_axis=0, enemy_color=1,
     name="THE SIXTEENTH CAVERN",
+    # Fausto, after seeing the room: "un nemico che salta da
+    # piattaforma a piattaforma a caso... rendi l'impresa piu'
+    # difficile" - reuses all 7 of the room's own platforms as hop
+    # targets (see hopper_update in main.asm: rise/glide/descend, not
+    # a straight 3D slide). speed=2 (snappy, matches debris' fall
+    # speed), pause=30 (~0.5s between hops - lively, always something
+    # moving), bump=20 (arc height above the higher endpoint).
+    hopper_frames=[HOP_A, HOP_B],
+    hop_speed=2, hop_pause=30, hop_bump=20, hop_color=3,
+    hop_cols=[(1,3,2), (3,3,2), (3,2,4), (1,2,4), (1,1,6), (3,1,6), (3,0,7)],
     # bank1 overflow ("Negative BLOCK?") from this room's own data -
     # same fix as every recent room, relocate the map.
     map_label='level_map16',
@@ -2858,6 +2921,19 @@ def _write_room_bg(lab, R):
             f"        db {R['debris_hstart']},{R['debris_hend']},{R['debris_speed']},{R['debris_pause']},{R['debris_color']},{len(cols)}",
         ] + [f"        db {bx},{bz}" for (bx,bz) in cols]
         open(os.path.join(ROOT,'src',f'debris_tab{suffix}.asm'),'w').write("\n".join(dt)+"\n")
+    # random platform-hopping enemy (optional): same own-bank-tail
+    # single-pointer trick. Table is dw gfx_ptr + speed,pause,bump,
+    # color,ncols + ncols*3 bytes of (bx,bz,y) platform choices
+    # (converted to world coords at hop-start time in main.asm).
+    if R.get('hopper_bytes'):
+        open(os.path.join(ROOT,'src',f'hop_gfx{suffix}.bin'),'wb').write(bytes(R['hopper_bytes']))
+        hcols = R['hop_cols']
+        ht = [
+            f"hop_tab{suffix}:",
+            f"        dw hop_gfx{suffix}",
+            f"        db {R['hop_speed']},{R['hop_pause']},{R['hop_bump']},{R['hop_color']},{len(hcols)}",
+        ] + [f"        db {bx},{bz},{y}" for (bx,bz,y) in hcols]
+        open(os.path.join(ROOT,'src',f'hop_tab{suffix}.asm'),'w').write("\n".join(ht)+"\n")
 
 _write_room_bg(R1['label'], R1)
 _write_room_bg(R2['label'], R2)
@@ -3096,9 +3172,9 @@ emit_room(R4, lines)
 emit_crumb_tab(R4, lines, bank_map={'a': CRUMBBANK})
 emit_room(R5, lines)
 emit_crumb_tab(R5, lines, bank_map={'a': CRUMBBANK})
-emit_room(R6, lines)
+emit_room(R6, lines, map_out=os.path.join(ROOT,'src','level_map6.bin'))
 emit_crumb_tab(R6, lines, bank_map={'a': CRUMBBANK})
-emit_room(R7, lines)
+emit_room(R7, lines, map_out=os.path.join(ROOT,'src','level_map7.bin'))
 emit_crumb_tab(R7, lines, bank_map={'a': CRUMBBANK})
 emit_room(R8, lines, map_out=os.path.join(ROOT,'src','level_map8.bin'))
 emit_crumb_tab(R8, lines, bank_map={'a': CRUMBBANK4})
@@ -3207,6 +3283,9 @@ def room_row(R, bgbank, bgcolbank, crumbbank):
     # falling debris (optional): same single-pointer-into-own-bank-tail
     # trick, for the same reason (only Room14 uses this so far).
     debris_fields = [f"debris_tab{R['label']}" if R.get('debris_bytes') else 0]
+    # random platform-hopping enemy (optional): same single-pointer
+    # trick, for the same reason (only Room16 uses this so far).
+    hopper_fields = [f"hop_tab{R['label']}" if R.get('hopper_bytes') else 0]
     return [
         bgbank, bgcolbank,
         R.get('map_label') or f"level{R['label'] or 1}_map", f"keys_tab{R['label']}", len(R['keys']),
@@ -3224,12 +3303,12 @@ def room_row(R, bgbank, bgcolbank, crumbbank):
         R.get('lift_ymin', 0), R.get('lift_ymax', 0),
         ROOM_NAME_LABEL[R['label']],
         R.get('crumb_continuous', 0),
-    ] + lever_fields + enemy2_fields + debris_fields
+    ] + lever_fields + enemy2_fields + debris_fields + hopper_fields
 
 lines.append("; room_tab: one row per room, read into room_state RAM struct")
 lines.append("; via a single ldir at room_start. Field order/sizes MUST match")
 lines.append("; the room_state RESB block in src/main.asm exactly.")
-lines.append("ROOMROWLEN equ 52")
+lines.append("ROOMROWLEN equ 54")
 lines.append("room_tab:")
 for R, bgbank, bgcolbank, crumbbank in (
         (R1, ROOM1_BGBANK, ROOM1_BGCOLBANK, CRUMBBANK),
@@ -3274,6 +3353,7 @@ for R, bgbank, bgcolbank, crumbbank in (
     lines.append(f"        dw {f[36]}")
     lines.append(f"        dw {f[37]}")
     lines.append(f"        dw {f[38]}")
+    lines.append(f"        dw {f[39]}")
 lines.append("")
 
 # gfx_sprites lives in bank0's own spare space (INCBIN'd directly in

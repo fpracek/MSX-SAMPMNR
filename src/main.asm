@@ -258,6 +258,27 @@ debris_bx:     RESB 1   ; current column's world x (cached at spawn)
 debris_bz:     RESB 1   ; current column's world z (cached at spawn)
 debris_timer:  RESB 1   ; frames left in the post-landing cooldown
 debris_anim:   RESB 1
+; ---- random platform-hopping enemy (optional - room_hopper_ptr in
+; room_state is 0 for every room without one; when non-zero it points
+; at a small hop_tab{N} record (dw gfx_ptr, db speed,pause,bump,color,
+; ncols, then ncols*3 bytes of (bx,bz,y) platform choices) in that
+; room's own bg_pattern bank tail - same relocation trick as lever_tab/
+; debris_tab. Picks a random platform (rnd8, same technique as
+; debris), then hops to it in 3 phases (rise straight up to a peak
+; height above both endpoints, glide across x/z at that peak, descend
+; onto the target) rather than a straight-line 3D glide, so it
+; actually reads as a jump between platforms, not a floating slide. ----
+hop_active: RESB 1
+hop_phase:  RESB 1      ; 0=rising, 1=gliding (x/z), 2=descending
+hop_x:      RESB 1      ; current world x
+hop_z:      RESB 1      ; current world z
+hop_h:      RESB 1      ; current world height
+hop_tx:     RESB 1      ; target world x (cached at hop start)
+hop_tz:     RESB 1      ; target world z
+hop_th:     RESB 1      ; target world height
+hop_peak:   RESB 1      ; cached peak height for the rise/descend phases
+hop_timer:  RESB 1      ; frames left in the post-landing cooldown
+hop_anim:   RESB 1
 lift_h:     RESB 1      ; current lift surface height (bounces between
                         ; room_lift_ymin/ymax)
 lift_dir:   RESB 1      ; 0=rising(+) 1=falling(-)
@@ -411,6 +432,10 @@ room_debris_ptr:      RESB 2  ; 0 = no falling debris in this room,
                         ; else points at debris_tab{N} (see debris_h
                         ; above) in this room's own bg_pattern bank
                         ; spare tail.
+room_hopper_ptr:      RESB 2  ; 0 = no hopping enemy in this room,
+                        ; else points at hop_tab{N} (see hop_x above)
+                        ; in this room's own bg_pattern bank spare
+                        ; tail.
 room_state_end:
 NROOMS equ 16
 ram_end:
@@ -686,6 +711,41 @@ room_start:
         ld  bc,6
         ldir
 .noenemy2setup:
+        ; hopping enemy (optional): seed hop_x/hop_z/hop_h from the
+        ; table's FIRST platform choice (+7,+8,+9) so its very first
+        ; .hspawn this room computes a sensible rise/peak height from
+        ; an actual platform position - without this it would start
+        ; from world (0,0,0) (wherever the blanket RAM-clear above left
+        ; it), rising from the room's literal corner on its first hop.
+        ld  hl,(room_hopper_ptr)
+        ld  a,h
+        or  l
+        jr  z,.nohopsetup
+        ld  de,7
+        add hl,de
+        ld  a,(hl)
+        add a,a
+        add a,a
+        add a,a
+        add a,a             ; bx*16
+        add a,8
+        ld  (hop_x),a
+        inc hl
+        ld  a,(hl)
+        add a,a
+        add a,a
+        add a,a
+        add a,a
+        add a,8
+        ld  (hop_z),a
+        inc hl
+        ld  a,(hl)
+        inc a
+        add a,a
+        add a,a
+        add a,a             ; (y+1)*8
+        ld  (hop_h),a
+.nohopsetup:
         ld  a,(room_enxmin)
         ld  (en_x),a
         ld  a,(room_lift_ymin)
@@ -904,6 +964,7 @@ main_loop:
         call enemy_update
         call enemy2_update
         call debris_update
+        call hopper_update
         call hazard_check
         call lever_check
         call exit_check
@@ -1012,6 +1073,21 @@ load_room:
         ld  bc,64
         call LDIRVM
 .nodebrisgfx:
+
+        ; hopping enemy (optional): 2 frames at sprite patterns 32/36 -
+        ; same "gfx pointer is the table's own leading dw" trick.
+        ld  hl,(room_hopper_ptr)
+        ld  a,h
+        or  l
+        jr  z,.nohopgfx
+        ld  e,(hl)
+        inc hl
+        ld  d,(hl)
+        ex  de,hl
+        ld  de,VR_SPRP+32*8
+        ld  bc,64
+        call LDIRVM
+.nohopgfx:
 
         ; map ROM -> RAM
         ld  hl,(room_map_ptr)
@@ -3318,6 +3394,243 @@ debris_update:
         jp  sam_die
 
 ; ------------------------------------------------------------
+; hopper_update: random platform-hopping enemy (Sixteenth Cavern) -
+; see room_hopper_ptr. Read directly off its ROM table each time (like
+; lever/debris) rather than RAM-mirrored. Picks a random platform
+; (rnd8, same technique as debris_update's column pick), then moves
+; there in 3 phases - rise straight up to a peak height above both the
+; current and target platform, glide across x/z at that peak height,
+; descend onto the target - so it reads as an actual jump between
+; platforms rather than a diagonal 3D glide. Record layout
+; (hop_tab{N}, see tools/gen_iso.py): +0 dw gfx_ptr, +2 speed, +3
+; pause, +4 bump, +5 color, +6 ncols, then ncols*3 bytes of (bx,bz,y)
+; platform choices.
+; ------------------------------------------------------------
+hopper_update:
+        ld  hl,(room_hopper_ptr)
+        ld  a,h
+        or  l
+        ret z               ; no hopper in this room
+        ld  a,(hop_active)
+        or  a
+        jp  nz,.hactive
+        ld  a,(hop_timer)
+        or  a
+        jr  z,.hspawn
+        dec a
+        ld  (hop_timer),a
+        ret
+
+.hspawn:
+        call rnd8
+        ld  hl,(room_hopper_ptr)
+        ld  de,6
+        add hl,de           ; +6 = ncols
+        ld  b,(hl)
+.hmod:  cp  b
+        jr  c,.hmodok
+        sub b
+        jr  .hmod
+.hmodok:
+        ld  e,a
+        add a,a
+        add a,e             ; a = index*3
+        add a,7
+        ld  e,a
+        ld  d,0
+        ld  hl,(room_hopper_ptr)
+        add hl,de           ; hl -> chosen platform's bx byte
+        ld  a,(hl)
+        add a,a
+        add a,a
+        add a,a
+        add a,a             ; bx*16
+        add a,8
+        ld  (hop_tx),a
+        inc hl
+        ld  a,(hl)          ; bz
+        add a,a
+        add a,a
+        add a,a
+        add a,a
+        add a,8
+        ld  (hop_tz),a
+        inc hl
+        ld  a,(hl)          ; y
+        inc a
+        add a,a
+        add a,a
+        add a,a             ; (y+1)*8
+        ld  (hop_th),a
+        ld  b,a             ; b = target height
+        ld  a,(hop_h)
+        cp  b
+        jr  nc,.hbase       ; current h >= target h -> use current as base
+        ld  a,b             ; else use target h as base
+.hbase: ld  hl,(room_hopper_ptr)
+        ld  de,4
+        add hl,de           ; +4 = bump
+        add a,(hl)
+        ld  (hop_peak),a
+        xor a
+        ld  (hop_phase),a   ; 0 = rising
+        ld  a,1
+        ld  (hop_active),a
+        ret
+
+.hactive:
+        ld  a,(hop_phase)
+        or  a
+        jp  z,.hrise
+        dec a
+        jp  z,.hglide
+        jp  .hdescend
+
+.hrise: ld  hl,(room_hopper_ptr)
+        ld  de,2
+        add hl,de           ; +2 = speed
+        ld  b,(hl)
+        ld  a,(hop_peak)
+        ld  c,a
+        ld  a,(hop_h)
+        cp  c
+        jr  nc,.hrisedone   ; already >= peak
+        add a,b
+        cp  c
+        jr  c,.hrisest
+        ld  a,c
+.hrisest:
+        ld  (hop_h),a
+        cp  c
+        jp  c,.hcheck       ; jr would be out of range - .hcheck is far below
+.hrisedone:
+        ld  a,1
+        ld  (hop_phase),a   ; move to glide
+        jp  .hcheck
+
+.hglide:
+        ld  hl,(room_hopper_ptr)
+        ld  de,2
+        add hl,de           ; +2 = speed
+        ld  b,(hl)
+        ld  a,(hop_tx)
+        ld  c,a
+        ld  a,(hop_x)
+        cp  c
+        jr  z,.hgz
+        jr  c,.hgxup
+        sub b
+        cp  c
+        jr  nc,.hgxst
+        ld  a,c
+        jr  .hgxst
+.hgxup: add a,b
+        cp  c
+        jr  c,.hgxst
+        ld  a,c
+.hgxst: ld  (hop_x),a
+.hgz:   ld  hl,(room_hopper_ptr)
+        ld  de,2
+        add hl,de
+        ld  b,(hl)
+        ld  a,(hop_tz)
+        ld  c,a
+        ld  a,(hop_z)
+        cp  c
+        jr  z,.hgcheck
+        jr  c,.hgzup
+        sub b
+        cp  c
+        jr  nc,.hgzst
+        ld  a,c
+        jr  .hgzst
+.hgzup: add a,b
+        cp  c
+        jr  c,.hgzst
+        ld  a,c
+.hgzst: ld  (hop_z),a
+.hgcheck:
+        ld  a,(hop_x)
+        ld  b,a
+        ld  a,(hop_tx)
+        cp  b
+        jp  nz,.hcheck      ; jr would be out of range - .hcheck is far below
+        ld  a,(hop_z)
+        ld  b,a
+        ld  a,(hop_tz)
+        cp  b
+        jp  nz,.hcheck
+        ld  a,2
+        ld  (hop_phase),a   ; arrived -> descend
+        jp  .hcheck
+
+.hdescend:
+        ld  hl,(room_hopper_ptr)
+        ld  de,2
+        add hl,de           ; +2 = speed
+        ld  b,(hl)
+        ld  a,(hop_th)
+        ld  c,a
+        ld  a,(hop_h)
+        cp  c
+        jr  z,.hlanded
+        jr  c,.hlanded      ; already at/below target - treat as landed
+        sub b
+        cp  c
+        jr  nc,.hdst
+        ld  a,c
+.hdst:  ld  (hop_h),a
+        cp  c
+        jr  nz,.hcheck      ; not yet landed
+.hlanded:
+        xor a
+        ld  (hop_active),a
+        ld  hl,(room_hopper_ptr)
+        ld  de,3
+        add hl,de           ; +3 = pause
+        ld  a,(hl)
+        ld  (hop_timer),a
+
+.hcheck:
+        ld  a,(hop_anim)
+        inc a
+        ld  (hop_anim),a
+        ld  a,(sam_wx)
+        ld  b,a
+        ld  a,(hop_x)
+        sub b
+        jr  nc,.hdx
+        neg
+.hdx:   cp  10
+        ret nc
+        ld  a,(sam_wz)
+        ld  b,a
+        ld  a,(hop_z)
+        sub b
+        jr  nc,.hdz
+        neg
+.hdz:   cp  10
+        ret nc
+        ld  a,(hop_h)
+        ld  c,a
+        ld  a,(sam_h+1)
+        ld  b,a
+        ld  a,c
+        add a,16
+        ld  d,a
+        ld  a,b
+        cp  d
+        ret nc              ; Sam wholly above
+        ld  a,c
+        inc a
+        ld  d,a
+        ld  a,b
+        add a,16
+        cp  d
+        ret c               ; Sam wholly below
+        jp  sam_die
+
+; ------------------------------------------------------------
 ; sam_draw: sprites at sx=PX0-8+wx-wz  sy=PY0+(wx+wz)/2-h-16
 ; ------------------------------------------------------------
 sam_draw:
@@ -3732,6 +4045,62 @@ sam_draw:
         inc hl
         ret
 
+; .mkhpos/.spr4h: same idea as .mkdpos/.spr4d for the hopping enemy -
+; position comes straight from hop_x/hop_z/hop_h (all plain RAM);
+; pattern base 32, color read from the hop table (room_hopper_ptr+5,
+; never copied into a fixed RAM field).
+.mkhpos:
+        ld  a,(hop_x)
+        ld  l,a
+        ld  h,0
+        ld  de,PX0-8
+        add hl,de
+        ld  a,(hop_z)
+        ld  e,a
+        ld  d,0
+        or  a
+        sbc hl,de
+        ld  a,l
+        ld  c,a
+        ld  a,(hop_x)
+        ld  hl,hop_z
+        add a,(hl)
+        srl a
+        add a,PY0
+        push af
+        ld  a,(hop_h)
+        add a,16
+        ld  e,a
+        pop af
+        sub e
+        dec a
+        ld  b,a
+        ret
+
+.spr4h:
+        ld  a,b
+        call WRTVRM
+        inc hl
+        ld  a,c
+        call WRTVRM
+        inc hl
+        ld  a,(hop_anim)
+        and 16
+        srl a
+        srl a
+        add a,32
+        call WRTVRM
+        inc hl
+        push hl
+        ld  hl,(room_hopper_ptr)
+        ld  de,5
+        add hl,de
+        ld  a,(hl)
+        pop hl
+        call WRTVRM
+        inc hl
+        ret
+
 .enemy_sprites_done:
         pop bc
         push hl
@@ -3778,6 +4147,23 @@ sam_draw:
         pop hl
         call .spr4d
 .nodebrisdraw:
+        pop bc
+
+        ; hopping enemy (optional - see room_hopper_ptr), drawn every
+        ; frame regardless of phase (always visible, unlike debris
+        ; which only shows while actually falling). Own push/pop bc,
+        ; same reasoning as the other optional blocks above.
+        push bc
+        ld  a,(room_hopper_ptr)
+        ld  b,a
+        ld  a,(room_hopper_ptr+1)
+        or  b
+        jr  z,.nohopdraw
+        push hl
+        call .mkhpos
+        pop hl
+        call .spr4h
+.nohopdraw:
         pop bc
 
         ; 4 overlapped Sam sprites (dynamic masked patterns 48/52/56/60)
@@ -5602,6 +5988,9 @@ ROOM6_BGCOLBANK equ 96
         INCBIN "src/bg_pattern6.bin"
 pacman_gfx:
         INCBIN "src/enemy_gfx6.bin"
+        ; level_map6: bank1 overflow fix (see level_map7's comment).
+level_map6:
+        INCBIN "src/level_map6.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color6.bin"
@@ -5625,6 +6014,10 @@ ROOM7_BGCOLBANK equ 98
         INCBIN "src/bg_pattern7.bin"
 guardian_gfx:
         INCBIN "src/enemy_gfx7.bin"
+        ; level_map7: bank1 overflow fix (Room16's new hopper enemy
+        ; pushed it over) - same relocation as every other room's map.
+level_map7:
+        INCBIN "src/level_map7.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color7.bin"
@@ -5929,6 +6322,11 @@ cart_gfx16:
         ; it over) - same relocation as every other room's own map.
 level_map16:
         INCBIN "src/level_map16.bin"
+        ; random platform-hopping enemy (Fausto's follow-up request) -
+        ; gfx + its hop_tab16 record, same own-bank-tail placement.
+hop_gfx16:
+        INCBIN "src/hop_gfx16.bin"
+        INCLUDE "src/hop_tab16.asm"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color16.bin"
