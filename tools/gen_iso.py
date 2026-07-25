@@ -755,6 +755,11 @@ def render_room(spec):
     # random platform-hopping enemy (optional - see room_hopper_ptr)
     hopper_bytes = pack_sprite_frames(spec['hopper_frames']) if spec.get('hopper_frames') else None
 
+    # roller-conveyor packages, 2 independent slots (optional - see
+    # room_pkg_ptr/room_pkg2_ptr)
+    pkg_bytes = pack_sprite_frames(spec['pkg_frames']) if spec.get('pkg_frames') else None
+    pkg2_bytes = pack_sprite_frames(spec['pkg2_frames']) if spec.get('pkg2_frames') else None
+
     # lever: a switch cell that INSTANTLY removes one specific slab
     # (typically one covering the exit) when Sam touches it, gated on
     # exit_check separately from the key count. Deliberately NOT built
@@ -843,6 +848,14 @@ def render_room(spec):
         hop_speed=spec.get('hop_speed', 0), hop_pause=spec.get('hop_pause', 0),
         hop_bump=spec.get('hop_bump', 0), hop_color=spec.get('hop_color', 0),
         hop_cols=spec.get('hop_cols', []),
+        pkg_bytes=pkg_bytes,
+        pkg_speed=spec.get('pkg_speed', 0), pkg_pause=spec.get('pkg_pause', 0),
+        pkg_color=spec.get('pkg_color', 0), pkg_start=spec.get('pkg_start'),
+        pkg_slide=spec.get('pkg_slide', 0), pkg_fend=spec.get('pkg_fend', 0),
+        pkg2_bytes=pkg2_bytes,
+        pkg2_speed=spec.get('pkg2_speed', 0), pkg2_pause=spec.get('pkg2_pause', 0),
+        pkg2_color=spec.get('pkg2_color', 0), pkg2_start=spec.get('pkg2_start'),
+        pkg2_slide=spec.get('pkg2_slide', 0), pkg2_fend=spec.get('pkg2_fend', 0),
         exit_bx=EXIT_BX, exit_bz=EXIT_BZ, exit_y=EXIT_Y,
         name=spec['name'], enxmin=spec['enxmin'], enxmax=spec['enxmax'],
         enz=spec['enz'], ensurf=spec['ensurf'], enemy_color=spec['enemy_color'],
@@ -1148,6 +1161,10 @@ ROOM4 = dict(
     enemy_frames=[RAT_A, RAT_B],
     enxmin=48, enxmax=96, enz=40, ensurf=32, enemy_color=13,
     name="ABANDONED URANIUM WORKINGS",
+    # bank1 overflow ("Negative BLOCK?") from Room17's ROOMROWLEN
+    # growth (54->58) - relocate this room's map too, same routine
+    # fix as every recent room.
+    map_label='level_map4',
 )
 
 # Eugene: a bouncing white ball/skull - monochrome silhouette (the sprite
@@ -1865,6 +1882,10 @@ ROOM5 = dict(
     enemy_frames=[EUGENE_A, EUGENE_B],
     enxmin=8, enxmax=44, enz=40, ensurf=40, en_axis=1, enemy_color=15,
     name="EUGENE'S LAIR",
+    # bank1 overflow ("Negative BLOCK?") from Room17's ROOMROWLEN
+    # growth (54->58) - relocate this room's map too, same routine
+    # fix as every recent room.
+    map_label='level_map5',
 )
 
 # forest wisp: a floating will-o'-the-wisp spirit - a glowing round
@@ -2836,6 +2857,103 @@ ROOM16 = dict(
     map_label='level_map16',
 )
 
+room17_slabs_def = [
+    (1,3,2,T_STONE),   # Entry - climb from spawn's floor
+    (3,3,2,T_CONV), (4,3,2,T_CONV),   # Roller A - sideways +2 from Entry (gap bx=2); package A rides bx=3->4 then falls
+    (4,2,4,T_STONE),   # climb from Roller A's far end
+    (2,2,4,T_STONE),   # sideways -2 (gap bx=3)
+    (2,1,6,T_STONE),   # climb
+    (4,1,6,T_CONV), (5,1,6,T_CONV),   # Roller B - sideways +2 (gap bx=3); package B rides bx=4->5 then falls
+    (5,0,7,T_STONE),   # climb, +1y only (final tier)
+    # exit auto-appended at (7,0,7) - sideways +2 from the final tier (gap bx=6)
+]
+
+# roller-conveyor package - a crate riding a conveyor platform, same
+# monochrome-silhouette convention as debris/hopper (single draw
+# color from pkg_color, not multi-color art). 2 frames: a full-size
+# box, then a 1px-inset "settled" box - purely a cosmetic pulse while
+# it slides/falls, the same subtle-variant trick DEBRIS_A/B and
+# HOP_A/B already use.
+PACKAGE_A = [
+    _bar(16),
+    _bar(16),
+    _bar(16, (3,13)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (2,14)),
+    _bar(16, (3,13)),
+    _bar(16),
+    _bar(16),
+]
+PACKAGE_B = [
+    _bar(16),
+    _bar(16),
+    _bar(16),
+    _bar(16, (4,12)),
+    _bar(16, (3,13)),
+    _bar(16, (3,13)),
+    _bar(16, (3,13)),
+    _bar(16, (3,13)),
+    _bar(16, (3,13)),
+    _bar(16, (3,13)),
+    _bar(16, (3,13)),
+    _bar(16, (3,13)),
+    _bar(16, (3,13)),
+    _bar(16, (4,12)),
+    _bar(16),
+    _bar(16),
+]
+
+ROOM17 = dict(
+    label='17',
+    wallcol=dict(lit=11, rock=10, joint=1),
+    crest_fn=_wtop_bank,
+    floor_style='grid',
+    floor_base=1, floor_speckle=14,
+    slabs_def=room17_slabs_def,
+    style={
+        T_STONE: dict(top_fill=14, top_edge=15, face_l=1, face_r=8, rocky=True),
+        T_CONV:  dict(top_fill=11, top_edge=15, face_l=10, face_r=1, arrows=True, rocky=True),
+    },
+    keys=[(1,3,2,14), (4,2,4,14), (2,1,6,14)],
+    exit_bx=7, exit_bz=0, exit_y=7,
+    hazards=[],
+    hazard_art=None,
+    crumb_units=[],
+    # required fields, but this room's danger is the 2 roller
+    # packages, not a patrolling enemy - same inert placeholder as
+    # Room14/15/16.
+    enemy_frames=[CART_A, CART_B],
+    enxmin=0, enxmax=0, enz=0, ensurf=200, en_axis=0, enemy_color=1,
+    name="THE WAREHOUSE",
+    # Fausto: "un paio di piattaforme rullanti ognuna con un pacco che
+    # va nella direzione del rullo e poi cade di sotto in attesa che
+    # ne appaia un altro" - 2 independent roller platforms (T_CONV,
+    # reused verbatim from Room10's conveyor - it already drags Sam
+    # +x AND already has the arrow art, so a package sliding the same
+    # +x direction matches what the platform itself visually implies)
+    # each with its own package (pkg_update/pkg2_update in main.asm):
+    # slides +x across the platform, falls off the far edge, waits
+    # `pkg_pause` frames, repeats - no rnd8 needed, the path is fixed.
+    pkg_frames=[PACKAGE_A, PACKAGE_B],
+    pkg_speed=2, pkg_pause=40, pkg_color=8,
+    pkg_start=(3,3,2), pkg_slide=16, pkg_fend=8,
+    pkg2_frames=[PACKAGE_A, PACKAGE_B],
+    pkg2_speed=2, pkg2_pause=40, pkg2_color=8,
+    pkg2_start=(4,1,6), pkg2_slide=16, pkg2_fend=8,
+    # bank1 overflow ("Negative BLOCK?") expected from ROOMROWLEN
+    # growing again (54->58) - relocate this room's own map too, same
+    # routine fix as every recent room.
+    map_label='level_map17',
+)
+
 R1 = render_room(ROOM1)
 R2 = render_room(ROOM2)
 R3 = render_room(ROOM3)
@@ -2852,6 +2970,7 @@ R13 = render_room(ROOM13)
 R14 = render_room(ROOM14)
 R15 = render_room(ROOM15)
 R16 = render_room(ROOM16)
+R17 = render_room(ROOM17)
 
 # Each room's 2-frame enemy sprite table (64B) rides along in the spare
 # tail of its own bg_pattern bank (6144 of 8192 bytes used, ~2KB free)
@@ -2934,6 +3053,28 @@ def _write_room_bg(lab, R):
             f"        db {R['hop_speed']},{R['hop_pause']},{R['hop_bump']},{R['hop_color']},{len(hcols)}",
         ] + [f"        db {bx},{bz},{y}" for (bx,bz,y) in hcols]
         open(os.path.join(ROOT,'src',f'hop_tab{suffix}.asm'),'w').write("\n".join(ht)+"\n")
+    # roller-conveyor packages, 2 independent slots (optional): same
+    # own-bank-tail single-pointer trick. Table is dw gfx_ptr +
+    # speed,pause,color,start_bx,start_bz,start_y,slide_dist,fend - no
+    # rnd8/column list needed, the path is fixed (see pkg_update).
+    if R.get('pkg_bytes'):
+        open(os.path.join(ROOT,'src',f'pkg_gfx{suffix}.bin'),'wb').write(bytes(R['pkg_bytes']))
+        pbx, pbz, py = R['pkg_start']
+        pt = [
+            f"pkg_tab{suffix}:",
+            f"        dw pkg_gfx{suffix}",
+            f"        db {R['pkg_speed']},{R['pkg_pause']},{R['pkg_color']},{pbx},{pbz},{py},{R['pkg_slide']},{R['pkg_fend']}",
+        ]
+        open(os.path.join(ROOT,'src',f'pkg_tab{suffix}.asm'),'w').write("\n".join(pt)+"\n")
+    if R.get('pkg2_bytes'):
+        open(os.path.join(ROOT,'src',f'pkg2_gfx{suffix}.bin'),'wb').write(bytes(R['pkg2_bytes']))
+        pbx, pbz, py = R['pkg2_start']
+        pt = [
+            f"pkg2_tab{suffix}:",
+            f"        dw pkg2_gfx{suffix}",
+            f"        db {R['pkg2_speed']},{R['pkg2_pause']},{R['pkg2_color']},{pbx},{pbz},{py},{R['pkg2_slide']},{R['pkg2_fend']}",
+        ]
+        open(os.path.join(ROOT,'src',f'pkg2_tab{suffix}.asm'),'w').write("\n".join(pt)+"\n")
 
 _write_room_bg(R1['label'], R1)
 _write_room_bg(R2['label'], R2)
@@ -2951,6 +3092,7 @@ _write_room_bg(R13['label'], R13)
 _write_room_bg(R14['label'], R14)
 _write_room_bg(R15['label'], R15)
 _write_room_bg(R16['label'], R16)
+_write_room_bg(R17['label'], R17)
 
 # keys_gfx/exit_gfx (per-room graphics blobs, like enemy_gfx) ride in
 # the spare tail of that room's own bg_COLOR bank - same rationale as
@@ -2983,6 +3125,7 @@ _write_room_extra_gfx(R13['label'], R13)
 _write_room_extra_gfx(R14['label'], R14)
 _write_room_extra_gfx(R15['label'], R15)
 _write_room_extra_gfx(R16['label'], R16)
+_write_room_extra_gfx(R17['label'], R17)
 
 # lift_gfx.bin: the rising/falling lift platform's sprite art (2
 # halves, 64B) - a single fixed design shared by every room with a
@@ -3072,6 +3215,7 @@ ROOM13_BGBANK, ROOM13_BGCOLBANK = 112, 113
 ROOM14_BGBANK, ROOM14_BGCOLBANK = 114, 115
 ROOM15_BGBANK, ROOM15_BGCOLBANK = 116, 117
 ROOM16_BGBANK, ROOM16_BGCOLBANK = 120, 121
+ROOM17_BGBANK, ROOM17_BGCOLBANK = 123, 124
 CRUMBBANK = 84
 CRUMBBANK2 = 87
 CRUMBBANK3 = 90
@@ -3168,9 +3312,9 @@ emit_room(R2, lines)
 emit_crumb_tab(R2, lines, bank_map={'a': CRUMBBANK2})
 emit_room(R3, lines)
 emit_crumb_tab(R3, lines, bank_map={'a': CRUMBBANK3})
-emit_room(R4, lines)
+emit_room(R4, lines, map_out=os.path.join(ROOT,'src','level_map4.bin'))
 emit_crumb_tab(R4, lines, bank_map={'a': CRUMBBANK})
-emit_room(R5, lines)
+emit_room(R5, lines, map_out=os.path.join(ROOT,'src','level_map5.bin'))
 emit_crumb_tab(R5, lines, bank_map={'a': CRUMBBANK})
 emit_room(R6, lines, map_out=os.path.join(ROOT,'src','level_map6.bin'))
 emit_crumb_tab(R6, lines, bank_map={'a': CRUMBBANK})
@@ -3194,6 +3338,8 @@ emit_room(R15, lines, map_out=os.path.join(ROOT,'src','level_map15.bin'))
 emit_crumb_tab(R15, lines, bank_map={'a': CRUMBBANK15, 'b': CRUMBBANK15B})
 emit_room(R16, lines, map_out=os.path.join(ROOT,'src','level_map16.bin'))
 emit_crumb_tab(R16, lines, bank_map={'a': CRUMBBANK16})
+emit_room(R17, lines, map_out=os.path.join(ROOT,'src','level_map17.bin'))
+emit_crumb_tab(R17, lines, bank_map={'a': CRUMBBANK})
 
 lines.append("; redefined font, 76 chars from '0' (8 bytes each)")
 _f = open(os.path.join(ROOT,'tools','fonts.c')).read()
@@ -3255,10 +3401,12 @@ lines.append("room15_name:")
 lines.append("        db " + _ds_encode(R15['name']) + ",0")
 lines.append("room16_name:")
 lines.append("        db " + _ds_encode(R16['name']) + ",0")
+lines.append("room17_name:")
+lines.append("        db " + _ds_encode(R17['name']) + ",0")
 lines.append("")
 
-ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx', '11': 'phone_gfx', '12': 'alien_gfx', '13': 'cart_gfx', '14': 'cart_gfx14', '15': 'cart_gfx15', '16': 'cart_gfx16'}
-ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name', '11': 'room11_name', '12': 'room12_name', '13': 'room13_name', '14': 'room14_name', '15': 'room15_name', '16': 'room16_name'}
+ENEMY_GFX_LABEL = {'': 'enemy_gfx', '2': 'bear_gfx', '3': 'chicken_gfx', '4': 'rat_gfx', '5': 'eugene_gfx', '6': 'pacman_gfx', '7': 'guardian_gfx', '8': 'kong_gfx', '9': 'urchin_gfx', '10': 'wisp_gfx', '11': 'phone_gfx', '12': 'alien_gfx', '13': 'cart_gfx', '14': 'cart_gfx14', '15': 'cart_gfx15', '16': 'cart_gfx16', '17': 'cart_gfx17'}
+ROOM_NAME_LABEL = {'': 'room1_name', '2': 'room2_name', '3': 'room3_name', '4': 'room4_name', '5': 'room5_name', '6': 'room6_name', '7': 'room7_name', '8': 'room8_name', '9': 'room9_name', '10': 'room10_name', '11': 'room11_name', '12': 'room12_name', '13': 'room13_name', '14': 'room14_name', '15': 'room15_name', '16': 'room16_name', '17': 'room17_name'}
 
 def room_row(R, bgbank, bgcolbank, crumbbank):
     exb16 = R['exit_bx']*16
@@ -3286,6 +3434,11 @@ def room_row(R, bgbank, bgcolbank, crumbbank):
     # random platform-hopping enemy (optional): same single-pointer
     # trick, for the same reason (only Room16 uses this so far).
     hopper_fields = [f"hop_tab{R['label']}" if R.get('hopper_bytes') else 0]
+    # roller-conveyor packages, 2 independent slots (optional): same
+    # single-pointer trick, for the same reason (only Room17 uses
+    # this so far).
+    pkg_fields = [f"pkg_tab{R['label']}" if R.get('pkg_bytes') else 0]
+    pkg2_fields = [f"pkg2_tab{R['label']}" if R.get('pkg2_bytes') else 0]
     return [
         bgbank, bgcolbank,
         R.get('map_label') or f"level{R['label'] or 1}_map", f"keys_tab{R['label']}", len(R['keys']),
@@ -3303,12 +3456,12 @@ def room_row(R, bgbank, bgcolbank, crumbbank):
         R.get('lift_ymin', 0), R.get('lift_ymax', 0),
         ROOM_NAME_LABEL[R['label']],
         R.get('crumb_continuous', 0),
-    ] + lever_fields + enemy2_fields + debris_fields + hopper_fields
+    ] + lever_fields + enemy2_fields + debris_fields + hopper_fields + pkg_fields + pkg2_fields
 
 lines.append("; room_tab: one row per room, read into room_state RAM struct")
 lines.append("; via a single ldir at room_start. Field order/sizes MUST match")
 lines.append("; the room_state RESB block in src/main.asm exactly.")
-lines.append("ROOMROWLEN equ 54")
+lines.append("ROOMROWLEN equ 58")
 lines.append("room_tab:")
 for R, bgbank, bgcolbank, crumbbank in (
         (R1, ROOM1_BGBANK, ROOM1_BGCOLBANK, CRUMBBANK),
@@ -3326,7 +3479,8 @@ for R, bgbank, bgcolbank, crumbbank in (
         (R13, ROOM13_BGBANK, ROOM13_BGCOLBANK, CRUMBBANK),
         (R14, ROOM14_BGBANK, ROOM14_BGCOLBANK, CRUMBBANK),
         (R15, ROOM15_BGBANK, ROOM15_BGCOLBANK, CRUMBBANK15),
-        (R16, ROOM16_BGBANK, ROOM16_BGCOLBANK, CRUMBBANK16)):
+        (R16, ROOM16_BGBANK, ROOM16_BGCOLBANK, CRUMBBANK16),
+        (R17, ROOM17_BGBANK, ROOM17_BGCOLBANK, CRUMBBANK)):
     f = room_row(R, bgbank, bgcolbank, crumbbank)
     lines.append(f"        db {f[0]},{f[1]}")
     lines.append(f"        dw {f[2]}")
@@ -3354,6 +3508,8 @@ for R, bgbank, bgcolbank, crumbbank in (
     lines.append(f"        dw {f[37]}")
     lines.append(f"        dw {f[38]}")
     lines.append(f"        dw {f[39]}")
+    lines.append(f"        dw {f[40]}")
+    lines.append(f"        dw {f[41]}")
 lines.append("")
 
 # gfx_sprites lives in bank0's own spare space (INCBIN'd directly in
@@ -3401,6 +3557,7 @@ save_preview(R13, os.path.join(ROOT,'build','preview14.png'), spawn_wx=24, spawn
 save_preview(R14, os.path.join(ROOT,'build','preview15.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R15, os.path.join(ROOT,'build','preview16.png'), spawn_wx=24, spawn_wz=72)
 save_preview(R16, os.path.join(ROOT,'build','preview17.png'), spawn_wx=24, spawn_wz=72)
+save_preview(R17, os.path.join(ROOT,'build','preview18.png'), spawn_wx=24, spawn_wz=72)
 
 print(f"OK room1 color-fixes:{R1['fixes']} keys:{R1['key_rects']}")
 print(f"OK room2 color-fixes:{R2['fixes']} keys:{R2['key_rects']}")
@@ -3418,3 +3575,4 @@ print(f"OK room13 color-fixes:{R13['fixes']} keys:{R13['key_rects']}")
 print(f"OK room14 color-fixes:{R14['fixes']} keys:{R14['key_rects']}")
 print(f"OK room15 color-fixes:{R15['fixes']} keys:{R15['key_rects']}")
 print(f"OK room16 color-fixes:{R16['fixes']} keys:{R16['key_rects']}")
+print(f"OK room17 color-fixes:{R17['fixes']} keys:{R17['key_rects']}")

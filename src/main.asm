@@ -279,6 +279,36 @@ hop_th:     RESB 1      ; target world height
 hop_peak:   RESB 1      ; cached peak height for the rise/descend phases
 hop_timer:  RESB 1      ; frames left in the post-landing cooldown
 hop_anim:   RESB 1
+; ---- roller-conveyor package, 2 independent slots (optional -
+; room_pkg_ptr/room_pkg2_ptr in room_state are each 0 for every room
+; without one; when non-zero they point at a small pkg_tab{N}/
+; pkg2_tab{N} record: dw gfx_ptr, db speed,pause,color,start_bx,
+; start_bz,start_y,slide_dist,fend) in that room's own bg_pattern bank
+; tail - same relocation trick as debris_tab/hop_tab. Unlike the
+; hopping enemy, the path is fixed (no rnd8 needed): phase 0 slides
+; +x (the same direction T_CONV's own drag pushes Sam) by slide_dist
+; from the fixed start cell, then phase 1 falls (identical height-
+; decrement logic to debris_update) until below fend, then despawns
+; for `pause` frames before restarting - "a package rolls off the
+; conveyor's end and waits for the next one to appear". 2 separate
+; slots (not a shared loop) since "a couple of platforms, EACH with
+; its own package" needs both moving independently at once, unlike
+; debris/hopper's single active instance - same reasoning as why the
+; 2nd enemy is its own full duplicate rather than a shared routine. ----
+pkg_active: RESB 1
+pkg_phase:  RESB 1      ; 0=sliding (+x), 1=falling
+pkg_x:      RESB 1
+pkg_z:      RESB 1
+pkg_h:      RESB 1
+pkg_timer:  RESB 1
+pkg_anim:   RESB 1
+pkg2_active: RESB 1
+pkg2_phase:  RESB 1
+pkg2_x:      RESB 1
+pkg2_z:      RESB 1
+pkg2_h:      RESB 1
+pkg2_timer:  RESB 1
+pkg2_anim:   RESB 1
 lift_h:     RESB 1      ; current lift surface height (bounces between
                         ; room_lift_ymin/ymax)
 lift_dir:   RESB 1      ; 0=rising(+) 1=falling(-)
@@ -436,8 +466,13 @@ room_hopper_ptr:      RESB 2  ; 0 = no hopping enemy in this room,
                         ; else points at hop_tab{N} (see hop_x above)
                         ; in this room's own bg_pattern bank spare
                         ; tail.
+room_pkg_ptr:         RESB 2  ; 0 = no roller package in this slot,
+                        ; else points at pkg_tab{N} (see pkg_x above)
+                        ; in this room's own bg_pattern bank spare
+                        ; tail.
+room_pkg2_ptr:        RESB 2  ; same, 2nd independent roller package.
 room_state_end:
-NROOMS equ 16
+NROOMS equ 17
 ram_end:
 
 ram_map     equ 0C100h  ; 6*8*8 = 384 bytes  (index = z*64+y*8+x)
@@ -965,6 +1000,8 @@ main_loop:
         call enemy2_update
         call debris_update
         call hopper_update
+        call pkg_update
+        call pkg2_update
         call hazard_check
         call lever_check
         call exit_check
@@ -999,7 +1036,7 @@ main_loop:
         jr  nc,main_loop        ; already on the last room: keep blinking
         ld  (current_room),a
         call room_enter
-        jr  main_loop
+        jp  main_loop
 
 ; ------------------------------------------------------------
 ; load_room: name=identity, copy bg pattern+color, sprites, map
@@ -1088,6 +1125,39 @@ load_room:
         ld  bc,64
         call LDIRVM
 .nohopgfx:
+
+        ; roller package 1 (optional): 2 frames at sprite patterns
+        ; 40/44 - same "gfx pointer is the table's own leading dw" trick.
+        ld  hl,(room_pkg_ptr)
+        ld  a,h
+        or  l
+        jr  z,.nopkggfx
+        ld  e,(hl)
+        inc hl
+        ld  d,(hl)
+        ex  de,hl
+        ld  de,VR_SPRP+40*8
+        ld  bc,64
+        call LDIRVM
+.nopkggfx:
+
+        ; roller package 2 (optional): 2 frames at sprite patterns
+        ; 52/56 - kept clear of Sam's own composed sprite (patterns
+        ; 48-51) rather than slotting in right after hopper (32-39),
+        ; since only ONE more 8-pattern slot (40-47) was free before
+        ; Sam's range.
+        ld  hl,(room_pkg2_ptr)
+        ld  a,h
+        or  l
+        jr  z,.nopkg2gfx
+        ld  e,(hl)
+        inc hl
+        ld  d,(hl)
+        ex  de,hl
+        ld  de,VR_SPRP+52*8
+        ld  bc,64
+        call LDIRVM
+.nopkg2gfx:
 
         ; map ROM -> RAM
         ld  hl,(room_map_ptr)
@@ -3631,6 +3701,331 @@ hopper_update:
         jp  sam_die
 
 ; ------------------------------------------------------------
+; pkg_update / pkg2_update: roller-conveyor package, 2 independent
+; slots (The Warehouse) - see room_pkg_ptr/room_pkg2_ptr. Read
+; directly off the ROM table each time (like debris/hopper), not
+; RAM-mirrored. Unlike hopper's random target pick, the path is fixed
+; and needs no rnd8: phase 0 slides +x (same direction T_CONV's own
+; drag pushes Sam) from the fixed start cell by slide_dist, then
+; phase 1 falls (identical height-decrement logic to debris_update)
+; until below fend, then despawns for `pause` frames before
+; restarting. Record layout (pkg_tab{N}/pkg2_tab{N}, see
+; tools/gen_iso.py): +0 dw gfx_ptr, +2 speed, +3 pause, +4 color,
+; +5 start_bx, +6 start_bz, +7 start_y, +8 slide_dist, +9 fend.
+; A full 2nd copy of this routine (not a shared/parametrized one) -
+; same reasoning as the 2nd enemy being a full duplicate rather than
+; a shared loop: "a couple of platforms, EACH with its own package"
+; needs both moving independently at once, and every attempt in this
+; project to generalize similar-but-not-identical per-slot state via
+; shared scratch registers (cell_at's group counter, the reverted
+; multi-spider loop) has introduced a real register-clobber bug -
+; explicit duplication is the proven-safe pattern here.
+; ------------------------------------------------------------
+pkg_update:
+        ld  hl,(room_pkg_ptr)
+        ld  a,h
+        or  l
+        ret z               ; no package in this slot for this room
+        ld  a,(pkg_active)
+        or  a
+        jp  nz,.pkgactive
+        ld  a,(pkg_timer)
+        or  a
+        jp  z,.pkgspawn
+        dec a
+        ld  (pkg_timer),a
+        ret
+
+.pkgspawn:
+        ld  hl,(room_pkg_ptr)
+        ld  de,5
+        add hl,de           ; +5 = start_bx
+        ld  a,(hl)
+        add a,a
+        add a,a
+        add a,a
+        add a,a             ; bx*16
+        add a,8
+        ld  (pkg_x),a
+        inc hl              ; +6 = start_bz
+        ld  a,(hl)
+        add a,a
+        add a,a
+        add a,a
+        add a,a
+        add a,8
+        ld  (pkg_z),a
+        inc hl              ; +7 = start_y
+        ld  a,(hl)
+        inc a
+        add a,a
+        add a,a
+        add a,a             ; (y+1)*8
+        ld  (pkg_h),a
+        xor a
+        ld  (pkg_phase),a   ; 0 = sliding
+        ld  a,1
+        ld  (pkg_active),a
+        ret
+
+.pkgactive:
+        ld  a,(pkg_phase)
+        or  a
+        jp  nz,.pkgfall
+
+        ; phase 0: slide +x by speed/frame until reaching
+        ; start_bx*16+8+slide_dist
+        ld  hl,(room_pkg_ptr)
+        ld  de,5
+        add hl,de           ; +5 = start_bx
+        ld  a,(hl)
+        add a,a
+        add a,a
+        add a,a
+        add a,a
+        add a,8
+        ld  b,a             ; b = spawn world x
+        ld  hl,(room_pkg_ptr)
+        ld  de,8
+        add hl,de           ; +8 = slide_dist
+        ld  a,(hl)
+        add a,b
+        ld  c,a             ; c = target world x
+        ld  hl,(room_pkg_ptr)
+        ld  de,2
+        add hl,de           ; +2 = speed
+        ld  b,(hl)
+        ld  a,(pkg_x)
+        add a,b
+        cp  c
+        jr  c,.pkgxok
+        ld  a,c
+        ld  (pkg_x),a
+        ld  a,1
+        ld  (pkg_phase),a   ; reached the edge -> fall
+        jp  .pkgcheck
+.pkgxok:
+        ld  (pkg_x),a
+        jp  .pkgcheck
+
+.pkgfall:
+        ld  hl,(room_pkg_ptr)
+        ld  de,2
+        add hl,de           ; +2 = speed
+        ld  a,(hl)
+        ld  b,a
+        ld  a,(pkg_h)
+        sub b
+        ld  (pkg_h),a
+        ld  c,a             ; c = new height
+        ld  hl,(room_pkg_ptr)
+        ld  de,9
+        add hl,de           ; +9 = fend
+        ld  b,(hl)
+        ld  a,c
+        cp  b
+        jp  nc,.pkgcheck     ; still above fend - keep falling
+        xor a
+        ld  (pkg_active),a
+        ld  hl,(room_pkg_ptr)
+        ld  de,3
+        add hl,de           ; +3 = pause
+        ld  a,(hl)
+        ld  (pkg_timer),a
+        ret
+
+.pkgcheck:
+        ld  a,(pkg_anim)
+        inc a
+        ld  (pkg_anim),a
+        ld  a,(sam_wx)
+        ld  b,a
+        ld  a,(pkg_x)
+        sub b
+        jr  nc,.pkgdx
+        neg
+.pkgdx: cp  10
+        ret nc
+        ld  a,(sam_wz)
+        ld  b,a
+        ld  a,(pkg_z)
+        sub b
+        jr  nc,.pkgdz
+        neg
+.pkgdz: cp  10
+        ret nc
+        ld  a,(pkg_h)
+        ld  c,a
+        ld  a,(sam_h+1)
+        ld  b,a
+        ld  a,c
+        add a,16
+        ld  d,a
+        ld  a,b
+        cp  d
+        ret nc              ; Sam wholly above
+        ld  a,c
+        inc a
+        ld  d,a
+        ld  a,b
+        add a,16
+        cp  d
+        ret c               ; Sam wholly below
+        jp  sam_die
+
+pkg2_update:
+        ld  hl,(room_pkg2_ptr)
+        ld  a,h
+        or  l
+        ret z               ; no package in this slot for this room
+        ld  a,(pkg2_active)
+        or  a
+        jp  nz,.pkg2active
+        ld  a,(pkg2_timer)
+        or  a
+        jp  z,.pkg2spawn
+        dec a
+        ld  (pkg2_timer),a
+        ret
+
+.pkg2spawn:
+        ld  hl,(room_pkg2_ptr)
+        ld  de,5
+        add hl,de           ; +5 = start_bx
+        ld  a,(hl)
+        add a,a
+        add a,a
+        add a,a
+        add a,a             ; bx*16
+        add a,8
+        ld  (pkg2_x),a
+        inc hl              ; +6 = start_bz
+        ld  a,(hl)
+        add a,a
+        add a,a
+        add a,a
+        add a,a
+        add a,8
+        ld  (pkg2_z),a
+        inc hl              ; +7 = start_y
+        ld  a,(hl)
+        inc a
+        add a,a
+        add a,a
+        add a,a             ; (y+1)*8
+        ld  (pkg2_h),a
+        xor a
+        ld  (pkg2_phase),a  ; 0 = sliding
+        ld  a,1
+        ld  (pkg2_active),a
+        ret
+
+.pkg2active:
+        ld  a,(pkg2_phase)
+        or  a
+        jp  nz,.pkg2fall
+
+        ; phase 0: slide +x by speed/frame until reaching
+        ; start_bx*16+8+slide_dist
+        ld  hl,(room_pkg2_ptr)
+        ld  de,5
+        add hl,de           ; +5 = start_bx
+        ld  a,(hl)
+        add a,a
+        add a,a
+        add a,a
+        add a,a
+        add a,8
+        ld  b,a             ; b = spawn world x
+        ld  hl,(room_pkg2_ptr)
+        ld  de,8
+        add hl,de           ; +8 = slide_dist
+        ld  a,(hl)
+        add a,b
+        ld  c,a             ; c = target world x
+        ld  hl,(room_pkg2_ptr)
+        ld  de,2
+        add hl,de           ; +2 = speed
+        ld  b,(hl)
+        ld  a,(pkg2_x)
+        add a,b
+        cp  c
+        jr  c,.pkg2xok
+        ld  a,c
+        ld  (pkg2_x),a
+        ld  a,1
+        ld  (pkg2_phase),a  ; reached the edge -> fall
+        jp  .pkg2check
+.pkg2xok:
+        ld  (pkg2_x),a
+        jp  .pkg2check
+
+.pkg2fall:
+        ld  hl,(room_pkg2_ptr)
+        ld  de,2
+        add hl,de           ; +2 = speed
+        ld  a,(hl)
+        ld  b,a
+        ld  a,(pkg2_h)
+        sub b
+        ld  (pkg2_h),a
+        ld  c,a             ; c = new height
+        ld  hl,(room_pkg2_ptr)
+        ld  de,9
+        add hl,de           ; +9 = fend
+        ld  b,(hl)
+        ld  a,c
+        cp  b
+        jp  nc,.pkg2check    ; still above fend - keep falling
+        xor a
+        ld  (pkg2_active),a
+        ld  hl,(room_pkg2_ptr)
+        ld  de,3
+        add hl,de           ; +3 = pause
+        ld  a,(hl)
+        ld  (pkg2_timer),a
+        ret
+
+.pkg2check:
+        ld  a,(pkg2_anim)
+        inc a
+        ld  (pkg2_anim),a
+        ld  a,(sam_wx)
+        ld  b,a
+        ld  a,(pkg2_x)
+        sub b
+        jr  nc,.pkg2dx
+        neg
+.pkg2dx: cp  10
+        ret nc
+        ld  a,(sam_wz)
+        ld  b,a
+        ld  a,(pkg2_z)
+        sub b
+        jr  nc,.pkg2dz
+        neg
+.pkg2dz: cp  10
+        ret nc
+        ld  a,(pkg2_h)
+        ld  c,a
+        ld  a,(sam_h+1)
+        ld  b,a
+        ld  a,c
+        add a,16
+        ld  d,a
+        ld  a,b
+        cp  d
+        ret nc              ; Sam wholly above
+        ld  a,c
+        inc a
+        ld  d,a
+        ld  a,b
+        add a,16
+        cp  d
+        ret c               ; Sam wholly below
+        jp  sam_die
+
+; ------------------------------------------------------------
 ; sam_draw: sprites at sx=PX0-8+wx-wz  sy=PY0+(wx+wz)/2-h-16
 ; ------------------------------------------------------------
 sam_draw:
@@ -4101,6 +4496,116 @@ sam_draw:
         inc hl
         ret
 
+; .mkppos/.spr4p and .mkp2pos/.spr4p2: same idea as .mkdpos/.spr4d for
+; the 2 roller-conveyor packages (The Warehouse) - position comes
+; straight from pkg_x/pkg_z/pkg_h (resp. pkg2_*), pattern base 40
+; (resp. 52), color read from that slot's own table (room_pkg_ptr+4,
+; resp. room_pkg2_ptr+4) since it was never copied into a fixed RAM
+; field.
+.mkppos:
+        ld  a,(pkg_x)
+        ld  l,a
+        ld  h,0
+        ld  de,PX0-8
+        add hl,de
+        ld  a,(pkg_z)
+        ld  e,a
+        ld  d,0
+        or  a
+        sbc hl,de
+        ld  a,l
+        ld  c,a
+        ld  a,(pkg_x)
+        ld  hl,pkg_z
+        add a,(hl)
+        srl a
+        add a,PY0
+        push af
+        ld  a,(pkg_h)
+        add a,16
+        ld  e,a
+        pop af
+        sub e
+        dec a
+        ld  b,a
+        ret
+
+.spr4p:
+        ld  a,b
+        call WRTVRM
+        inc hl
+        ld  a,c
+        call WRTVRM
+        inc hl
+        ld  a,(pkg_anim)
+        and 16
+        srl a
+        srl a
+        add a,40
+        call WRTVRM
+        inc hl
+        push hl
+        ld  hl,(room_pkg_ptr)
+        ld  de,4
+        add hl,de
+        ld  a,(hl)
+        pop hl
+        call WRTVRM
+        inc hl
+        ret
+
+.mkp2pos:
+        ld  a,(pkg2_x)
+        ld  l,a
+        ld  h,0
+        ld  de,PX0-8
+        add hl,de
+        ld  a,(pkg2_z)
+        ld  e,a
+        ld  d,0
+        or  a
+        sbc hl,de
+        ld  a,l
+        ld  c,a
+        ld  a,(pkg2_x)
+        ld  hl,pkg2_z
+        add a,(hl)
+        srl a
+        add a,PY0
+        push af
+        ld  a,(pkg2_h)
+        add a,16
+        ld  e,a
+        pop af
+        sub e
+        dec a
+        ld  b,a
+        ret
+
+.spr4p2:
+        ld  a,b
+        call WRTVRM
+        inc hl
+        ld  a,c
+        call WRTVRM
+        inc hl
+        ld  a,(pkg2_anim)
+        and 16
+        srl a
+        srl a
+        add a,52
+        call WRTVRM
+        inc hl
+        push hl
+        ld  hl,(room_pkg2_ptr)
+        ld  de,4
+        add hl,de
+        ld  a,(hl)
+        pop hl
+        call WRTVRM
+        inc hl
+        ret
+
 .enemy_sprites_done:
         pop bc
         push hl
@@ -4164,6 +4669,43 @@ sam_draw:
         pop hl
         call .spr4h
 .nohopdraw:
+        pop bc
+
+        ; roller package 1 (optional - see room_pkg_ptr), only while
+        ; actually active (like debris - invisible while waiting for
+        ; the next one to appear). Own push/pop bc, same reasoning as
+        ; the other optional blocks above.
+        push bc
+        ld  a,(room_pkg_ptr)
+        ld  b,a
+        ld  a,(room_pkg_ptr+1)
+        or  b
+        jr  z,.nopkgdraw
+        ld  a,(pkg_active)
+        or  a
+        jr  z,.nopkgdraw
+        push hl
+        call .mkppos
+        pop hl
+        call .spr4p
+.nopkgdraw:
+        pop bc
+
+        ; roller package 2 (optional - see room_pkg2_ptr), same rules.
+        push bc
+        ld  a,(room_pkg2_ptr)
+        ld  b,a
+        ld  a,(room_pkg2_ptr+1)
+        or  b
+        jr  z,.nopkg2draw
+        ld  a,(pkg2_active)
+        or  a
+        jr  z,.nopkg2draw
+        push hl
+        call .mkp2pos
+        pop hl
+        call .spr4p2
+.nopkg2draw:
         pop bc
 
         ; 4 overlapped Sam sprites (dynamic masked patterns 48/52/56/60)
@@ -5942,6 +6484,10 @@ ROOM4_BGCOLBANK equ 92
         INCBIN "src/bg_pattern4.bin"
 rat_gfx:
         INCBIN "src/enemy_gfx4.bin"
+        ; level_map4: bank1 overflow fix (Room17's ROOMROWLEN growth
+        ; pushed it over) - same relocation as every other room's map.
+level_map4:
+        INCBIN "src/level_map4.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color4.bin"
@@ -5965,6 +6511,10 @@ ROOM5_BGCOLBANK equ 94
         INCBIN "src/bg_pattern5.bin"
 eugene_gfx:
         INCBIN "src/enemy_gfx5.bin"
+        ; level_map5: bank1 overflow fix (Room17's ROOMROWLEN growth
+        ; pushed it over) - same relocation as every other room's map.
+level_map5:
+        INCBIN "src/level_map5.bin"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color5.bin"
@@ -6346,11 +6896,49 @@ exit_gfx16_1:
 CRUMBBANK16 equ 122
         INCBIN "src/crumb16.bin"
 
+; ============================================================
+;  BANKS 123-124: room 17 (The Warehouse) pre-rendered background.
+;  No own crumb bank - crumb_units=[] so room_nunits=0 and cell_at
+;  returns "no match" immediately without ever reading room_crumb_bank
+;  (same reasoning as Rooms 4-7), reusing CRUMBBANK(84) as a harmless
+;  placeholder. Bank numbers must match ROOM17_BGBANK/ROOM17_BGCOLBANK
+;  in tools/gen_iso.py.
+; ============================================================
+ROOM17_BGBANK    equ 123
+ROOM17_BGCOLBANK equ 124
+        ORG 08000h
+        INCBIN "src/bg_pattern17.bin"
+cart_gfx17:
+        INCBIN "src/enemy_gfx17.bin"
+        ; level_map17: bank1 overflow fix (this room's own data pushed
+        ; it over) - same relocation as every other room's own map.
+level_map17:
+        INCBIN "src/level_map17.bin"
+        ; roller-conveyor packages (Fausto's "THE WAREHOUSE" request) -
+        ; 2 independent gfx + pkg_tab17/pkg2_tab17 records, same
+        ; own-bank-tail placement as hop_gfx16.
+pkg_gfx17:
+        INCBIN "src/pkg_gfx17.bin"
+        INCLUDE "src/pkg_tab17.asm"
+pkg2_gfx17:
+        INCBIN "src/pkg2_gfx17.bin"
+        INCLUDE "src/pkg2_tab17.asm"
+        BLOCK 0A000h-$,0FFh
+        ORG 0A000h
+        INCBIN "src/bg_color17.bin"
+keys_gfx17:
+        INCBIN "src/keys_gfx17.bin"
+exit_gfx17_0:
+        INCBIN "src/exit_gfx17_0.bin"
+exit_gfx17_1:
+        INCBIN "src/exit_gfx17_1.bin"
+        BLOCK 0C000h-$,0FFh
+
         ; pad the ROM back out to a full 1MB (128 x 8KB banks) - openMSX's
         ; ascii8 mapper expects a power-of-two file size; a short file
         ; (as left by just rounding up to the next bank) fails to boot
         ; at all (falls through to plain MSX BASIC). Measured then
         ; computed exactly (1048576 - actual size before this BLOCK),
-        ; not guessed by hand. 123 banks now used (0-122), so 5 banks
-        ; (123-127) remain: 5*8192 = 40960.
-        BLOCK 40960,0FFh
+        ; not guessed by hand. 125 banks now used (0-124), so 3 banks
+        ; (125-127) remain: 3*8192 = 24576.
+        BLOCK 24576,0FFh
