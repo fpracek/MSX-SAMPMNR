@@ -309,26 +309,6 @@ pkg2_z:      RESB 1
 pkg2_h:      RESB 1
 pkg2_timer:  RESB 1
 pkg2_anim:   RESB 1
-; ---- sun-ray screen divider (optional - room_ray_ptr in room_state
-; is 0 for every room without one; when non-zero it points at a small
-; ray_tab{N} record: dw gfx_ptr, db period,width,color,ncols, then
-; ncols*1 bytes of candidate SCREEN-x column choices) in that room's
-; own bg_pattern bank tail - same relocation trick as the other
-; optional mechanics. Unlike every other mechanic so far, this one
-; operates entirely in SCREEN space, not world space: Fausto's own
-; description was "un raggio che divide lo SCHERMO" (divides the
-; SCREEN), not the 3D room - a fixed world x/z would project as a
-; diagonal line in this isometric engine, not a vertical "wall", so
-; the ray's position and Sam's own collision check both use the same
-; sx=PX0-8+wx-wz screen-space formula .mkpos/.mkdpos/etc. already use
-; for sprite placement, just compared against a fixed screen column
-; instead of drawn at a moving one. Picks a random column (rnd8, same
-; technique as debris/hopper) every `period` frames and holds it -
-; unlike debris/hopper there's no separate "active" flag, the ray is
-; always up, only its column changes. ----
-ray_x:      RESB 1      ; current active screen-x column
-ray_timer:  RESB 1      ; frames left before picking a new column
-ray_anim:   RESB 1
 lift_h:     RESB 1      ; current lift surface height (bounces between
                         ; room_lift_ymin/ymax)
 lift_dir:   RESB 1      ; 0=rising(+) 1=falling(-)
@@ -491,10 +471,6 @@ room_pkg_ptr:         RESB 2  ; 0 = no roller package in this slot,
                         ; in this room's own bg_pattern bank spare
                         ; tail.
 room_pkg2_ptr:        RESB 2  ; same, 2nd independent roller package.
-room_ray_ptr:         RESB 2  ; 0 = no sun-ray divider in this room,
-                        ; else points at ray_tab{N} (see ray_x above)
-                        ; in this room's own bg_pattern bank spare
-                        ; tail.
 room_state_end:
 NROOMS equ 19
 ram_end:
@@ -1026,7 +1002,6 @@ main_loop:
         call hopper_update
         call pkg_update
         call pkg2_update
-        call ray_update
         call hazard_check
         call lever_check
         call exit_check
@@ -1191,23 +1166,6 @@ load_room:
         ld  bc,64
         call LDIRVM
 .nopkg2gfx:
-
-        ; sun-ray screen divider (optional): 2 frames at sprite
-        ; patterns 72/76 - kept clear of both Sam's own composed range
-        ; (48-63) and pkg2's now-corrected 64-71, same "gfx pointer is
-        ; the table's own leading dw" trick.
-        ld  hl,(room_ray_ptr)
-        ld  a,h
-        or  l
-        jr  z,.norayggfx
-        ld  e,(hl)
-        inc hl
-        ld  d,(hl)
-        ex  de,hl
-        ld  de,VR_SPRP+72*8
-        ld  bc,64
-        call LDIRVM
-.norayggfx:
 
         ; map ROM -> RAM
         ld  hl,(room_map_ptr)
@@ -4089,88 +4047,6 @@ pkg2_update:
         jp  sam_die
 
 ; ------------------------------------------------------------
-; ray_update: sun-ray SCREEN divider (Solar Power Generator) - see
-; room_ray_ptr. Read directly off its ROM table each time (like
-; debris/hopper/pkg), not RAM-mirrored. Picks a random screen-x column
-; (rnd8, same technique as debris_update's column pick) every `period`
-; frames and holds it there - unlike every other optional mechanic
-; there is no "active" flag, the ray is always up, only its column
-; changes. Collision is SCREEN-space, not world-space: a fixed world
-; x/z would project as a diagonal line in this isometric engine, not a
-; vertical "wall" dividing the screen the way Fausto asked for, so
-; both the ray's own position and Sam's side of the check use the
-; same sx=PX0-8+wx-wz formula sam_draw's sprite placement already
-; uses - just compared against a fixed screen column instead of drawn
-; at a moving one. Record layout (ray_tab{N}, see tools/gen_iso.py):
-; +0 dw gfx_ptr, +2 period, +3 width, +4 color, +5 ncols, then
-; ncols*1 bytes of candidate screen-x columns.
-; ------------------------------------------------------------
-ray_update:
-        ld  hl,(room_ray_ptr)
-        ld  a,h
-        or  l
-        ret z               ; no ray in this room
-        ld  a,(ray_timer)
-        or  a
-        jp  nz,.raydec
-        call rnd8
-        ld  hl,(room_ray_ptr)
-        ld  de,5
-        add hl,de           ; +5 = ncols
-        ld  b,(hl)
-.raymod:
-        cp  b
-        jr  c,.raymodok
-        sub b
-        jr  .raymod
-.raymodok:
-        ld  e,a
-        ld  d,0
-        ld  hl,(room_ray_ptr)
-        ld  bc,6
-        add hl,bc
-        add hl,de           ; hl -> +6+idx = chosen screen-x column
-        ld  a,(hl)
-        ld  (ray_x),a
-        ld  hl,(room_ray_ptr)
-        ld  de,2
-        add hl,de           ; +2 = period
-        ld  a,(hl)
-        ld  (ray_timer),a
-        jp  .raycheck
-.raydec:
-        dec a
-        ld  (ray_timer),a
-.raycheck:
-        ld  a,(ray_anim)
-        inc a
-        ld  (ray_anim),a
-        ; sx = PX0-8+sam_wx-sam_wz (same formula as .mkpos)
-        ld  a,(sam_wx)
-        ld  l,a
-        ld  h,0
-        ld  de,PX0-8
-        add hl,de
-        ld  a,(sam_wz)
-        ld  e,a
-        ld  d,0
-        or  a
-        sbc hl,de
-        ld  a,l
-        ld  b,a             ; b = Sam's current screen x
-        ld  hl,(room_ray_ptr)
-        ld  de,3
-        add hl,de           ; +3 = width (half-band threshold)
-        ld  c,(hl)
-        ld  a,(ray_x)
-        sub b
-        jr  nc,.raydx
-        neg
-.raydx: cp  c
-        ret nc              ; outside the ray's band - safe
-        jp  sam_die
-
-; ------------------------------------------------------------
 ; sam_draw: sprites at sx=PX0-8+wx-wz  sy=PY0+(wx+wz)/2-h-16
 ; ------------------------------------------------------------
 sam_draw:
@@ -4751,47 +4627,6 @@ sam_draw:
         inc hl
         ret
 
-; .drawray: unlike every other optional mechanic (one position, one
-; sprite), the sun-ray divider is drawn as a whole STACK of segments
-; at a fixed screen x (ray_x) - a vertical "wall" of light spanning
-; most of the visible play height, top to bottom, since Fausto's own
-; description is a beam that "divides the screen" regardless of where
-; Sam or any platform is. b=segment count, c=starting screen y (both
-; hardcoded here, not table-driven - the screen height this spans
-; doesn't vary per room the way a room's own layout does).
-.drawray:
-        ld  b,11
-        ld  c,8
-.rsegloop:
-        push bc
-        ld  a,c
-        call WRTVRM
-        inc hl
-        ld  a,(ray_x)
-        call WRTVRM
-        inc hl
-        ld  a,(ray_anim)
-        and 16
-        srl a
-        srl a
-        add a,72
-        call WRTVRM
-        inc hl
-        push hl
-        ld  hl,(room_ray_ptr)
-        ld  de,4
-        add hl,de
-        ld  a,(hl)
-        pop hl
-        call WRTVRM
-        inc hl
-        pop bc
-        ld  a,c
-        add a,16
-        ld  c,a
-        djnz .rsegloop
-        ret
-
 .enemy_sprites_done:
         pop bc
         push hl
@@ -4892,23 +4727,6 @@ sam_draw:
         pop hl
         call .spr4p2
 .nopkg2draw:
-        pop bc
-
-        ; sun-ray screen divider (optional - see room_ray_ptr) - always
-        ; visible while the room has one, no "active" flag, drawn as a
-        ; whole stack of segments via .drawray (not the usual single
-        ; mkXpos/spr4X pair). Own push/pop bc, same reasoning as every
-        ; other optional block above.
-        push bc
-        ld  a,(room_ray_ptr)
-        ld  b,a
-        ld  a,(room_ray_ptr+1)
-        or  b
-        jr  z,.norayfxdraw
-        push hl
-        call .drawray
-        pop hl
-.norayfxdraw:
         pop bc
 
         ; 4 overlapped Sam sprites (dynamic masked patterns 48/52/56/60)
@@ -7210,12 +7028,18 @@ cart_gfx19:
         ; it over) - same relocation as every other room's own map.
 level_map19:
         INCBIN "src/level_map19.bin"
-        ; sun-ray screen divider (Fausto's "SOLAR POWER GENERATOR"
-        ; request) - gfx + its ray_tab19 record, same own-bank-tail
-        ; placement as every other optional mechanic.
-ray_gfx19:
-        INCBIN "src/ray_gfx19.bin"
-        INCLUDE "src/ray_tab19.asm"
+        ; falling sun (Fausto's "SOLAR POWER GENERATOR" follow-up:
+        ; "rimuovi il muro che non funziona, metti un sole che cade
+        ; dal cielo sulle varie piattaforme" - remove the wall, put a
+        ; sun that falls from the sky onto the platforms instead) -
+        ; reuses the existing debris_update mechanic verbatim (see
+        ; Room14's meteor/Room15's banknotes), just reskinned as a sun
+        ; falling onto a random platform - gfx + its debris_tab19
+        ; record, same own-bank-tail placement as every other optional
+        ; mechanic.
+debris_gfx19:
+        INCBIN "src/debris_gfx19.bin"
+        INCLUDE "src/debris_tab19.asm"
         BLOCK 0A000h-$,0FFh
         ORG 0A000h
         INCBIN "src/bg_color19.bin"

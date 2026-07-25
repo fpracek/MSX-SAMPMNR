@@ -789,7 +789,7 @@ room19_name:
 ; room_tab: one row per room, read into room_state RAM struct
 ; via a single ldir at room_start. Field order/sizes MUST match
 ; the room_state RESB block in src/main.asm exactly.
-ROOMROWLEN equ 60
+ROOMROWLEN equ 58
 room_tab:
         db 2,3
         dw level1_map
@@ -813,7 +813,6 @@ room_tab:
         db 255,0,0,0
         dw room1_name
         db 0
-        dw 0
         dw 0
         dw 0
         dw 0
@@ -848,7 +847,6 @@ room_tab:
         dw 0
         dw 0
         dw 0
-        dw 0
         db 88,89
         dw level_map3
         dw keys_tab3
@@ -871,7 +869,6 @@ room_tab:
         db 255,0,0,0
         dw room3_name
         db 0
-        dw 0
         dw 0
         dw 0
         dw 0
@@ -906,7 +903,6 @@ room_tab:
         dw 0
         dw 0
         dw 0
-        dw 0
         db 93,94
         dw level_map5
         dw keys_tab5
@@ -929,7 +925,6 @@ room_tab:
         db 255,0,0,0
         dw room5_name
         db 0
-        dw 0
         dw 0
         dw 0
         dw 0
@@ -964,7 +959,6 @@ room_tab:
         dw 0
         dw 0
         dw 0
-        dw 0
         db 97,98
         dw level_map7
         dw keys_tab7
@@ -987,7 +981,6 @@ room_tab:
         db 255,0,0,0
         dw room7_name
         db 0
-        dw 0
         dw 0
         dw 0
         dw 0
@@ -1022,7 +1015,6 @@ room_tab:
         dw 0
         dw 0
         dw 0
-        dw 0
         db 102,103
         dw level_map9
         dw keys_tab9
@@ -1045,7 +1037,6 @@ room_tab:
         db 255,0,0,0
         dw room9_name
         db 1
-        dw 0
         dw 0
         dw 0
         dw 0
@@ -1080,7 +1071,6 @@ room_tab:
         dw 0
         dw 0
         dw 0
-        dw 0
         db 108,109
         dw level_map11
         dw keys_tab11
@@ -1103,7 +1093,6 @@ room_tab:
         db 255,0,0,0
         dw room11_name
         db 0
-        dw 0
         dw 0
         dw 0
         dw 0
@@ -1138,7 +1127,6 @@ room_tab:
         dw 0
         dw 0
         dw 0
-        dw 0
         db 112,113
         dw level_map13
         dw keys_tab13
@@ -1163,7 +1151,6 @@ room_tab:
         db 0
         dw 0
         dw enemy2_tab13
-        dw 0
         dw 0
         dw 0
         dw 0
@@ -1196,7 +1183,6 @@ room_tab:
         dw 0
         dw 0
         dw 0
-        dw 0
         db 116,117
         dw level_map15
         dw keys_tab15
@@ -1222,7 +1208,6 @@ room_tab:
         dw 0
         dw 0
         dw debris_tab15
-        dw 0
         dw 0
         dw 0
         dw 0
@@ -1254,7 +1239,6 @@ room_tab:
         dw hop_tab16
         dw 0
         dw 0
-        dw 0
         db 123,124
         dw level_map17
         dw keys_tab17
@@ -1283,7 +1267,6 @@ room_tab:
         dw 0
         dw pkg_tab17
         dw pkg2_tab17
-        dw 0
         db 125,126
         dw level_map18
         dw keys_tab18
@@ -1306,7 +1289,6 @@ room_tab:
         db 255,0,0,0
         dw room18_name
         db 0
-        dw 0
         dw 0
         dw 0
         dw 0
@@ -1337,9 +1319,8 @@ room_tab:
         db 0
         dw 0
         dw 0
+        dw debris_tab19
         dw 0
         dw 0
         dw 0
-        dw 0
-        dw ray_tab19
 
