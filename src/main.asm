@@ -373,6 +373,8 @@ mtmp1:      RESB 1      ; sequencer scratch (period hi)
 ttl_key_cur: RESB 1     ; piano key index (0-14) currently sounding
 ttl_key_prev:RESB 1     ; previous key index, so it can be un-lit
 ttl_pose:   RESB 1      ; last blitted Sam pose (0FFh=none yet)
+ttl_loops:  RESB 1      ; waltz loop count since music_init - title_loop
+                        ; enters the room-preview demo once this reaches 1
 kc_idx:     RESB 1      ; key_set_color scratch
 kc_col:     RESB 1
 kc_color:   RESB 1
@@ -686,7 +688,12 @@ title_loop:
         jr  nz,.go              ; letter pressed - current_room already set
         call read_trig_any
         or  a
-        jr  z,title_loop
+        jr  nz,.firepressed
+        ld  a,(ttl_loops)
+        or  a
+        jr  z,title_loop        ; nothing pressed, waltz hasn't looped yet
+        jp  demo_mode           ; waltz looped with no input - attract mode
+.firepressed:
         xor a
         ld  (current_room),a
 .go:    call music_stop
@@ -853,6 +860,36 @@ room_enter:
 ; same restore trick key pickups use, just for a whole tile row.
 ; ------------------------------------------------------------
 room_intro:
+        call demo_show_name
+        ld  b,100
+.hold:  push bc
+        halt
+        ld  hl,frame
+        inc (hl)
+        call level_music_update
+        pop bc
+        djnz .hold
+
+        ld  hl,BG_PAT+10*256
+        ld  de,VR_PAT+10*256
+        ld  bc,768              ; 3 rows (10,11,12) x 256 bytes
+        call LDIRVM
+        ld  hl,BG_COL+10*256
+        ld  de,VR_COL+10*256
+        ld  bc,768
+        call LDIRVM
+        ; the row restore above uses the keyless base background, so
+        ; any pickups load_room already drew that fall within rows
+        ; 10-12 need to be put back
+        jp  key_draw_all
+
+; ------------------------------------------------------------
+; demo_show_name: hide leftover sprites and draw the current room's
+; name, centred, on a solid black 3-row box (rows 10-12) - the box+text
+; portion of room_intro, factored out so demo_mode can reuse it without
+; the blind 100-frame hold/auto-erase that follows it there.
+; ------------------------------------------------------------
+demo_show_name:
         ld  hl,VR_SPRA          ; hide title-screen/previous-room sprites
         ld  a,208
         call WRTVRM
@@ -891,16 +928,39 @@ room_intro:
         call box_row
 
         ld  hl,(room_name_ptr)
-        call draw_string
+        jp  draw_string
 
+; ------------------------------------------------------------
+; demo_mode: attract-mode room preview. Entered from title_loop once
+; the waltz has looped once with no input (ttl_loops>=1) - cycles every
+; room's static layout+name card, ~5s (250 frames) each: 100 frames with
+; the name card up (same box as room_intro), then 150 more with the
+; bare layout after it clears, matching the visual rhythm of actually
+; entering a room. Uses room_start (NOT room_enter/main_loop), so real
+; gameplay state (lives/keys/current_room's later meaning) is never at
+; risk - this is a pure display loop. Any fire/space press at any point
+; aborts immediately back to the title screen.
+; ------------------------------------------------------------
+demo_mode:
+        call music_stop
+        call psg_init
+        xor a
+        ld  (current_room),a
+.showroom:
+        call room_start
+        call demo_show_name
         ld  b,100
-.hold:  push bc
+.boxhold:
+        push bc
         halt
         ld  hl,frame
         inc (hl)
         call level_music_update
+        call read_trig_any
+        or  a
+        jr  nz,.abort
         pop bc
-        djnz .hold
+        djnz .boxhold
 
         ld  hl,BG_PAT+10*256
         ld  de,VR_PAT+10*256
@@ -910,10 +970,32 @@ room_intro:
         ld  de,VR_COL+10*256
         ld  bc,768
         call LDIRVM
-        ; the row restore above uses the keyless base background, so
-        ; any pickups load_room already drew that fall within rows
-        ; 10-12 need to be put back
-        jp  key_draw_all
+        call key_draw_all
+
+        ld  b,150
+.barehold:
+        push bc
+        halt
+        ld  hl,frame
+        inc (hl)
+        call level_music_update
+        call read_trig_any
+        or  a
+        jr  nz,.abort
+        pop bc
+        djnz .barehold
+
+        ld  a,(current_room)
+        inc a
+        cp  NROOMS
+        jr  nc,.backtotitle
+        ld  (current_room),a
+        jr  .showroom
+.abort:
+        pop bc
+.backtotitle:
+        call title_setup
+        jp  title_loop
 
 ; box_row: A=tile row, B=width(cols), C=col0 -> fill pattern=0/colour=011h
 ; (solid black - the box backdrop behind a room-name card)
@@ -5246,6 +5328,8 @@ music_init:
         ld  (ttl_key_cur),a
         ld  (ttl_key_prev),a
         ld  (ttl_pose),a
+        xor a
+        ld  (ttl_loops),a
         ret
 
 music_stop:
@@ -5294,6 +5378,8 @@ mel_next:
         jr  nz,.go
         ld  hl,melody_tab
         ld  (mus_mel_ptr),hl
+        ld  hl,ttl_loops
+        inc (hl)
         jr  mel_next
 .go:    ld  a,(ttl_key_cur)
         ld  (ttl_key_prev),a
