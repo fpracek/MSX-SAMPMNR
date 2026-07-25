@@ -2968,7 +2968,7 @@ ROOM17 = dict(
     map_label='level_map17',
 )
 
-# one big flat platform (6 wide x 3 deep, all y=2 - a single climb up
+# one big flat platform (7 wide x 4 deep, all y=2 - a single climb up
 # from spawn's floor, then fully walkable in every direction with no
 # further jumping needed) scattered with static amoeba hazards and
 # touch-crumbling cells, callback to Room9's "WACKY AMOEBATRONS".
@@ -2977,19 +2977,38 @@ ROOM17 = dict(
 # le chiavi senza toccarli, ma alcune piattaforme si sgretolano al suo
 # passaggio" - weave between static hazards to reach the keys, while
 # some of the cells crumble underfoot as he crosses them.
+# Widened once already, per Fausto's follow-up: the original 6x3
+# (bx1-6,bz1-3) left a 1-cell gap of open ground floor between the
+# platform and BOTH back walls (bx=0 column, bz=0 row) - since that
+# ground floor is walkable and untouched by any hazard/crumble/enemy,
+# Sam could just walk around the platform's outer edge on the floor
+# and still be at the right (bx,bz) column to grab a key from below,
+# skipping the whole puzzle. Extended to bx=0-6, bz=0-3 so the
+# platform butts directly against both walls with zero gap - there is
+# no more floor route around it, only through it.
 room18_slabs_def = [
+    (0,0,2,T_CRUMB),
+    (1,0,2,T_CRUMB),
+    (2,0,2,T_STONE),   # hazard
+    (3,0,2,T_CRUMB),
+    (4,0,2,T_STONE),   # hazard
+    (5,0,2,T_CRUMB),
+    (6,0,2,T_STONE),   # fixed safe corner (NE)
+    (0,1,2,T_STONE),   # fixed safe corner (NW, next to entry's column)
     (1,1,2,T_STONE),   # key1
     (2,1,2,T_CRUMB),
     (3,1,2,T_STONE),   # hazard
     (4,1,2,T_CRUMB),
     (5,1,2,T_STONE),   # hazard
     (6,1,2,T_STONE),   # key2
+    (0,2,2,T_CRUMB),
     (1,2,2,T_CRUMB),
     (2,2,2,T_STONE),   # hazard
     (3,2,2,T_CRUMB),
     (4,2,2,T_CRUMB),
     (5,2,2,T_STONE),   # hazard
     (6,2,2,T_CRUMB),
+    (0,3,2,T_STONE),   # hazard
     (1,3,2,T_STONE),   # Entry - climb from spawn's floor
     (2,3,2,T_CRUMB),
     (3,3,2,T_STONE),   # key3
@@ -3016,42 +3035,45 @@ ROOM18 = dict(
     # on it.
     keys=[(1,1,3,14), (6,1,3,14), (3,3,3,14)],
     exit_bx=7, exit_bz=1, exit_y=2,
-    # 5 static amoeba hazards scattered through the platform, none
-    # adjacent to the entry/key/exit cells - surf=floor=24 (8*(y+1)
-    # for y=2) restricts the kill zone to just this platform's own
-    # standing height, same explicit-floor fix Room9 needed.
-    hazards=[(3,1,24,24), (5,1,24,24), (2,2,24,24), (5,2,24,24), (4,3,24,24)],
+    # 8 static amoeba hazards scattered through the widened platform,
+    # none adjacent to the entry/key/exit cells - surf=floor=24
+    # (8*(y+1) for y=2) restricts the kill zone to just this
+    # platform's own standing height, same explicit-floor fix Room9
+    # needed.
+    hazards=[(2,0,24,24), (4,0,24,24), (3,1,24,24), (5,1,24,24),
+             (2,2,24,24), (5,2,24,24), (0,3,24,24), (4,3,24,24)],
     hazard_art=AMOEBA_ART,
-    # 9 single-cell touch-crumble groups (default crumb_continuous=0 -
+    # 14 single-cell touch-crumble groups (default crumb_continuous=0 -
     # Fausto said "si sgretolano al suo passaggio", a fresh touch
     # advances one stage, same as every room except Room9's dwell
     # variant) - entry/keys/hazards stay fixed landmarks, matching the
     # established practice of never crumbling a cell with a special role.
     crumb_units=[
+        [(0,0,2)], [(1,0,2)], [(3,0,2)], [(5,0,2)],
         [(2,1,2)], [(4,1,2)],
-        [(1,2,2)], [(3,2,2)], [(4,2,2)], [(6,2,2)],
+        [(0,2,2)], [(1,2,2)], [(3,2,2)], [(4,2,2)], [(6,2,2)],
         [(2,3,2)], [(5,3,2)], [(6,3,2)],
     ],
-    crumb_unit_banks=['a']*9,
+    crumb_unit_banks=['a']*14,
     # Fausto, after seeing the room: "fai anche girare un nemico sulla
     # piattaforma per rendere piu' difficile il completamento" - the
     # urchin sprite (already reused for the room's theme) now actually
-    # patrols instead of sitting inert. The platform is a flat 6x3
+    # patrols instead of sitting inert. The platform is a flat
     # rectangle, not a single row, so a straight-line patrol
     # (en_axis=0/1) would only ever threaten one edge - reused the
     # rectangular-patrol mechanic instead (en_axis=3, proven in Room13:
     # the enemy walks all 4 sides of a box), tracing the exact outer
-    # footprint of the platform itself (world x 24..104 = bx 1..6,
-    # world z 24..56 = bz 1..3) at the platform's own standing height
-    # (ensurf=24, y=2) - so it's always somewhere on the perimeter,
-    # forcing Sam to time crossings on top of dodging the static
-    # hazards and outrunning the crumbling cells, never all three
-    # threats trivially separable. Color 5 (light blue) - the amoeba
-    # hazards are already green(2), and every existing surface here is
-    # tan/magenta/dark-red, so light blue is the one hue with nothing
-    # to camouflage against.
+    # footprint of the (now-widened) platform itself (world x 8..104 =
+    # bx 0..6, world z 8..56 = bz 0..3) at the platform's own standing
+    # height (ensurf=24, y=2) - so it's always somewhere on the
+    # perimeter, forcing Sam to time crossings on top of dodging the
+    # static hazards and outrunning the crumbling cells, never all
+    # three threats trivially separable. Color 5 (light blue) - the
+    # amoeba hazards are already green(2), and every existing surface
+    # here is tan/magenta/dark-red, so light blue is the one hue with
+    # nothing to camouflage against.
     enemy_frames=[URCHIN_A, URCHIN_B],
-    enxmin=24, enxmax=104, enz=24, en_centerx=56, ensurf=24, en_axis=3, enemy_color=5,
+    enxmin=8, enxmax=104, enz=8, en_centerx=56, ensurf=24, en_axis=3, enemy_color=5,
     name="AMOEBATRONS' REVENGE",
     # bank1 overflow ("Negative BLOCK?") expected from this room's own
     # data (19 slabs + 9 crumb groups + 5 hazards) - relocate the map,
