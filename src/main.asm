@@ -756,6 +756,23 @@ title_letter:
         jr  nz,.notrenzo
         ld  a,1
         ld  (infinite_lives),a
+        ; audible confirmation so RENZO's effect is obvious immediately,
+        ; not silent - TITLE_MIX normally mutes channel C (the SFX
+        ; channel) during the title screen; GAME_MIX is identical
+        ; except with channel C's tone enabled, so switching to it here
+        ; (harmlessly permanent - sfx_update's own idle state already
+        ; keeps channel C silent via volume=0 the rest of the time) is
+        ; enough to make this one chime audible without touching the
+        ; waltz on channels A/B.
+        ld  a,7
+        ld  e,GAME_MIX
+        call WRTPSG
+        ld  a,25
+        ld  (sfx_t),a
+        ld  hl,0500h
+        ld  (sfx_freq),hl
+        ld  hl,0FFECh            ; -20: falling period -> rising pitch
+        ld  (sfx_step),hl
         ret
 .notrenzo:
         ld  hl,typed_buf
@@ -780,6 +797,8 @@ title_loop:
         ld  hl,frame
         inc (hl)
         call music_update
+        call sfx_update          ; needed for the RENZO confirmation chime
+                                 ; (title_letter) - otherwise harmless/idle
         call title_sam_draw
         call title_blink
         ld  a,(frame)
