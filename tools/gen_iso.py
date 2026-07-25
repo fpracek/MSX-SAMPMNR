@@ -3033,14 +3033,25 @@ ROOM18 = dict(
         [(2,3,2)], [(5,3,2)], [(6,3,2)],
     ],
     crumb_unit_banks=['a']*9,
-    # required field, but this room's danger is the hazard field +
-    # crumbling, not a patrolling enemy - same inert placeholder as
-    # Rooms 14/15/16/17 (now safe: see the enemy_update enxmin=0
-    # underflow fix). Reuses the amoeba's own urchin sprite for
-    # thematic consistency with the "revenge" callback, even though
-    # it never actually appears.
+    # Fausto, after seeing the room: "fai anche girare un nemico sulla
+    # piattaforma per rendere piu' difficile il completamento" - the
+    # urchin sprite (already reused for the room's theme) now actually
+    # patrols instead of sitting inert. The platform is a flat 6x3
+    # rectangle, not a single row, so a straight-line patrol
+    # (en_axis=0/1) would only ever threaten one edge - reused the
+    # rectangular-patrol mechanic instead (en_axis=3, proven in Room13:
+    # the enemy walks all 4 sides of a box), tracing the exact outer
+    # footprint of the platform itself (world x 24..104 = bx 1..6,
+    # world z 24..56 = bz 1..3) at the platform's own standing height
+    # (ensurf=24, y=2) - so it's always somewhere on the perimeter,
+    # forcing Sam to time crossings on top of dodging the static
+    # hazards and outrunning the crumbling cells, never all three
+    # threats trivially separable. Color 5 (light blue) - the amoeba
+    # hazards are already green(2), and every existing surface here is
+    # tan/magenta/dark-red, so light blue is the one hue with nothing
+    # to camouflage against.
     enemy_frames=[URCHIN_A, URCHIN_B],
-    enxmin=0, enxmax=0, enz=0, ensurf=200, en_axis=0, enemy_color=1,
+    enxmin=24, enxmax=104, enz=24, en_centerx=56, ensurf=24, en_axis=3, enemy_color=5,
     name="AMOEBATRONS' REVENGE",
     # bank1 overflow ("Negative BLOCK?") expected from this room's own
     # data (19 slabs + 9 crumb groups + 5 hazards) - relocate the map,

@@ -1256,8 +1256,8 @@ room_tab:
         dw exit_gfx18_0
         dw exit_gfx18_1
         dw urchin_gfx18
-        db 1
-        db 0,0,0,200,0,0
+        db 5
+        db 24,104,24,24,3,56
         db 255,0,0,0
         dw room18_name
         db 0
